@@ -9,8 +9,8 @@ LLM agent crew that writes a weekly pricing brief.
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Repo, Docker, schema + migrations, config, logging | **Done** |
-| 1 | Keyless ingestion (Fake Store, Open Food Facts), bronze store, CDC | Next |
-| 2 | Celery + Beat, rate limiting, DLQ, real API sources | Planned |
+| 1 | Keyless ingestion (Fake Store, Open Prices), bronze store, CDC | **Done** |
+| 2 | Celery + Beat, rate limiting, DLQ, real API sources | Next |
 | 3 | dbt staging -> marts, data quality tests | Planned |
 | 4 | statsforecast forecasting, FastAPI, alerts, Metabase | Planned |
 | 5 | pgvector matching, Streamlit review UI, CrewAI brief | Planned |
@@ -32,6 +32,19 @@ Requires Docker Desktop running. Verify:
 ```bash
 docker compose exec db psql -U cpi -d cpi -c "\dt"
 ```
+
+## Using it
+
+```bash
+python -m app.cli sources                          # what's wired up
+python -m app.cli seed openprices --limit 25       # pick best-tracked SKUs
+python -m app.cli ingest openprices --seeds        # deep: full history per SKU
+python -m app.cli ingest openprices --limit 300    # broad: recent feed
+python -m app.cli status                           # warehouse summary
+```
+
+`--seeds` is the deep path (one call per SKU, ~100 dated observations each);
+plain `ingest` is the broad path (many SKUs, one price each). See ADR-001.
 
 ## Layout
 

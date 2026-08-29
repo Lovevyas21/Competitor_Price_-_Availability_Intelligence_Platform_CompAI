@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
+    db_connect_timeout_seconds: int = 10
+
     redis_url: str = "redis://localhost:6379/0"
 
     # Bronze raw-payload storage. "local" for dev; "s3" once AWS lands (phase 6).

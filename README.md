@@ -10,8 +10,8 @@ LLM agent crew that writes a weekly pricing brief.
 |---|---|---|
 | 0 | Repo, Docker, schema + migrations, config, logging | **Done** |
 | 1 | Keyless ingestion (Fake Store, Open Prices), bronze store, CDC | **Done** |
-| 2 | Celery + Beat, rate limiting, DLQ, real API sources | Next |
-| 3 | dbt staging -> marts, data quality tests | Planned |
+| 2 | Celery + Beat, rate limiting, DLQ, Flower | **Done** |
+| 3 | dbt staging -> marts, data quality tests | Next |
 | 4 | statsforecast forecasting, FastAPI, alerts, Metabase | Planned |
 | 5 | pgvector matching, Streamlit review UI, CrewAI brief | Planned |
 | 6 | Terraform / RDS / EC2 / S3, CI-CD | Planned |
@@ -45,6 +45,37 @@ python -m app.cli status                           # warehouse summary
 
 `--seeds` is the deep path (one call per SKU, ~100 dated observations each);
 plain `ingest` is the broad path (many SKUs, one price each). See ADR-001.
+
+## Running the pipeline
+
+```bash
+docker compose up -d          # db, redis, worker, beat
+docker compose logs -f worker
+```
+
+Flower is **opt-in and runs from the local venv**, not as a container -- it is a
+debugging tool, and a dedicated container would hold memory permanently on a
+RAM-constrained machine for something used occasionally:
+
+```bash
+make flower    # http://localhost:5555
+```
+
+Schedules (UTC), defined in `app/celery_app.py`:
+
+| When | Task |
+|---|---|
+| every 6h | tier-1 SKU refresh |
+| 02:30 daily | tier-2 refresh |
+| 04:00 Sunday | tier-3 refresh |
+| 01:15 daily | broad discovery sweep |
+| 25th monthly | pre-create partitions |
+
+Backfill without touching the upstream API (re-parses stored raw payloads):
+
+```bash
+python -m app.cli replay openprices 2026-08-29
+```
 
 ## Layout
 

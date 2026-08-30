@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Bronze raw-payload storage. "local" for dev; "s3" once AWS lands (phase 6).
     bronze_backend: Literal["local", "s3"] = "local"
     bronze_local_path: str = "./data/bronze"
+    deadletter_local_path: str = "./data/deadletter"
     bronze_s3_bucket: str | None = None
 
     # Source credentials -- all optional, keyless sources ignore them.

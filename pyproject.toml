@@ -16,6 +16,8 @@ dependencies = [
     "polars>=1.17.1",
     "pyarrow>=18.1.0",
     "python-dotenv>=1.0.1",
+    "celery[redis]>=5.5.0",
+    "redis>=5.2.1",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +27,12 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "respx>=0.22.0",
     "pre-commit>=4.0.1",
+]
+
+# Opt-in monitoring UI. Kept out of the base image so the worker stays slim;
+# the flower compose service builds with this extra enabled.
+monitoring = [
+    "flower>=2.0.1",
 ]
 
 [build-system]

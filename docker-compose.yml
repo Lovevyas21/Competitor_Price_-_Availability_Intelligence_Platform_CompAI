@@ -22,5 +22,35 @@ services:
       timeout: 3s
       retries: 10
 
+  worker:
+    build: .
+    # --concurrency=2 deliberately: this dev machine is RAM-constrained, and the work is
+    # I/O-bound on upstream APIs whose rate limits are the real ceiling, not local CPU.
+    command: celery -A app.celery_app worker -l info --concurrency=2 -Q ingest,default,maintenance
+    environment: &app_env
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER:-cpi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cpi_local_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-cpi}
+      REDIS_URL: redis://redis:6379/0
+      BRONZE_LOCAL_PATH: /app/data/bronze
+      DEADLETTER_LOCAL_PATH: /app/data/deadletter
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENV: ${ENV:-dev}
+    volumes: ["./data:/app/data"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+  beat:
+    build: .
+    command: celery -A app.celery_app beat -l info --schedule /tmp/celerybeat-schedule
+    environment: *app_env
+    depends_on:
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+
 volumes:
   pgdata:

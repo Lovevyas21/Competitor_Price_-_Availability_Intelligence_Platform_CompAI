@@ -14,6 +14,7 @@ from __future__ import annotations
 import gzip
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,10 @@ class BronzeStore(ABC):
     @abstractmethod
     def exists(self, source: str, observed_at: datetime, key: str) -> bool: ...
 
+    @abstractmethod
+    def iter_payloads(self, source: str, observed_at: datetime) -> Iterator[Any]:
+        """Yield every stored payload for one source/day. Used by backfill replay."""
+
 
 class LocalBronzeStore(BronzeStore):
     def __init__(self, root: str | Path) -> None:
@@ -67,6 +72,13 @@ class LocalBronzeStore(BronzeStore):
 
     def exists(self, source: str, observed_at: datetime, key: str) -> bool:
         return self._path(source, observed_at, key).exists()
+
+    def iter_payloads(self, source: str, observed_at: datetime) -> Iterator[Any]:
+        day_dir = self.root / f"source={source}" / f"dt={observed_at.strftime('%Y-%m-%d')}"
+        if not day_dir.is_dir():
+            return
+        for path in sorted(day_dir.glob("*.json.gz")):
+            yield json.loads(gzip.decompress(path.read_bytes()))
 
 
 class S3BronzeStore(BronzeStore):
@@ -102,6 +114,16 @@ class S3BronzeStore(BronzeStore):
             return False
         return True
 
+    def iter_payloads(self, source: str, observed_at: datetime) -> Iterator[Any]:
+        import gzip as _gzip  # noqa: PLC0415
+
+        prefix = f"{self.prefix}/source={source}/dt={observed_at.strftime('%Y-%m-%d')}/"
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                body = self._client.get_object(Bucket=self.bucket, Key=obj["Key"])["Body"].read()
+                yield json.loads(_gzip.decompress(body))
+
 
 def get_bronze_store(settings: Settings | None = None) -> BronzeStore:
     settings = settings or get_settings()
@@ -110,3 +132,17 @@ def get_bronze_store(settings: Settings | None = None) -> BronzeStore:
             raise ValueError("BRONZE_BACKEND=s3 requires BRONZE_S3_BUCKET to be set")
         return S3BronzeStore(settings.bronze_s3_bucket)
     return LocalBronzeStore(settings.bronze_local_path)
+
+
+def get_deadletter_store(settings: Settings | None = None) -> BronzeStore:
+    """Store for payloads that exhausted their retries.
+
+    Same layout and backends as bronze, different root/prefix, so a failed payload can
+    be inspected and replayed with exactly the same tooling.
+    """
+    settings = settings or get_settings()
+    if settings.bronze_backend == "s3":
+        if not settings.bronze_s3_bucket:
+            raise ValueError("BRONZE_BACKEND=s3 requires BRONZE_S3_BUCKET to be set")
+        return S3BronzeStore(settings.bronze_s3_bucket, prefix="deadletter")
+    return LocalBronzeStore(settings.deadletter_local_path)

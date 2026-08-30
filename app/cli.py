@@ -37,6 +37,15 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0 if result.status == "success" else 1
 
 
+def cmd_replay(args: argparse.Namespace) -> int:
+    """Re-apply stored bronze payloads without touching the upstream API."""
+    from app.ingestion.tasks import replay_from_bronze
+
+    out = replay_from_bronze(args.source, args.day)
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
 def cmd_seed(args: argparse.Namespace) -> int:
     seeded = seed_from_source(args.source, limit=args.limit, tier=args.tier)
     if not seeded:
@@ -119,6 +128,11 @@ def main(argv: list[str] | None = None) -> int:
     p_seed.add_argument("--limit", type=int, default=25)
     p_seed.add_argument("--tier", type=int, default=1, choices=(1, 2, 3))
     p_seed.set_defaults(func=cmd_seed)
+
+    p_replay = sub.add_parser("replay", help="re-apply bronze payloads for one day")
+    p_replay.add_argument("source", choices=sorted(CLIENTS))
+    p_replay.add_argument("day", help="YYYY-MM-DD")
+    p_replay.set_defaults(func=cmd_replay)
 
     sub.add_parser("status", help="warehouse summary").set_defaults(func=cmd_status)
 

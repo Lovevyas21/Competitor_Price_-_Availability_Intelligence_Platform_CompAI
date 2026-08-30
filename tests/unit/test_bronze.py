@@ -48,3 +48,26 @@ def test_s3_backend_requires_bucket():
     settings = Settings(bronze_backend="s3", bronze_s3_bucket=None)
     with pytest.raises(ValueError, match="BRONZE_S3_BUCKET"):
         get_bronze_store(settings)
+
+
+def test_iter_payloads_returns_everything_for_that_day(tmp_path):
+    """Backfill replay depends on listing a day's payloads back out."""
+    store = LocalBronzeStore(tmp_path)
+    store.put("openprices", OBSERVED, "k1", {"id": 1})
+    store.put("openprices", OBSERVED, "k2", {"id": 2})
+    payloads = list(store.iter_payloads("openprices", OBSERVED))
+    assert sorted(p["id"] for p in payloads) == [1, 2]
+
+
+def test_iter_payloads_is_scoped_to_source_and_day(tmp_path):
+    store = LocalBronzeStore(tmp_path)
+    other_day = OBSERVED.replace(day=28)
+    store.put("openprices", OBSERVED, "k1", {"id": 1})
+    store.put("openprices", other_day, "k2", {"id": 2})
+    store.put("fakestore", OBSERVED, "k3", {"id": 3})
+    assert [p["id"] for p in store.iter_payloads("openprices", OBSERVED)] == [1]
+
+
+def test_iter_payloads_on_missing_day_is_empty_not_an_error(tmp_path):
+    store = LocalBronzeStore(tmp_path)
+    assert list(store.iter_payloads("openprices", OBSERVED)) == []

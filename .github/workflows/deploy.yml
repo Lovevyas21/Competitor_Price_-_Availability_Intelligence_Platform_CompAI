@@ -1,0 +1,79 @@
+name: deploy
+
+# Deliberately manual. This repository is not connected to an AWS account, and a
+# deploy workflow that fires on every push to main is how a portfolio project starts
+# costing money without anyone deciding it should.
+#
+# Before the first run, configure:
+#   - an OIDC role in AWS (no long-lived access keys)
+#   - repository variables AWS_ROLE_ARN, AWS_REGION, ECR_REPOSITORY, APP_INSTANCE_ID
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
+        default: ""
+
+permissions:
+  id-token: write # required for OIDC
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: ${{ inputs.confirm != 'deploy' }}
+        run: |
+          echo "::error::Confirmation text did not match; refusing to deploy."
+          exit 1
+
+  deploy:
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: production # add a required reviewer here for a second gate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # OIDC: GitHub assumes a role directly. No AWS keys stored in the repository.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Immutable tag: the deployed artefact is identifiable from the commit.
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
+          platforms: linux/arm64 # the host is Graviton (t4g)
+
+      # SSM Run Command rather than SSH: no open port 22, no key material in secrets.
+      - name: Roll out on the host
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ vars.APP_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "deploy ${{ github.sha }}" \
+            --parameters commands='[
+              "set -euo pipefail",
+              "/usr/local/bin/cpi-fetch-env",
+              "cd /srv/cpi",
+              "export COMPOSE=\"docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile workers\"",
+              "$COMPOSE pull",
+              "$COMPOSE run --rm api alembic upgrade head",
+              "$COMPOSE up -d",
+              "docker image prune -f"
+            ]' \
+            --query "Command.CommandId" --output text

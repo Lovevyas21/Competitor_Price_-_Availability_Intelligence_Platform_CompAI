@@ -114,8 +114,7 @@ def render_markdown(facts: WeeklyFacts) -> str:
         lines += ["No current forecasts.", ""]
     else:
         lines += [
-            f"- {fs['forecast_rows']} forecast points across "
-            f"{fs['products_forecast']} products",
+            f"- {fs['forecast_rows']} forecast points across {fs['products_forecast']} products",
             f"- Horizon: {fs['horizon_start']} to {fs['horizon_end']}",
             "",
         ]
@@ -140,9 +139,7 @@ def render_markdown(facts: WeeklyFacts) -> str:
     return "\n".join(lines)
 
 
-def generate_brief(
-    session: Session, period_days: int = 7, use_llm: bool = False
-) -> BriefResult:
+def generate_brief(session: Session, period_days: int = 7, use_llm: bool = False) -> BriefResult:
     """Produce the weekly brief, preferring a validated LLM version when enabled."""
     facts = collect_weekly_facts(session, period_days=period_days)
     deterministic = render_markdown(facts)
@@ -161,8 +158,6 @@ def generate_brief(
     guard = validate_brief(narrated, facts.all_numbers())
     if not guard.ok:
         log.error("brief.llm_rejected", unsupported=guard.unsupported)
-        return BriefResult(
-            body=deterministic, source="deterministic", guard=guard, facts=facts
-        )
+        return BriefResult(body=deterministic, source="deterministic", guard=guard, facts=facts)
 
     return BriefResult(body=narrated, source="llm", guard=guard, facts=facts)

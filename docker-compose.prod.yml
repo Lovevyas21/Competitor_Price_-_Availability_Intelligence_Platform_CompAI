@@ -1,0 +1,59 @@
+# Production overlay for the EC2 host.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml #          --profile workers up -d
+#
+# The `workers` profile must be named: it is what gates worker/beat out of the local
+# stack, and an empty `profiles: []` in an overlay does not clear an inherited profile.
+#
+# Differences from local: no Postgres container (RDS instead), images come from ECR
+# rather than a local build, secrets arrive via the SSM-populated .env, and logs ship
+# to CloudWatch.
+services:
+  db:
+    # RDS replaces the local container. Kept as a no-op profile so the base file's
+    # references stay valid.
+    profiles: ["never"]
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    # Not published: only the containers on this host use it.
+    ports: []
+    command: redis-server --save 60 1 --maxmemory 256mb --maxmemory-policy noeviction
+
+  api:
+    image: ${ECR_IMAGE:-cpi:latest}
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+    env_file: [/srv/cpi/.env, /srv/cpi/.env.static]
+    ports: ["8000:8000"]
+    restart: always
+    depends_on: [redis]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: /cpi/prod/app
+        awslogs-stream: api
+
+  worker:
+    image: ${ECR_IMAGE:-cpi:latest}
+    command: celery -A app.celery_app worker -l info --concurrency=2 -Q ingest,default,maintenance
+    env_file: [/srv/cpi/.env, /srv/cpi/.env.static]
+    restart: always
+    depends_on: [redis]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: /cpi/prod/app
+        awslogs-stream: worker
+
+  beat:
+    image: ${ECR_IMAGE:-cpi:latest}
+    command: celery -A app.celery_app beat -l info --schedule /tmp/celerybeat-schedule
+    env_file: [/srv/cpi/.env, /srv/cpi/.env.static]
+    restart: always
+    depends_on: [redis]
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: /cpi/prod/app
+        awslogs-stream: beat

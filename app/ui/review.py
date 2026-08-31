@@ -109,7 +109,9 @@ def main() -> None:
             side_by_side(row)
 
             notes = st.text_input(
-                "Notes (optional)", key=f"notes_{row['match_id']}", label_visibility="collapsed",
+                "Notes (optional)",
+                key=f"notes_{row['match_id']}",
+                label_visibility="collapsed",
                 placeholder="why did you decide this?",
             )
             with action:

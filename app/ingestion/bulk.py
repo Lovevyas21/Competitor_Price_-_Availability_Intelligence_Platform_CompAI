@@ -202,11 +202,26 @@ def apply_records_bulk(
     if not priced:
         return stats
 
-    cols: dict[str, list] = {k: [] for k in (
-        "external_id", "sku", "upc", "mpn", "brand", "category", "tier",
-        "title", "attributes", "retailer_name", "retailer_country",
-        "price", "currency", "observed_at", "idem",
-    )}
+    cols: dict[str, list] = {
+        k: []
+        for k in (
+            "external_id",
+            "sku",
+            "upc",
+            "mpn",
+            "brand",
+            "category",
+            "tier",
+            "title",
+            "attributes",
+            "retailer_name",
+            "retailer_country",
+            "price",
+            "currency",
+            "observed_at",
+            "idem",
+        )
+    }
 
     for r in priced:
         ident, attrs, price = r.identity, r.attributes, r.price

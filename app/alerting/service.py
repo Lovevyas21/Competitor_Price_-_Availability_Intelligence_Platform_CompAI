@@ -77,9 +77,7 @@ def _fingerprint(row) -> str:
     dropping further is genuinely new information and should alert again, while an
     unchanged undercut should not.
     """
-    return (
-        f"{row['retailer_name']}|{row['upc']}|{row['currency']}|{row['competitor_price']}"
-    )
+    return f"{row['retailer_name']}|{row['upc']}|{row['currency']}|{row['competitor_price']}"
 
 
 def format_message(row) -> str:

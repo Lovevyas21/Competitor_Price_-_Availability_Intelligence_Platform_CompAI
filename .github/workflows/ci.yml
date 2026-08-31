@@ -1,0 +1,127 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: cpi
+  POSTGRES_PASSWORD: cpi_ci
+  POSTGRES_DB: cpi
+  REDIS_URL: redis://localhost:6379/0
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      # pgvector image, not plain postgres: migration 0001 creates the vector extension
+      # and the embedding column, so stock postgres fails at migrate time.
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: cpi
+          POSTGRES_PASSWORD: cpi_ci
+          POSTGRES_DB: cpi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cpi -d cpi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev,matching]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Apply migrations
+        run: alembic upgrade head
+
+      - name: Unit and integration tests
+        run: pytest -q
+
+      # dbt runs against the migrated (empty) database. Models and schema tests must
+      # still compile and execute -- this catches a broken ref or a renamed column
+      # before it reaches a machine with data on it.
+      - name: dbt build
+        working-directory: dbt
+        env:
+          DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+        run: |
+          dbt deps
+          dbt build
+
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      # No AWS credentials: fmt/init/validate check the configuration is well-formed
+      # without touching an account or creating anything.
+      - name: Terraform format
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        working-directory: infra
+        run: terraform validate
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build only -- no registry push, no deploy. Proves the production image still
+      # builds on every commit.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: cpi:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

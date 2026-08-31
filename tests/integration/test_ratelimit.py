@@ -7,6 +7,7 @@ A fake would test the Python wrapper and skip what matters.
 
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -24,12 +25,28 @@ from app.ingestion.ratelimit import (
 
 @pytest.fixture(scope="module")
 def redis_client():
-    client = redis.Redis.from_url(get_settings().redis_url, decode_responses=True)
-    try:
-        client.ping()
-    except redis.exceptions.RedisError:
-        pytest.skip("redis not reachable; run `docker compose up -d redis`")
-    return client
+    """Connect to the real Redis, retrying briefly before giving up.
+
+    A single short-timeout ping skips spuriously when the machine is under memory
+    pressure, and a skipped test looks the same as a passing one in a summary line --
+    which is how a genuine regression goes unnoticed. Retry first, skip only if Redis
+    is really absent.
+    """
+    client = redis.Redis.from_url(
+        get_settings().redis_url,
+        decode_responses=True,
+        socket_connect_timeout=10,
+        socket_timeout=10,
+    )
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            client.ping()
+            return client
+        except redis.exceptions.RedisError as exc:
+            last_error = exc
+            time.sleep(1 + attempt)
+    pytest.skip(f"redis not reachable ({last_error}); run `docker compose up -d redis`")
 
 
 @pytest.fixture

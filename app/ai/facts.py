@@ -194,9 +194,9 @@ def collect_weekly_facts(session: Session, period_days: int = 7) -> WeeklyFacts:
             "change_pct": _d(r["change_pct"]),
             "observed_date": r["observed_date"].isoformat(),
         }
-        for r in session.execute(
-            text(_MOVERS_SQL), {"days": period_days, "limit": TOP_N}
-        ).mappings().all()
+        for r in session.execute(text(_MOVERS_SQL), {"days": period_days, "limit": TOP_N})
+        .mappings()
+        .all()
     ]
 
     forecast_row = session.execute(text(_FORECAST_SUMMARY_SQL)).mappings().one()

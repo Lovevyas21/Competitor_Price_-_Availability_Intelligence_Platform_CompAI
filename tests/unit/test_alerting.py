@@ -103,7 +103,5 @@ def test_http_error_status_is_treated_as_failure():
 @pytest.mark.parametrize("status_code", [200, 201, 204])
 def test_any_2xx_counts_as_delivered(status_code):
     with patch("app.alerting.service.httpx.post") as post:
-        post.return_value = httpx.Response(
-            status_code, request=httpx.Request("POST", "http://x")
-        )
+        post.return_value = httpx.Response(status_code, request=httpx.Request("POST", "http://x"))
         assert send_to_slack("hello", "http://hook") is True

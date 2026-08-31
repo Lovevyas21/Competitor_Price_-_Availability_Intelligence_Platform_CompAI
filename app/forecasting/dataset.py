@@ -149,8 +149,11 @@ def to_regular_daily(
         )
 
     if skipped_stale:
-        log.info("forecast.skipped_stale_series", count=skipped_stale,
-                 max_staleness_days=max_staleness_days)
+        log.info(
+            "forecast.skipped_stale_series",
+            count=skipped_stale,
+            max_staleness_days=max_staleness_days,
+        )
 
     if not resampled:
         return pd.DataFrame(columns=["unique_id", "ds", "y", "is_observed"])

@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and adjust. Never commit the real file.
+
+region      = "ap-south-1"
+environment = "prod"
+
+# Where budget and alarm notifications go. Leave empty to skip subscriptions.
+alert_email = "you@example.com"
+
+# Budget ceiling in INR. The build document suggests starting low.
+monthly_budget_inr = 3000
+
+# SSH is closed by default; SSM Session Manager is the intended access path.
+# Only set this if you specifically need SSH, and never use 0.0.0.0/0.
+# ssh_ingress_cidrs = ["203.0.113.4/32"]
+# key_pair_name     = "my-keypair"

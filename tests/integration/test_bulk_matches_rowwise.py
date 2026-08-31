@@ -56,13 +56,13 @@ def record(external_id: str, price: str, day: int, retailer: str, title: str = "
 #: product on the same day, and out-of-order (backfilled) arrival.
 DATASET = [
     record("A", "1.00", 0, "Shop1"),
-    record("A", "1.00", 0, "Shop2"),          # same day, different retailer
-    record("A", "1.00", 1, "Shop1"),          # unchanged, beyond 24h heartbeat
-    record("A", "2.00", 2, "Shop1"),          # genuine change
-    record("A", "2.00", 2, "Shop1"),          # exact duplicate
+    record("A", "1.00", 0, "Shop2"),  # same day, different retailer
+    record("A", "1.00", 1, "Shop1"),  # unchanged, beyond 24h heartbeat
+    record("A", "2.00", 2, "Shop1"),  # genuine change
+    record("A", "2.00", 2, "Shop1"),  # exact duplicate
     record("B", "5.50", 5, "Shop1"),
-    record("B", "5.50", 3, "Shop1"),          # arrives late, predates the row above
-    record("B", "6.00", 4, "Shop1"),          # slots between them in time
+    record("B", "5.50", 3, "Shop1"),  # arrives late, predates the row above
+    record("B", "6.00", 4, "Shop1"),  # slots between them in time
 ]
 
 SNAPSHOT_SQL = """

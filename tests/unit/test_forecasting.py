@@ -80,9 +80,7 @@ def test_series_shorter_than_minimum_is_dropped():
 def test_stale_series_is_excluded():
     """Forecasting 7 days past a long-dead series produces past-dated predictions."""
     old = [pd.Timestamp("2024-01-01") + timedelta(days=i) for i in range(15)]
-    out = to_regular_daily(
-        make_frame(old, [10.0] * 15), min_observations=3, max_staleness_days=30
-    )
+    out = to_regular_daily(make_frame(old, [10.0] * 15), min_observations=3, max_staleness_days=30)
     assert out.empty
 
 
@@ -152,37 +150,45 @@ def _scores(rows):
 
 
 def test_clearly_better_model_becomes_champion():
-    scores = _scores([
-        {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 2.0},
-        {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 9.0},
-    ])
+    scores = _scores(
+        [
+            {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 2.0},
+            {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 9.0},
+        ]
+    )
     assert pick_champions(scores)["1|1|EUR"] == "AutoETS"
 
 
 def test_baseline_wins_ties():
     """Prefer the simpler, cheaper model when nothing is gained."""
-    scores = _scores([
-        {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 5.0},
-        {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 5.0},
-    ])
+    scores = _scores(
+        [
+            {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 5.0},
+            {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 5.0},
+        ]
+    )
     assert pick_champions(scores)["1|1|EUR"] == BASELINE_MODEL
 
 
 def test_baseline_wins_when_the_challenger_is_worse():
-    scores = _scores([
-        {"unique_id": "1|1|EUR", "model": "AutoARIMA", "mape": 12.0},
-        {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 4.0},
-    ])
+    scores = _scores(
+        [
+            {"unique_id": "1|1|EUR", "model": "AutoARIMA", "mape": 12.0},
+            {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 4.0},
+        ]
+    )
     assert pick_champions(scores)["1|1|EUR"] == BASELINE_MODEL
 
 
 def test_champions_are_chosen_per_series():
-    scores = _scores([
-        {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 1.0},
-        {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 8.0},
-        {"unique_id": "2|1|EUR", "model": "AutoETS", "mape": 9.0},
-        {"unique_id": "2|1|EUR", "model": BASELINE_MODEL, "mape": 3.0},
-    ])
+    scores = _scores(
+        [
+            {"unique_id": "1|1|EUR", "model": "AutoETS", "mape": 1.0},
+            {"unique_id": "1|1|EUR", "model": BASELINE_MODEL, "mape": 8.0},
+            {"unique_id": "2|1|EUR", "model": "AutoETS", "mape": 9.0},
+            {"unique_id": "2|1|EUR", "model": BASELINE_MODEL, "mape": 3.0},
+        ]
+    )
     champions = pick_champions(scores)
     assert champions["1|1|EUR"] == "AutoETS"
     assert champions["2|1|EUR"] == BASELINE_MODEL

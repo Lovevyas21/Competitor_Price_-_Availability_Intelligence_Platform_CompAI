@@ -226,8 +226,14 @@ def persist_forecasts(
     cols: dict[str, list] = {
         k: []
         for k in (
-            "product_id", "model", "horizon_days", "yhat", "yhat_lower", "yhat_upper",
-            "forecast_for", "trained_at",
+            "product_id",
+            "model",
+            "horizon_days",
+            "yhat",
+            "yhat_lower",
+            "yhat_upper",
+            "forecast_for",
+            "trained_at",
         )
     }
 

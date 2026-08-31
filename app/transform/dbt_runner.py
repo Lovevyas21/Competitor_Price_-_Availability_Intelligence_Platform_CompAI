@@ -59,9 +59,7 @@ def _dbt_executable() -> str:
     ):
         if candidate.exists():
             return str(candidate.resolve())
-    raise DbtNotInstalled(
-        "dbt executable not found; install with: uv pip install -e '.[dev]'"
-    )
+    raise DbtNotInstalled("dbt executable not found; install with: uv pip install -e '.[dev]'")
 
 
 def _dbt_env() -> dict[str, str]:

@@ -29,7 +29,7 @@ log = get_logger(__name__)
 #: alternative handles ungrouped digits of any length.
 _NUMBER_RE = re.compile(
     r"[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # 1,234.56
-    r"|[-+]?\d+(?:\.\d+)?"                 # 1309, 33.73
+    r"|[-+]?\d+(?:\.\d+)?"  # 1309, 33.73
 )
 
 #: ISO dates -- stripped before scanning so 2026-09-01 is not read as three numbers.

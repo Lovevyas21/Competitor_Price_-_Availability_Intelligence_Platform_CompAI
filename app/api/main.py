@@ -134,8 +134,9 @@ def list_products(
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[Product]:
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select p.product_id, p.external_id, p.upc, pv.title,
                    coalesce(pv.brand, p.brand) as brand,
                    coalesce(pv.category, p.category) as category,
@@ -150,8 +151,11 @@ def list_products(
             order by p.product_id
             limit :limit offset :offset
         """),
-        {"category": category, "tier": tier, "limit": limit, "offset": offset},
-    ).mappings().all()
+            {"category": category, "tier": tier, "limit": limit, "offset": offset},
+        )
+        .mappings()
+        .all()
+    )
     return [Product(**r) for r in rows]
 
 
@@ -161,16 +165,20 @@ def price_history(
     db: Session = Depends(get_db),
     days: int = Query(default=90, ge=1, le=730),
 ) -> list[PricePoint]:
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select observed_date, close_price, currency, retailer_name, change_pct
             from analytics_marts.mart_price_trend
             where product_id = :pid
               and observed_date >= current_date - cast(:days as int)
             order by observed_date desc
         """),
-        {"pid": product_id, "days": days},
-    ).mappings().all()
+            {"pid": product_id, "days": days},
+        )
+        .mappings()
+        .all()
+    )
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -182,8 +190,9 @@ def price_history(
 @router.get("/forecasts/{product_id}", response_model=list[Forecast], tags=["forecasts"])
 def forecasts(product_id: int, db: Session = Depends(get_db)) -> list[Forecast]:
     """Latest forecast run for a product. Older runs are kept but not returned."""
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select product_id, model, horizon_days, forecast_for,
                    yhat, yhat_lower, yhat_upper, trained_at::text as trained_at
             from forecasts
@@ -191,8 +200,11 @@ def forecasts(product_id: int, db: Session = Depends(get_db)) -> list[Forecast]:
               and trained_at = (select max(trained_at) from forecasts where product_id = :pid)
             order by forecast_for
         """),
-        {"pid": product_id},
-    ).mappings().all()
+            {"pid": product_id},
+        )
+        .mappings()
+        .all()
+    )
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -211,8 +223,9 @@ def undercuts(
     max_days_stale: int = Query(default=365, ge=0),
     limit: int = Query(default=50, ge=1, le=500),
 ) -> list[UndercutRow]:
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select product_id, product_name, retailer_name, currency,
                    our_price, competitor_price, gap_pct, severity, confidence, days_stale
             from analytics_marts.mart_undercut_alerts
@@ -221,8 +234,11 @@ def undercuts(
             order by gap_pct
             limit :limit
         """),
-        {"severity": severity, "max_days_stale": max_days_stale, "limit": limit},
-    ).mappings().all()
+            {"severity": severity, "max_days_stale": max_days_stale, "limit": limit},
+        )
+        .mappings()
+        .all()
+    )
     return [UndercutRow(**r) for r in rows]
 
 
@@ -232,8 +248,9 @@ def alerts(
     delivered: bool | None = None,
     limit: int = Query(default=50, ge=1, le=500),
 ) -> list[Alert]:
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select alert_id, product_id, type,
                    split_part(message, E'\\n#', 1) as message,
                    severity,
@@ -246,8 +263,11 @@ def alerts(
             order by created_at desc
             limit :limit
         """),
-        {"delivered": delivered, "limit": limit},
-    ).mappings().all()
+            {"delivered": delivered, "limit": limit},
+        )
+        .mappings()
+        .all()
+    )
     return [Alert(**r) for r in rows]
 
 
@@ -260,16 +280,20 @@ def matches_for_review(
 
     Empty until phase 5 populates `product_matches` with embedding-based candidates.
     """
-    rows = db.execute(
-        text("""
+    rows = (
+        db.execute(
+            text("""
             select match_id, product_id_a, product_id_b, confidence, method, status
             from product_matches
             where status = 'pending'
             order by confidence desc nulls last
             limit :limit
         """),
-        {"limit": limit},
-    ).mappings().all()
+            {"limit": limit},
+        )
+        .mappings()
+        .all()
+    )
     return [MatchReviewRow(**r) for r in rows]
 
 

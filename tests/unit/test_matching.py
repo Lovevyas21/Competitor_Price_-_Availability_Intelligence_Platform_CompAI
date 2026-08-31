@@ -79,10 +79,10 @@ def band(similarity: float) -> str:
     [
         (1.00, "auto"),
         (0.95, "auto"),
-        (0.92, "auto"),      # boundary is inclusive
+        (0.92, "auto"),  # boundary is inclusive
         (0.919, "review"),
         (0.85, "review"),
-        (0.80, "review"),    # boundary is inclusive
+        (0.80, "review"),  # boundary is inclusive
         (0.799, "reject"),
         (0.50, "reject"),
     ],

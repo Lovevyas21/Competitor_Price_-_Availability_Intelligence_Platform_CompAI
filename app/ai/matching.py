@@ -235,10 +235,14 @@ def generate_matches(
         stats.exact_identifier_matches += 1
 
     # 2. Vector similarity for everything else.
-    candidates = session.execute(
-        text(_CANDIDATES_SQL),
-        {"top_k": top_k, "review_threshold": review_threshold, "max_pairs": max_pairs},
-    ).mappings().all()
+    candidates = (
+        session.execute(
+            text(_CANDIDATES_SQL),
+            {"top_k": top_k, "review_threshold": review_threshold, "max_pairs": max_pairs},
+        )
+        .mappings()
+        .all()
+    )
 
     for row in candidates:
         stats.pairs_considered += 1

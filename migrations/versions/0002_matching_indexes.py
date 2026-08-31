@@ -55,8 +55,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute(
-        "alter table product_matches "
-        "drop constraint if exists ck_product_matches_ordered_pair"
+        "alter table product_matches drop constraint if exists ck_product_matches_ordered_pair"
     )
     op.execute("alter table product_matches drop column if exists notes")
     op.execute("alter table product_matches drop column if exists reviewed_at")

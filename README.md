@@ -14,7 +14,7 @@ LLM agent crew that writes a weekly pricing brief.
 | 3 | dbt staging -> marts, data quality tests | **Done** |
 | 4 | statsforecast forecasting, FastAPI, alerts, Metabase | **Done** |
 | 5 | pgvector matching, Streamlit review UI, CrewAI brief | **Done** |
-| 6 | Terraform / RDS / EC2 / S3, CI-CD | Next |
+| 6 | Terraform / RDS / EC2 / S3, CI-CD | **Done** (written, not applied) |
 
 ## Quick start
 
@@ -169,6 +169,27 @@ With `LLM_MODEL` set, a CrewAI crew narrates the *same* facts -- and the output 
 `ai/guard.py`, which requires **every number in the brief to exist in the facts**. Any
 unsupported figure discards the LLM version and falls back to the deterministic one. The
 worst case is a plainer brief, never a wrong one. See ADR-010.
+
+## Deployment
+
+The full AWS stack is written as Terraform in [`infra/`](infra/) — VPC, private RDS,
+Graviton EC2, S3 bronze with lifecycle tiering, SSM secrets, least-privilege IAM, and
+budget alarms.
+
+**It has not been applied.** Phase 6 is the only phase that costs money (~$28-36/month),
+and nothing in the project needs AWS to be demonstrated. The configuration is verified
+with `terraform fmt`, `init -backend=false` and `validate`, all of which run in CI
+without an AWS account. `terraform plan` has never run, so a first apply should be
+expected to surface real issues validation cannot catch. See ADR-011.
+
+```bash
+cd infra && terraform init -backend=false && terraform validate
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, format check, migrations, the full test suite
+against pgvector + Redis services, `dbt build`, Terraform validation, and a production
+image build. Deploy is `workflow_dispatch` only, behind a typed confirmation, using OIDC
+role assumption and SSM Run Command -- no stored AWS keys, no open SSH port.
 
 ### Rebuilding from bronze
 

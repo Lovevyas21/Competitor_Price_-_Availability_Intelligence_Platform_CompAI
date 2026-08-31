@@ -23,7 +23,7 @@ python -m pip install uv
 python -m uv venv
 python -m uv pip install --python .venv/Scripts/python.exe -e ".[dev]"
 cp .env.example .env
-docker compose up -d
+docker compose up -d          # postgres + redis only
 .venv/Scripts/python.exe -m alembic upgrade head
 ```
 
@@ -48,10 +48,33 @@ plain `ingest` is the broad path (many SKUs, one price each). See ADR-001.
 
 ## Running the pipeline
 
+Docker runs only the two stateful services. The worker, Beat and Flower run from the
+local venv, which keeps the container count -- and memory -- down on a constrained
+machine. See ADR-006.
+
 ```bash
-docker compose up -d          # db, redis, worker, beat
-docker compose logs -f worker
+docker compose up -d     # postgres + redis
+make worker              # celery worker
+make beat                # celery beat
 ```
+
+To exercise the production image instead, run them as containers:
+
+```bash
+docker compose --profile workers up -d --build
+```
+
+### Rebuilding from bronze
+
+Every raw payload is stored before parsing, so the warehouse is reproducible. If the
+database is lost, replay rebuilds it with **no upstream traffic and no quota spend**:
+
+```bash
+python -m app.cli replay openprices 2026-08-29
+```
+
+This is not theoretical -- the local Postgres volume was lost to a Docker storage
+fault and rebuilt from bronze in 30 seconds (3,420 events across 111 partitions).
 
 Flower is **opt-in and runs from the local venv**, not as a container -- it is a
 debugging tool, and a dedicated container would hold memory permanently on a

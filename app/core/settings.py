@@ -21,6 +21,11 @@ class Settings(BaseSettings):
 
     db_connect_timeout_seconds: int = 10
 
+    # Full connection URL, overriding the parts above. Managed providers (Neon, Supabase,
+    # RDS) hand out one string, so this is how a hosted database is wired in without
+    # picking the URL apart. Leave unset to use the local docker-compose Postgres.
+    database_url_override: str | None = None
+
     redis_url: str = "redis://localhost:6379/0"
 
     # Bronze raw-payload storage. "local" for dev; "s3" once AWS lands (phase 6).
@@ -40,10 +45,34 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.database_url_override:
+            return self._normalise_url(self.database_url_override)
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @staticmethod
+    def _normalise_url(url: str) -> str:
+        """Make a provider-supplied URL usable by SQLAlchemy + psycopg 3.
+
+        Providers hand out `postgres://` or `postgresql://`, both of which SQLAlchemy
+        routes to psycopg2. This project uses psycopg 3, so the driver is pinned
+        explicitly rather than relying on whatever happens to be installed.
+        """
+        for prefix in ("postgresql+psycopg://", "postgresql+psycopg2://"):
+            if url.startswith(prefix):
+                return url
+        if url.startswith("postgres://"):
+            return "postgresql+psycopg://" + url[len("postgres://") :]
+        if url.startswith("postgresql://"):
+            return "postgresql+psycopg://" + url[len("postgresql://") :]
+        return url
+
+    @property
+    def is_managed_database(self) -> bool:
+        """True when pointing at a hosted database rather than local compose."""
+        return self.database_url_override is not None
 
     @property
     def alembic_url(self) -> str:

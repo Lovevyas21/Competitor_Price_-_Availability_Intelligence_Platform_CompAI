@@ -25,7 +25,8 @@ from app.clients.registry import get_client
 from app.core.db import session_scope
 from app.core.logging import get_logger
 from app.ingestion.bronze import BronzeStore, get_bronze_store
-from app.ingestion.cdc import CDCStats, apply_record, get_or_create_source
+from app.ingestion.bulk import apply_records_bulk
+from app.ingestion.cdc import CDCStats, get_or_create_source
 from app.ingestion.idempotency import idempotency_key
 from app.models.domain import NormalizedRecord
 from app.models.validation import IngestionBatchFailed, validate_price_batch
@@ -148,8 +149,7 @@ def ingest_source(
             source_id = get_or_create_source(
                 session, client.name, client.base_url, client.auth_type
             )
-            for record in records:
-                apply_record(session, source_id, record, stats)
+            stats = apply_records_bulk(session, source_id, records)
         result.stats = stats
         result.status = "success"
 
@@ -289,9 +289,7 @@ def ingest_seeds(
             source_id = get_or_create_source(
                 session, client.name, client.base_url, client.auth_type
             )
-            # Oldest first, so insert-on-change sees history in the order it happened.
-            for record in sorted(records, key=lambda r: r.observed_at):
-                apply_record(session, source_id, record, stats)
+            stats = apply_records_bulk(session, source_id, records)
         result.stats = stats
         result.status = "success"
 

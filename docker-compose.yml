@@ -1,4 +1,8 @@
 services:
+  # Docker runs the stateful services only. Publishing a port to Windows localhost is
+  # the one path that has proved reliable on this machine -- WSL-hosted services could
+  # not be reached across the Hyper-V firewall, and Neon is blocked by the ISP on 5432.
+  # See docs/adr/ADR-006.
   db:
     image: pgvector/pgvector:pg16
     environment:
@@ -22,12 +26,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # Worker and beat are opt-in containers, for exercising the production image.
+  # Day to day they run from the local venv (`make worker` / `make beat`), which keeps
+  # container count -- and memory -- to the two stateful services.
   worker:
+    profiles: ["workers"]
     build: .
     # --concurrency=2 deliberately: this dev machine is RAM-constrained, and the work is
     # I/O-bound on upstream APIs whose rate limits are the real ceiling, not local CPU.
     command: celery -A app.celery_app worker -l info --concurrency=2 -Q ingest,default,maintenance
     environment: &app_env
+      # Neon connection string, read from .env. Takes precedence over the POSTGRES_*
+      # parts below, which remain as the offline fallback for the local-db profile.
+      DATABASE_URL_OVERRIDE: ${DATABASE_URL_OVERRIDE:-}
       POSTGRES_HOST: db
       POSTGRES_USER: ${POSTGRES_USER:-cpi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cpi_local_dev}
@@ -39,11 +50,11 @@ services:
       ENV: ${ENV:-dev}
     volumes: ["./data:/app/data"]
     depends_on:
-      db: {condition: service_healthy}
       redis: {condition: service_healthy}
     restart: unless-stopped
 
   beat:
+    profiles: ["workers"]
     build: .
     command: celery -A app.celery_app beat -l info --schedule /tmp/celerybeat-schedule
     environment: *app_env

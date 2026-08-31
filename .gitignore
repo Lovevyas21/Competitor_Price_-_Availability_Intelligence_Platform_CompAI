@@ -9,3 +9,6 @@ dbt/target/
 dbt/dbt_packages/
 *.log
 .DS_Store
+
+# Claude Code local session config
+.claude/

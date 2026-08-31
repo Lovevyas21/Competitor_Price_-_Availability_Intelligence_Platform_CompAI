@@ -14,3 +14,31 @@ def test_database_url_composes_from_parts():
 
 def test_bronze_defaults_to_local_backend():
     assert Settings().bronze_backend == "local"
+
+
+def test_override_url_is_pinned_to_psycopg3():
+    """Providers hand out postgres:// or postgresql://; both route to psycopg2 by
+    default, which this project does not use."""
+    s = Settings(database_url_override="postgres://u:p@host/db?sslmode=require")
+    assert s.database_url.startswith("postgresql+psycopg://")
+    assert s.database_url.endswith("?sslmode=require")
+
+
+def test_postgresql_scheme_is_also_pinned():
+    s = Settings(database_url_override="postgresql://u:p@host/db")
+    assert s.database_url == "postgresql+psycopg://u:p@host/db"
+
+
+def test_explicit_driver_is_left_alone():
+    url = "postgresql+psycopg://u:p@host/db"
+    assert Settings(database_url_override=url).database_url == url
+
+
+def test_override_takes_precedence_over_parts():
+    s = Settings(postgres_host="localhost", database_url_override="postgresql://u:p@neon/db")
+    assert "neon" in s.database_url
+
+
+def test_managed_flag_reflects_override():
+    assert Settings(database_url_override="postgresql://u:p@h/d").is_managed_database
+    assert not Settings().is_managed_database

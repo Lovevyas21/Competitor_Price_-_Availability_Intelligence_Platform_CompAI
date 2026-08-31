@@ -28,7 +28,8 @@ from app.clients.registry import CLIENTS, get_client
 from app.core.db import session_scope
 from app.core.logging import get_logger
 from app.ingestion.bronze import get_bronze_store, get_deadletter_store
-from app.ingestion.cdc import CDCStats, apply_record, get_or_create_source
+from app.ingestion.bulk import apply_records_bulk
+from app.ingestion.cdc import CDCStats, get_or_create_source
 from app.ingestion.idempotency import idempotency_key
 from app.ingestion.ratelimit import QuotaExhausted, RateLimited, get_rate_limiter
 from app.ingestion.runner import ingest_seeds, ingest_source
@@ -121,8 +122,7 @@ def fetch_sku(self, source: str, external_id: str) -> dict:
             source_id = get_or_create_source(
                 session, client.name, client.base_url, client.auth_type
             )
-            for record in sorted(records, key=lambda r: r.observed_at):
-                apply_record(session, source_id, record, stats)
+            stats = apply_records_bulk(session, source_id, records)
 
         log.info(
             "fetch_sku.done",
@@ -275,8 +275,7 @@ def replay_from_bronze(source: str, day: str) -> dict:
     stats = CDCStats()
     with session_scope() as session:
         source_id = get_or_create_source(session, client.name, client.base_url, client.auth_type)
-        for record in sorted(records, key=lambda r: r.observed_at):
-            apply_record(session, source_id, record, stats)
+        stats = apply_records_bulk(session, source_id, records)
 
     log.info("replay.done", source=source, day=day, payloads=payloads, **stats.as_dict())
     return {

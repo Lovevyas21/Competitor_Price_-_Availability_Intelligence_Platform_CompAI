@@ -12,8 +12,8 @@ LLM agent crew that writes a weekly pricing brief.
 | 1 | Keyless ingestion (Fake Store, Open Prices), bronze store, CDC | **Done** |
 | 2 | Celery + Beat, rate limiting, DLQ, Flower | **Done** |
 | 3 | dbt staging -> marts, data quality tests | **Done** |
-| 4 | statsforecast forecasting, FastAPI, alerts, Metabase | Next |
-| 5 | pgvector matching, Streamlit review UI, CrewAI brief | Planned |
+| 4 | statsforecast forecasting, FastAPI, alerts, Metabase | **Done** |
+| 5 | pgvector matching, Streamlit review UI, CrewAI brief | Next |
 | 6 | Terraform / RDS / EC2 / S3, CI-CD | Planned |
 
 ## Quick start
@@ -93,6 +93,47 @@ Two things worth knowing:
 
 Marts are also rebuilt automatically after the daily ingestion sweep, via the
 `build_marts` Celery task.
+
+## Serving, forecasting and alerts
+
+```bash
+make api        # http://localhost:8000/docs
+make forecast   # nightly training, on demand
+make alerts     # evaluate undercuts and deliver new ones
+make metabase   # opt-in BI at http://localhost:3000
+```
+
+Endpoints: `/health`, `/products`, `/prices/{id}`, `/forecasts/{id}`, `/undercuts`,
+`/alerts`, `/matches/review`. Auth is an `X-API-Key` header, enabled by setting
+`API_KEY`; when unset the API is open and `/health` says so.
+
+### Forecasting
+
+statsforecast (AutoETS / AutoARIMA) with a seasonal-naive baseline that always competes
+and only loses on a strict improvement. Champions are chosen per series on **backtested**
+MAPE, and every candidate's score is stored so selection stays auditable.
+
+Two deliberate constraints, both of which lower the headline numbers on purpose
+(ADR-009):
+
+- **Scoring ignores forward-filled days.** Series are filled to a daily grid so models
+  see a regular frequency, but grading on filled rows measures the fill, not the
+  forecast. Correcting this moved reported MAPE from a flattering 0.15% to a real ~3.16%.
+- **Stale series are not forecast.** A 7-day horizon projected from a series last seen
+  18 months ago yields predictions dated in the past.
+
+With the current keyless source that leaves 4 forecastable series out of 22, each scored
+on only a handful of observed points -- too thin to trust a per-series MAPE. The pipeline
+is correct; the data is sparse. A daily-refresh retail API is what makes it meaningful.
+
+### Alerting
+
+The undercut rule lives in `mart_undercut_alerts` (dbt), so it is tested with the marts
+and shared by the API, the dashboard and the alert. The service adds what SQL cannot:
+deduplication (an undercut persisting a week is one alert, not 28 -- but a *deeper* cut
+is new), a staleness gate so old evidence is recorded without paging anyone, and
+`sent_at` written only after delivery succeeds so a webhook outage retries rather than
+silently dropping.
 
 ### Rebuilding from bronze
 

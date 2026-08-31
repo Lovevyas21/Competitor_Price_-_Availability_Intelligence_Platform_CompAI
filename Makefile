@@ -1,6 +1,6 @@
 PY := .venv/Scripts/python.exe
 
-.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs flower logs
+.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase flower logs
 
 install:
 	python -m uv pip install --python $(PY) -e ".[dev]"
@@ -51,6 +51,19 @@ dbt-test:
 
 dbt-docs:
 	cd dbt && $(DBT) docs generate && $(DBT) docs serve
+
+api:
+	$(PY) -m uvicorn app.api.main:app --reload --port 8000
+
+forecast:
+	$(PY) -c "from app.core.db import session_scope; from app.forecasting.train import train_and_forecast; 	          import warnings; warnings.filterwarnings('ignore'); 	          s=session_scope().__enter__(); print(train_and_forecast(s).as_dict())"
+
+alerts:
+	$(PY) -c "from app.alerting.service import run_alert_cycle; print(run_alert_cycle())"
+
+# Opt-in BI. Metabase is a JVM (~1GB) -- not part of the default stack.
+metabase:
+	docker compose --profile bi up -d metabase
 
 flower:
 	$(PY) -m celery -A app.celery_app flower --port=5555 --broker=redis://localhost:6379/0

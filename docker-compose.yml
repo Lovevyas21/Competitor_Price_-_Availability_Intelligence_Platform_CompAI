@@ -63,5 +63,18 @@ services:
     restart: unless-stopped
 
 
+  # Recruiter-facing BI, opt-in: `docker compose --profile bi up -d metabase`.
+  # Metabase is a JVM and holds roughly 1GB, which is a lot on a 7.4GB machine, so it is
+  # not part of the default stack. Connect it to db:5432 / cpi / analytics_marts.
+  metabase:
+    profiles: ["bi"]
+    image: metabase/metabase:latest
+    ports: ["3000:3000"]
+    environment:
+      MB_DB_TYPE: h2
+      JAVA_OPTS: -Xmx768m
+    depends_on:
+      db: {condition: service_healthy}
+
 volumes:
   pgdata:

@@ -306,6 +306,24 @@ def build_marts(select: str | None = None) -> dict:
     return result.summary()
 
 
+@shared_task(name="app.ingestion.tasks.train_forecasts", acks_late=True)
+def train_forecasts(horizon: int = 7) -> dict:
+    """Nightly per-SKU forecasting: backtest, pick champions, write forecasts."""
+    from app.forecasting.train import train_and_forecast  # noqa: PLC0415
+
+    with session_scope() as session:
+        stats = train_and_forecast(session, horizon=horizon)
+    return stats.as_dict()
+
+
+@shared_task(name="app.ingestion.tasks.evaluate_alerts", acks_late=True)
+def evaluate_alerts(dry_run: bool = False) -> dict:
+    """Turn undercut rows into alerts and deliver the new ones."""
+    from app.alerting.service import run_alert_cycle  # noqa: PLC0415
+
+    return run_alert_cycle(dry_run=dry_run)
+
+
 @shared_task(name="app.ingestion.tasks.ping")
 def ping() -> str:
     """Liveness probe used by tests and smoke checks."""
@@ -320,7 +338,9 @@ __all__ = [
     "fetch_sku",
     "ingest_seeds_task",
     "build_marts",
+    "evaluate_alerts",
     "ingest_source_task",
     "ping",
+    "train_forecasts",
     "replay_from_bronze",
 ]

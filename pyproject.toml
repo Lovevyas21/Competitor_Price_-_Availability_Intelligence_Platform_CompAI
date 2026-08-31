@@ -17,6 +17,10 @@ dependencies = [
     "pyarrow>=18.1.0",
     "python-dotenv>=1.0.1",
     "celery[redis]>=5.5.0",
+    "statsforecast>=2.0.0",
+    "pandas>=2.2.3",
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.34.0",
     "redis>=5.2.1",
 ]
 
@@ -50,6 +54,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts these calls in argument defaults by design.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path", "fastapi.Body",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -49,6 +49,8 @@ app.conf.update(
         "app.ingestion.tasks.enqueue_tier": {"queue": "default"},
         "app.ingestion.tasks.ensure_future_partitions": {"queue": "maintenance"},
         "app.ingestion.tasks.build_marts": {"queue": "maintenance"},
+        "app.ingestion.tasks.train_forecasts": {"queue": "maintenance"},
+        "app.ingestion.tasks.evaluate_alerts": {"queue": "default"},
     },
 )
 
@@ -92,6 +94,17 @@ app.conf.beat_schedule = {
     "marts-daily": {
         "task": "app.ingestion.tasks.build_marts",
         "schedule": crontab(minute=45, hour=1),
+    },
+    # Forecasts train after the marts are rebuilt -- they read mart_price_trend.
+    "nightly-train": {
+        "task": "app.ingestion.tasks.train_forecasts",
+        "schedule": crontab(minute=0, hour=3),
+    },
+    # Alerting runs after every tier-1 ingestion cycle, so an undercut surfaces within
+    # one cycle of appearing (the SLA in the build document).
+    "alerts-every-6h": {
+        "task": "app.ingestion.tasks.evaluate_alerts",
+        "schedule": crontab(minute=20, hour="*/6"),
     },
     # Create next month's partitions well before they are needed. Without this,
     # the first write after a month boundary fails with "no partition found".

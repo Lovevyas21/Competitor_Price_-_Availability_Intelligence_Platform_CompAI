@@ -324,6 +324,32 @@ def evaluate_alerts(dry_run: bool = False) -> dict:
     return run_alert_cycle(dry_run=dry_run)
 
 
+@shared_task(name="app.ingestion.tasks.refresh_matches", acks_late=True)
+def refresh_matches() -> dict:
+    """Embed new products and regenerate match candidates."""
+    from app.ai.matching import embed_pending_products, generate_matches  # noqa: PLC0415
+
+    with session_scope() as session:
+        embedded = embed_pending_products(session)
+    with session_scope() as session:
+        generated = generate_matches(session)
+    return {"embedded": embedded.products_embedded, **generated.as_dict()}
+
+
+@shared_task(name="app.ingestion.tasks.generate_brief", acks_late=True)
+def generate_brief_task(period_days: int = 7, use_llm: bool | None = None) -> dict:
+    """Weekly pricing brief. Uses the LLM only when one is configured."""
+    from app.ai.brief import generate_brief  # noqa: PLC0415
+    from app.core.settings import get_settings  # noqa: PLC0415
+
+    if use_llm is None:
+        use_llm = bool(get_settings().llm_model)
+
+    with session_scope() as session:
+        result = generate_brief(session, period_days=period_days, use_llm=use_llm)
+    return result.summary() | {"body": result.body}
+
+
 @shared_task(name="app.ingestion.tasks.ping")
 def ping() -> str:
     """Liveness probe used by tests and smoke checks."""
@@ -339,6 +365,8 @@ __all__ = [
     "ingest_seeds_task",
     "build_marts",
     "evaluate_alerts",
+    "generate_brief_task",
+    "refresh_matches",
     "ingest_source_task",
     "ping",
     "train_forecasts",

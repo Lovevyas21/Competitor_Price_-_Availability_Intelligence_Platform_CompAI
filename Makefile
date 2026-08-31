@@ -1,6 +1,6 @@
 PY := .venv/Scripts/python.exe
 
-.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase flower logs
+.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase review match brief flower logs
 
 install:
 	python -m uv pip install --python $(PY) -e ".[dev]"
@@ -64,6 +64,15 @@ alerts:
 # Opt-in BI. Metabase is a JVM (~1GB) -- not part of the default stack.
 metabase:
 	docker compose --profile bi up -d metabase
+
+review:
+	$(PY) -m streamlit run app/ui/review.py
+
+match:
+	$(PY) -c "import warnings; warnings.filterwarnings('ignore'); 	          from app.core.db import session_scope; 	          from app.ai.matching import embed_pending_products, generate_matches; 	          s=session_scope().__enter__(); print(embed_pending_products(s).as_dict()); print(generate_matches(s).as_dict())"
+
+brief:
+	$(PY) -c "import warnings; warnings.filterwarnings('ignore'); 	          from app.core.db import session_scope; from app.ai.brief import generate_brief; 	          s=session_scope().__enter__(); print(generate_brief(s).body)"
 
 flower:
 	$(PY) -m celery -A app.celery_app flower --port=5555 --broker=redis://localhost:6379/0

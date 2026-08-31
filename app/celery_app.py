@@ -50,6 +50,8 @@ app.conf.update(
         "app.ingestion.tasks.ensure_future_partitions": {"queue": "maintenance"},
         "app.ingestion.tasks.build_marts": {"queue": "maintenance"},
         "app.ingestion.tasks.train_forecasts": {"queue": "maintenance"},
+        "app.ingestion.tasks.refresh_matches": {"queue": "maintenance"},
+        "app.ingestion.tasks.generate_brief": {"queue": "maintenance"},
         "app.ingestion.tasks.evaluate_alerts": {"queue": "default"},
     },
 )
@@ -105,6 +107,17 @@ app.conf.beat_schedule = {
     "alerts-every-6h": {
         "task": "app.ingestion.tasks.evaluate_alerts",
         "schedule": crontab(minute=20, hour="*/6"),
+    },
+    # Matching after the daily sweep: new products need embeddings before they can be
+    # matched, and the review queue should be current when someone opens it.
+    "matches-daily": {
+        "task": "app.ingestion.tasks.refresh_matches",
+        "schedule": crontab(minute=15, hour=2),
+    },
+    # Weekly brief, Monday morning, after the nightly train has run.
+    "weekly-brief": {
+        "task": "app.ingestion.tasks.generate_brief",
+        "schedule": crontab(minute=0, hour=6, day_of_week=1),
     },
     # Create next month's partitions well before they are needed. Without this,
     # the first write after a month boundary fails with "no partition found".

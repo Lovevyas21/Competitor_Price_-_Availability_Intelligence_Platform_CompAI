@@ -13,8 +13,8 @@ LLM agent crew that writes a weekly pricing brief.
 | 2 | Celery + Beat, rate limiting, DLQ, Flower | **Done** |
 | 3 | dbt staging -> marts, data quality tests | **Done** |
 | 4 | statsforecast forecasting, FastAPI, alerts, Metabase | **Done** |
-| 5 | pgvector matching, Streamlit review UI, CrewAI brief | Next |
-| 6 | Terraform / RDS / EC2 / S3, CI-CD | Planned |
+| 5 | pgvector matching, Streamlit review UI, CrewAI brief | **Done** |
+| 6 | Terraform / RDS / EC2 / S3, CI-CD | Next |
 
 ## Quick start
 
@@ -134,6 +134,41 @@ deduplication (an undercut persisting a week is one alert, not 28 -- but a *deep
 is new), a staleness gate so old evidence is recorded without paging anyone, and
 `sent_at` written only after delivery succeeds so a webhook outage retries rather than
 silently dropping.
+
+## Matching and the weekly brief
+
+```bash
+make match     # embed products, generate candidate matches
+make review    # human review UI at http://localhost:8501
+make brief     # weekly pricing brief (Markdown)
+```
+
+### Product matching
+
+Embeddings use **fastembed** (ONNX) rather than sentence-transformers: the same
+`all-MiniLM-L6-v2` 384-dim model the build document specifies, without pulling in torch
+(~2.5GB) on a memory-constrained machine.
+
+Policy, in priority order:
+
+1. **Exact UPC/MPN wins outright.** An identifier is a fact; a cosine score is an opinion.
+2. **Blocking before vector search** (same category), which cuts comparisons and
+   suppresses the classic false positive on similarly-shaped names.
+3. **Three bands:** `>= 0.92` auto-match, `0.80-0.92` human review, `< 0.80` rejected.
+
+Every decision is stored with its method and score, and human verdicts are recorded with
+reviewer and timestamp -- that is the label set precision and recall get measured against
+later, rather than assumed.
+
+### Weekly brief
+
+Deterministic by default: `ai/facts.py` pulls a closed set of numbers from the marts and
+`ai/brief.py` renders them. No key, no cost, nothing to fabricate.
+
+With `LLM_MODEL` set, a CrewAI crew narrates the *same* facts -- and the output must pass
+`ai/guard.py`, which requires **every number in the brief to exist in the facts**. Any
+unsupported figure discards the LLM version and falls back to the deterministic one. The
+worst case is a plainer brief, never a wrong one. See ADR-010.
 
 ### Rebuilding from bronze
 

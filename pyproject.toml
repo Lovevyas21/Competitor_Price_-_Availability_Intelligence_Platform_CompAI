@@ -25,6 +25,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Embeddings + review UI. fastembed is ONNX-based: same all-MiniLM-L6-v2 model the
+# build document specifies, without pulling in torch.
+matching = [
+    "fastembed>=0.5.0",
+    "streamlit>=1.41.0",
+]
+# Agent layer. Optional: the weekly brief renders deterministically without it, and
+# the crew only adds narration on top of already-validated facts.
+ai = [
+    "crewai>=0.100.0",
+]
 dev = [
     "ruff>=0.8.4",
     "pytest>=8.3.4",

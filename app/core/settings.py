@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     digikey_client_id: str | None = None
     digikey_client_secret: str | None = None
 
+    # --- AI layer (phase 5) ---
+    # Model id in litellm form, e.g. "gemini/gemini-2.0-flash" or "anthropic/claude-haiku-4-5".
+    # Unset means the weekly brief renders deterministically -- no key, no cost, no
+    # possibility of a fabricated number.
+    llm_model: str | None = None
+
     # --- alerting / serving ---
     slack_webhook_url: str | None = None
     api_key: str | None = None

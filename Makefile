@@ -1,6 +1,6 @@
 PY := .venv/Scripts/python.exe
 
-.PHONY: install up down migrate lint test fmt reset worker beat workers-docker flower logs
+.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs flower logs
 
 install:
 	python -m uv pip install --python $(PY) -e ".[dev]"
@@ -36,6 +36,21 @@ beat:
 # Run them as containers instead, to exercise the production image.
 workers-docker:
 	docker compose --profile workers up -d --build
+
+# dbt: credentials come from .env via the runner, so these mirror `make` usage.
+DBT := DBT_PROFILES_DIR=$(CURDIR)/dbt $(CURDIR)/.venv/Scripts/dbt.exe
+
+dbt-deps:
+	cd dbt && $(DBT) deps
+
+dbt-build:
+	cd dbt && $(DBT) build
+
+dbt-test:
+	cd dbt && $(DBT) test
+
+dbt-docs:
+	cd dbt && $(DBT) docs generate && $(DBT) docs serve
 
 flower:
 	$(PY) -m celery -A app.celery_app flower --port=5555 --broker=redis://localhost:6379/0

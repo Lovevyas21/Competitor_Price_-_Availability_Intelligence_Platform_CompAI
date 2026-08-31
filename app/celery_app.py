@@ -48,6 +48,7 @@ app.conf.update(
         "app.ingestion.tasks.ingest_seeds_task": {"queue": "ingest"},
         "app.ingestion.tasks.enqueue_tier": {"queue": "default"},
         "app.ingestion.tasks.ensure_future_partitions": {"queue": "maintenance"},
+        "app.ingestion.tasks.build_marts": {"queue": "maintenance"},
     },
 )
 
@@ -84,6 +85,13 @@ app.conf.beat_schedule = {
         "task": "app.ingestion.tasks.ingest_source_task",
         "schedule": crontab(minute=15, hour=1),
         "args": ("openprices", 300),
+    },
+    # Rebuild marts after the daily sweep has landed. Downstream consumers -- the API,
+    # the dashboard and the nightly forecast -- all read marts, so they are refreshed
+    # before any of those run.
+    "marts-daily": {
+        "task": "app.ingestion.tasks.build_marts",
+        "schedule": crontab(minute=45, hour=1),
     },
     # Create next month's partitions well before they are needed. Without this,
     # the first write after a month boundary fails with "no partition found".

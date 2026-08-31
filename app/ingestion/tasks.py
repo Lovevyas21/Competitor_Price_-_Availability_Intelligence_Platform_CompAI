@@ -289,6 +289,23 @@ def replay_from_bronze(source: str, day: str) -> dict:
     }
 
 
+@shared_task(name="app.ingestion.tasks.build_marts", acks_late=True)
+def build_marts(select: str | None = None) -> dict:
+    """Rebuild the dbt marts (models + tests) after ingestion.
+
+    Runs `dbt build`, not `dbt run`: tests execute alongside the models, so a mart that
+    silently goes wrong fails the task instead of quietly serving bad numbers to the
+    API, the dashboard and the forecast pipeline.
+    """
+    from app.transform.dbt_runner import run_dbt  # noqa: PLC0415
+
+    args = ("--select", select) if select else ()
+    result = run_dbt("build", *args)
+    if not result.ok:
+        dead_letter("dbt_build_failed", {"source": "dbt", "select": select or "all"})
+    return result.summary()
+
+
 @shared_task(name="app.ingestion.tasks.ping")
 def ping() -> str:
     """Liveness probe used by tests and smoke checks."""
@@ -302,6 +319,7 @@ __all__ = [
     "ensure_future_partitions",
     "fetch_sku",
     "ingest_seeds_task",
+    "build_marts",
     "ingest_source_task",
     "ping",
     "replay_from_bronze",

@@ -1,0 +1,46 @@
+name: cpi
+version: "1.0.0"
+config-version: 2
+
+profile: cpi
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  cpi:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      # Marts are queried by the API, Metabase and the CrewAI analyst, so they are
+      # materialized rather than recomputed per query.
+      +materialized: table
+      +schema: marts
+
+seeds:
+  cpi:
+    +schema: seeds
+    own_catalog:
+      +column_types:
+        # Barcodes are identifiers, not numbers. Left to type inference they land in an
+        # integer column and a 13-digit EAN overflows int4 ("integer out of range").
+        # They must also stay text so leading zeros survive.
+        match_upc: varchar
+        our_sku: varchar
+        currency: varchar
+        our_price: numeric(12,2)
+
+vars:
+  # A price series needs a minimum number of observations before dispersion statistics
+  # mean anything. Exposed as a var so it can be tuned without editing SQL.
+  min_observations_for_volatility: 3
+  # Undercut threshold: a competitor at or below this fraction of our price is flagged.
+  undercut_threshold: 1.0

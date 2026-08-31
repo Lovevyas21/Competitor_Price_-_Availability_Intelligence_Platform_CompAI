@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: int_price_observations
+    description: >
+      Price events joined to product, retailer, source and current SCD2 title. The single
+      join every mart builds on, so the logic exists once.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: currency
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+
+  - name: int_price_daily
+    description: >
+      One price per product / retailer / currency / day -- the last observation of the
+      day wins, since it is the most recent information available.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id, currency, observed_date]
+    columns:
+      - name: close_price
+        tests: [not_null]
+      - name: observations_that_day
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+              inclusive: true
+
+  - name: int_price_latest
+    description: Most recent known price per product / retailer / currency, with staleness.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id, currency]
+    columns:
+      - name: latest_price
+        tests: [not_null]
+      - name: days_stale
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true

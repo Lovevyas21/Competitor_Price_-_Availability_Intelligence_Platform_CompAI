@@ -1,0 +1,133 @@
+version: 2
+
+models:
+  - name: mart_price_volatility
+    description: >
+      Price dispersion per product / retailer / currency. Coefficient of variation is the
+      comparable measure across price levels; raw stddev is kept for absolute context.
+      Series shorter than the configured minimum are excluded.
+    columns:
+      - name: product_id
+        tests: [not_null]
+      - name: currency
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "~ '^[A-Z]{3}$'"
+      - name: observation_count
+        description: Guaranteed to meet the min_observations_for_volatility threshold.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 3
+              inclusive: true
+      - name: coefficient_of_variation
+        description: Dispersion relative to the mean. Non-negative by construction.
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: min_price
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: volatility_band
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['low', 'medium', 'high']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id, currency]
+      - dbt_utils.expression_is_true:
+          expression: "max_price >= min_price"
+      - dbt_utils.expression_is_true:
+          expression: "mean_price between min_price and max_price"
+
+  - name: mart_out_of_stock_frequency
+    description: >
+      Out-of-stock rate per product / retailer. Empty until a source that reports
+      availability is connected; the keyless dev sources do not publish stock.
+    columns:
+      - name: product_id
+        tests: [not_null]
+      - name: out_of_stock_pct
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+              inclusive: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id]
+      - dbt_utils.expression_is_true:
+          expression: "days_out_of_stock <= days_observed"
+
+  - name: mart_price_gap_vs_own
+    description: >
+      Competitor price minus our catalogue price, matched on UPC and scoped to a single
+      currency. Negative gap means the competitor is cheaper.
+    columns:
+      - name: upc
+        tests: [not_null]
+      - name: our_price
+        tests: [not_null]
+      - name: competitor_price
+        tests: [not_null]
+      - name: is_undercut
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id, currency]
+      # The arithmetic must agree with itself -- catches a refactor that flips a sign.
+      - dbt_utils.expression_is_true:
+          expression: "abs((competitor_price - our_price) - gap_abs) < 0.01"
+      # An undercut is exactly "competitor cheaper than us". Guards the flag against
+      # drifting away from the number it is supposed to summarise.
+      - dbt_utils.expression_is_true:
+          expression: "(is_undercut and gap_abs < 0) or (not is_undercut and gap_abs >= 0)"
+
+  - name: mart_undercut_alerts
+    description: Undercut rows ready for alerting, with severity and freshness confidence.
+    columns:
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['medium', 'high', 'critical']
+      - name: confidence
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['fresh', 'recent', 'stale']
+      - name: gap_pct
+        description: Always negative here -- every row is an undercut.
+        tests:
+          - dbt_utils.accepted_range:
+              max_value: 0
+              inclusive: true
+
+  - name: mart_price_trend
+    description: >
+      Daily price series with day-over-day change. Consumed by the forecasting pipeline
+      and by charts.
+    columns:
+      - name: product_id
+        tests: [not_null]
+      - name: observed_date
+        tests: [not_null]
+      - name: close_price
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [product_id, retailer_id, currency, observed_date]
+      # Time only moves forward within a series.
+      - dbt_utils.expression_is_true:
+          expression: "days_since_previous > 0"
+          config:
+            where: "days_since_previous is not null"

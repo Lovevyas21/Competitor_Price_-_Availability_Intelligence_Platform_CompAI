@@ -11,8 +11,8 @@ LLM agent crew that writes a weekly pricing brief.
 | 0 | Repo, Docker, schema + migrations, config, logging | **Done** |
 | 1 | Keyless ingestion (Fake Store, Open Prices), bronze store, CDC | **Done** |
 | 2 | Celery + Beat, rate limiting, DLQ, Flower | **Done** |
-| 3 | dbt staging -> marts, data quality tests | Next |
-| 4 | statsforecast forecasting, FastAPI, alerts, Metabase | Planned |
+| 3 | dbt staging -> marts, data quality tests | **Done** |
+| 4 | statsforecast forecasting, FastAPI, alerts, Metabase | Next |
 | 5 | pgvector matching, Streamlit review UI, CrewAI brief | Planned |
 | 6 | Terraform / RDS / EC2 / S3, CI-CD | Planned |
 
@@ -63,6 +63,36 @@ To exercise the production image instead, run them as containers:
 ```bash
 docker compose --profile workers up -d --build
 ```
+
+## Transformations (dbt)
+
+```bash
+make dbt-deps     # once
+make dbt-build    # models + seeds + tests
+```
+
+Layers: `staging/` (clean, typed) -> `intermediate/` (joins, daily grain) ->
+`marts/` (business questions). `dbt build` runs models and tests together, so a mart
+that goes wrong fails the run instead of quietly serving bad numbers.
+
+| Mart | Answers |
+|---|---|
+| `mart_price_volatility` | which SKUs move most (coefficient of variation) |
+| `mart_price_gap_vs_own` | how competitor prices compare to our catalogue |
+| `mart_undercut_alerts` | who is undercutting us, how badly, how fresh the evidence |
+| `mart_price_trend` | daily series + day-over-day change (feeds forecasting) |
+| `mart_out_of_stock_frequency` | OOS rate per SKU/retailer |
+
+Two things worth knowing:
+
+- **Prices span five currencies, and are never compared across them.** Currency is part
+  of the grain everywhere and the gap mart joins on UPC *and* currency. See ADR-008.
+- **`mart_out_of_stock_frequency` returns zero rows today.** Neither keyless source
+  publishes availability. It is built against the real schema so it works the moment a
+  stock-bearing source (Best Buy, Digi-Key) is connected.
+
+Marts are also rebuilt automatically after the daily ingestion sweep, via the
+`build_marts` Celery task.
 
 ### Rebuilding from bronze
 

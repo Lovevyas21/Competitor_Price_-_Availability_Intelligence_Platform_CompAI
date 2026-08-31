@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: stg_price_events
+    description: Cleaned price observations. Currency is uppercased and always retained.
+    columns:
+      - name: event_id
+        tests: [not_null]
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+      - name: price
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: currency
+        tests: [not_null]
+      - name: observed_at
+        tests: [not_null]
+
+  - name: stg_products
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: tier
+        tests:
+          - accepted_values:
+              values: [1, 2, 3]
+              quote: false
+
+  - name: stg_product_versions
+    columns:
+      - name: version_id
+        tests: [not_null, unique]
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+
+  - name: stg_retailers
+    columns:
+      - name: retailer_id
+        tests: [not_null, unique]
+      - name: retailer_name
+        tests: [not_null]
+
+  - name: stg_sources
+    columns:
+      - name: source_id
+        tests: [not_null, unique]
+      - name: source_name
+        tests: [not_null, unique]
+
+  - name: stg_stock_events
+    columns:
+      - name: event_id
+        tests: [not_null]

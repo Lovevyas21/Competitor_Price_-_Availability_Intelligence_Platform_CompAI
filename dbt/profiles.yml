@@ -1,0 +1,16 @@
+# Credentials come from the environment, never from this file.
+# `make dbt-build` exports them from .env before invoking dbt.
+cpi:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      user: "{{ env_var('POSTGRES_USER', 'cpi') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'cpi_local_dev') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'cpi') }}"
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 30

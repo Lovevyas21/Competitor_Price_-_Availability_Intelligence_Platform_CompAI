@@ -1,0 +1,79 @@
+version: 2
+
+sources:
+  - name: cpi
+    description: >
+      Raw serving tables written by the ingestion pipeline. Everything downstream reads
+      through the staging views, never these tables directly.
+    schema: public
+    tables:
+      - name: sources
+        columns:
+          - name: source_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null, unique]
+
+      - name: retailers
+        columns:
+          - name: retailer_id
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null]
+
+      - name: products
+        columns:
+          - name: product_id
+            tests: [not_null, unique]
+          - name: external_id
+            tests: [not_null]
+          - name: tier
+            tests:
+              - accepted_values:
+                  values: [1, 2, 3]
+                  quote: false
+
+      - name: product_versions
+        description: SCD Type 2 dimension. Exactly one open version per product.
+        columns:
+          - name: version_id
+            tests: [not_null, unique]
+          - name: product_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('cpi', 'products')
+                  field: product_id
+
+      - name: price_events
+        description: Append-only, monthly range-partitioned on observed_at.
+        loaded_at_field: observed_at
+        freshness:
+          # Tier-1 SKUs refresh every 6h; warn once a cycle has clearly been missed.
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: product_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('cpi', 'products')
+                  field: product_id
+          - name: price
+            tests: [not_null]
+          - name: observed_at
+            tests: [not_null]
+          - name: idempotency_key
+            tests: [not_null]
+
+      - name: stock_events
+        description: >
+          Availability transitions. Currently empty: neither keyless source publishes
+          stock, so this populates only once a stock-bearing source (Best Buy, Digi-Key)
+          is connected.
+        columns:
+          - name: product_id
+            tests:
+              - relationships:
+                  to: source('cpi', 'products')
+                  field: product_id

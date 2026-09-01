@@ -480,8 +480,14 @@ def build_html() -> str:
               text-transform:uppercase; color:var(--ink-mute); }}
   .meta dd {{ margin:.15rem 0 0; font-weight:600; font-size:9.5pt; }}
 
+  /* Tables may span a page boundary, but never split a row. Without this a long
+     table that does not fit is pushed whole to the next page, leaving the previous
+     one half empty. The header repeats on each page it continues onto. */
   table {{ border-collapse:collapse; width:100%; font-size:9pt; margin:.8rem 0;
-           break-inside:avoid; page-break-inside:avoid; }}
+           break-inside:auto; page-break-inside:auto; }}
+  tr {{ break-inside:avoid; page-break-inside:avoid; }}
+  thead {{ display:table-header-group; }}
+  tfoot {{ display:table-row-group; }}
   th,td {{ padding:.34rem .5rem; text-align:left; border-bottom:1px solid var(--rule-soft);
            vertical-align:top; }}
   thead th {{ background:var(--tint); border-bottom:1.2px solid var(--rule);
@@ -904,7 +910,7 @@ Evidence  recent        &#8592; confidence label for an age of 2 to 7 days</code
 <p>Read as a sentence: <i>at U Express this product is 28.7% cheaper than our price, which
 is a critical gap, based on evidence gathered six days ago.</i></p>
 
-<h2>Section 15 &#8212; AWS Deployment Plan</h2>
+<h2 class="figpage">Section 15 &#8212; AWS Deployment Plan</h2>
 
 <p>The platform is designed for a single-instance deployment in <b>ap-south-1
 (Mumbai)</b>, defined end to end in Terraform. The design goal is a credible production

@@ -1055,7 +1055,7 @@ def fig_aws(num: int) -> str:
 
     a = 'stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"'
     s.append(f'<path d="M 173 194 V 250" fill="none" {a}/>')
-    s.append('<text x="180" y="228" font-size="10" opacity=".7">TLS 5432</text>')
+    s.append('<text x="182" y="216" font-size="10" opacity=".7">TLS 5432</text>')
     s.append(f'<path d="M 302 150 H 336" fill="none" {a}/>')
     s.append(f'<path d="M 612 130 H 630 V 97 H 646" fill="none" {a}/>')
     s.append(f'<path d="M 612 150 H 630 V 187 H 646" fill="none" {a}/>')
@@ -1084,5 +1084,4 @@ def fig_aws(num: int) -> str:
         "Target AWS deployment. The database is unreachable from the internet by construction: "
         "it sits in subnets with no internet route and accepts traffic only from the "
         "application's security group.",
-        page_break=True,
     )

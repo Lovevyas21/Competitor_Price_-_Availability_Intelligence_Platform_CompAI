@@ -16,6 +16,12 @@ LLM agent crew that writes a weekly pricing brief.
 | 5 | pgvector matching, Streamlit review UI, CrewAI brief | **Done** |
 | 6 | Terraform / RDS / EC2 / S3, CI-CD | **Done** (written, not applied) |
 
+## Demo assets
+
+Measured results, architecture diagrams, a real generated brief, tested dashboard
+queries, and portfolio material live in [`docs/demo/`](docs/demo/). Every figure there
+was read from the running system — including the limitations.
+
 ## Quick start
 
 ```bash

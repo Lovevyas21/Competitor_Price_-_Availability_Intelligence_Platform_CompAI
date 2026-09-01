@@ -8,53 +8,53 @@ Covering the last 7 days.
 
 ## At a glance
 
-- Products tracked: 1448
-- Retailers tracked: 96
-- Price observations this period: 962
-- Active undercuts: 62
+- Products tracked: 3932
+- Retailers tracked: 157
+- Price observations this period: 3306
+- Active undercuts: 108
 
 ## Where we are being undercut
 
 | Product | Retailer | Ours | Theirs | Gap | Severity | Evidence |
 |---|---|---|---|---|---|---|
-| Bio et équitable | Intermarché | 2.15 EUR | 0.99 EUR | -53.95% | critical | stale (790d old) |
-| Pâte à tartiner | Centre Commercial E.Leclerc | 2.55 EUR | 1.69 EUR | -33.73% | critical | stale (206d old) |
-| Chips Paysanne | Centre Commercial E. Leclerc | 2.85 EUR | 1.89 EUR | -33.68% | critical | stale (1606d old) |
-| Beurre Demi-Sel à teneur réduite en M.G. (60%) | Centre Commercial E.Leclerc | 1.75 EUR | 1.20 EUR | -31.43% | critical | stale (5578d old) |
-| Riz Long | Centre Commercial E.Leclerc | 0.95 EUR | 0.71 EUR | -25.26% | critical | stale (5886d old) |
+| Nutella Plant-Based | EDEKA | 5.73 EUR | 3.29 EUR | -42.58% | critical | stale (497d old) |
+| Nutella Plant-Based | Carrefour | 5.73 EUR | 3.34 EUR | -41.71% | critical | stale (210d old) |
+| Nutella Plant-Based | E. Leclerc Drive | 5.73 EUR | 3.62 EUR | -36.82% | critical | stale (577d old) |
+| Nutella Plant-Based | Centre Commercial E.Leclerc | 5.73 EUR | 3.66 EUR | -36.13% | critical | stale (178d old) |
+| Nutella Plant-Based | Super U | 5.73 EUR | 3.79 EUR | -33.86% | critical | stale (329d old) |
 
 ## Most volatile prices
 
 | Product | Retailer | Mean | Range | CV | Band |
 |---|---|---|---|---|---|
+| Petites Madeleines | E. Leclerc | 2.43 EUR | 1.83–4.4 | 0.46 | high |
 | Nutella Plant-Based | Bayern | 3.26 EUR | 1.79–3.99 | 0.39 | high |
+| Basilic | Carrefour City | 0.69 EUR | 0.49–0.99 | 0.38 | high |
 | Lentilles vertes | Centre Commercial E. Leclerc | 1.21 EUR | 0.74–1.69 | 0.38 | high |
-| Lentilles vertes | E.Leclerc | 1.32 EUR | 0.71–1.69 | 0.29 | high |
-| Petites madeleines St Michel Pépites chocolat - 400g | Super U | 2.83 EUR | 2.06–3.95 | 0.29 | high |
-| 10 oeufs frais | E.Leclerc | 1.53 EUR | 1.01–2.05 | 0.27 | high |
+| PESTO ROSSO | E.Leclerc | 2.46 EUR | 1.97–4.08 | 0.37 | high |
 
 ## Biggest movers
 
-- **Nutella** at Paris Store: 3.8 → 4.49 EUR (18.16%) on 2026-08-28
-- **Nutella** at Carrefour City: 6.8 → 7.2 EUR (5.88%) on 2026-08-29
-- **Pâte à tartiner** at Carrefour City: 2.9 → 2.99 EUR (3.1%) on 2026-08-29
-- **Nutella Plant-Based** at Carrefour City: 4.9 → 4.75 EUR (-3.06%) on 2026-08-29
-- **insalatina** at Esselunga: 1.98 → 1.98 EUR (0.0%) on 2026-08-30
+- **Basilic** at Carrefour City: 0.49 → 0.99 EUR (102.04%) on 2026-08-27
+- **Basilic** at Carrefour City: 0.99 → 0.59 EUR (-40.4%) on 2026-08-29
+- **Persil** at Carrefour City: 0.99 → 0.65 EUR (-34.34%) on 2026-08-29
+- **Curry** at Carrefour City: 0.99 → 0.69 EUR (-30.3%) on 2026-08-29
+- **Huile d\'olive** at Carrefour City: 12.9 → 10.49 EUR (-18.68%) on 2026-08-29
 
 ## Forecasts
 
-- 28 forecast points across 4 products
-- Horizon: 2026-09-01 to 2026-09-07
+- 77 forecast points across 11 products
+- Horizon: 2026-09-02 to 2026-09-08
 
 | Model | Series | Avg MAPE | Worst |
 |---|---|---|---|
-| AutoARIMA | 4 | 3.16% | 5.56% |
-| SeasonalNaive | 4 | 3.17% | 5.56% |
-| AutoETS | 4 | 3.17% | 5.56% |
+| AutoARIMA | 9 | 3.13% | 15.56% |
+| SeasonalNaive | 9 | 3.13% | 15.56% |
+| AutoETS | 9 | 3.13% | 15.56% |
 
 ## Data quality
 
-- Latest observation: 2026-08-31
-- Matches awaiting review: 461
-- Matches approved: 70
+- Latest observation: 2026-09-01
+- Matches awaiting review: 2187
+- Matches approved: 370
 - Failed ingestion runs this period: 0

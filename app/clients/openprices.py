@@ -32,6 +32,14 @@ log = get_logger(__name__)
 
 PAGE_SIZE = 100
 
+#: Default window for broad discovery.
+#:
+#: Without a date filter the API returns the oldest contributions first, which is how the
+#: warehouse ended up full of observations from 2010-2020: real data, but far past the
+#: 30-day staleness gate, so nothing was forecastable and every undercut read as stale.
+#: Pulling a recent window is what makes the marts represent *now*.
+DEFAULT_WINDOW_DAYS = 90
+
 #: See discover() -- default ordering returns a single store/day and is useless here.
 DEFAULT_ORDER = "-created"
 

@@ -1,6 +1,11 @@
 # Measured results
 
-Snapshot taken 2026-09-01 with the stack idle and marts freshly built.
+Snapshot taken 2026-09-01 (second pass) with the stack idle and marts freshly built.
+
+The first pass ingested only ~1.2% of the upstream feed and, because the API returns
+oldest-first, that slice was dominated by 2010-2020 observations. Every undercut read
+as stale and only 4 series were forecastable. Ingestion now targets a 90-day window,
+which is what these numbers reflect.
 
 Every figure here was read from the running system, not estimated. Reproduce with the
 commands in each section.
@@ -9,11 +14,11 @@ commands in each section.
 
 | Metric | Value |
 |---|---|
-| Price events | 3,561 |
-| Products tracked | 1,448 |
-| Retailers | 96 |
-| Currencies | 16 |
-| Monthly partitions in use | 111 |
+| Price events | 8,433 |
+| Products tracked | 3,932 |
+| Retailers | 157 |
+| Currencies | 24 |
+| Monthly partitions in use | 115 |
 | History span | 2010-07-08 → 2026-08-31 |
 
 ```bash
@@ -37,10 +42,10 @@ make test && make dbt-build && (cd infra && terraform validate)
 
 | Mart | Rows | Answers |
 |---|---|---|
-| `mart_price_trend` | 3,561 | daily series + day-over-day change |
-| `mart_price_gap_vs_own` | 149 | competitor vs our catalogue |
-| `mart_price_volatility` | 122 | which SKUs move most |
-| `mart_undercut_alerts` | 62 | who is undercutting us, how badly |
+| `mart_price_trend` | 8,433 | daily series + day-over-day change |
+| `mart_price_gap_vs_own` | 152 | competitor vs our catalogue |
+| `mart_price_volatility` | 272 | which SKUs move most |
+| `mart_undercut_alerts` | 108 (62 on evidence <= 7 days old) | who is undercutting us, how badly |
 | `mart_out_of_stock_frequency` | **0** | see limitations |
 
 ## Top undercuts (real output)
@@ -74,9 +79,9 @@ ranks against a €3.57 spread — and it stays comparable across 16 currencies.
 
 | Model | Series | Avg MAPE | Worst |
 |---|---|---|---|
-| AutoARIMA | 4 | **3.16%** | 5.56% |
-| SeasonalNaive (baseline) | 4 | 3.17% | 5.56% |
-| AutoETS | 4 | 3.17% | 5.56% |
+| AutoARIMA | 9 | **3.13%** | 15.56% |
+| SeasonalNaive (baseline) | 9 | 3.13% | 15.56% |
+| AutoETS | 9 | 3.13% | 15.56% |
 
 Inside the ≤12% SLA — but read the limitations below before quoting it.
 
@@ -102,9 +107,9 @@ labelled with the size they were measured at.
 
 | Band | Count |
 |---|---|
-| Auto-matched (≥ 0.92) | 70 |
-| Queued for human review (0.80–0.92) | 461 |
-| Products embedded | 1,390 |
+| Auto-matched (≥ 0.92) | 370 |
+| Queued for human review (0.80–0.92) | 2,187 |
+| Products embedded | 3,848 |
 
 Auto-matches were inspected: the 1.000-similarity pairs are genuinely identical titles
 differing only in case ("Yaourt avec des Fruits" / "Yaourt avec des fruits").
@@ -116,11 +121,13 @@ These are real and not worked around:
 1. **`mart_out_of_stock_frequency` returns zero rows.** Neither keyless source publishes
    availability. The model is written against the real schema and starts producing
    numbers the moment a stock-bearing source (Best Buy, Digi-Key) is connected.
-2. **Only 4 of 22 series are fresh enough to forecast**, each scored on a handful of
-   observed points — too thin to trust a per-series MAPE. The pipeline is correct; the
-   crowd-sourced source is sparse. A daily-refresh retail API is what makes it meaningful.
-3. **Every undercut is stale evidence.** Recorded, surfaced with a confidence label, and
-   deliberately not delivered.
+2. **11 of 50 series are fresh enough to forecast** (was 4 of 22 before the recency fix).
+   Still a thin basis for a per-series MAPE, and the three models remain within 0.01 of
+   each other — retail prices are close to a random walk, so the naive baseline wins 8 of
+   11. That is a real finding, not a bug, but a daily-refresh retail API is what would
+   make forecasting genuinely meaningful here.
+3. **62 of 108 undercuts now rest on evidence <= 7 days old** and are deliverable; the
+   rest are recorded with a staleness label and withheld.
 4. **Terraform has never been applied.** `fmt` and `validate` pass; `plan` has not run.
 5. **The CrewAI path has not run against a live model.** No LLM key is configured. The
    guard and the fallback are tested independently of it.

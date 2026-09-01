@@ -63,6 +63,11 @@ packages = ["app"]
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint.per-file-ignores]
+# The report generator embeds an HTML document; wrapping its lines would corrupt
+# the markup for no benefit.
+"scripts/build_report.py" = ["E501"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
 

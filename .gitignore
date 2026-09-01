@@ -13,3 +13,6 @@ dbt/dbt_packages/
 # Claude Code local session config
 .claude/
 dbt/logs/
+
+# generated report artefacts are committed; scratch renders are not
+docs/report/*.png

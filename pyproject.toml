@@ -67,6 +67,7 @@ target-version = "py312"
 # The report generator embeds an HTML document; wrapping its lines would corrupt
 # the markup for no benefit.
 "scripts/build_report.py" = ["E501"]
+"scripts/report_figures.py" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]

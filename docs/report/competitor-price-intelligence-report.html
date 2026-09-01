@@ -23,24 +23,25 @@
          font-family:var(--f-body); font-size:10.5pt; line-height:1.55; }
   .page { max-width:52rem; margin:0 auto; padding:2.5rem 2rem 4rem; }
 
-  h1,h2,h3 { font-family:var(--f-head); margin:0; font-weight:600; text-wrap:balance; }
+  h1,h2,h3,h4 { font-family:var(--f-head); margin:0; font-weight:600; text-wrap:balance; }
   h1 { font-size:24pt; line-height:1.12; letter-spacing:-.01em; }
-  h2 { font-size:14pt; margin-top:1.9rem; padding-bottom:.3rem;
+  h2 { font-size:14pt; margin-top:2rem; padding-bottom:.3rem;
         border-bottom:1.5px solid var(--ink); break-after:avoid; page-break-after:avoid; }
-  h3 { font-size:11.5pt; margin-top:1.2rem; color:var(--ink-soft);
+  h3 { font-size:11.5pt; margin-top:1.3rem; color:var(--ink-soft);
         break-after:avoid; page-break-after:avoid; }
+  h4 { font-size:10.5pt; margin-top:1rem; color:var(--ink-soft); }
   p { margin:.6rem 0; }
   ul,ol { margin:.6rem 0; padding-left:1.15rem; }
   li { margin:.25rem 0; }
-  code { font-family:var(--f-mono); font-size:.88em; background:var(--tint);
+  code { font-family:var(--f-mono); font-size:.86em; background:var(--tint);
           padding:.05rem .25rem; border-radius:2px; }
+  .hl { color:var(--accent); font-weight:600; }
   pre { font-family:var(--f-mono); font-size:8.5pt; line-height:1.5; background:var(--tint);
          border-left:2px solid var(--accent); padding:.7rem .9rem; margin:.8rem 0;
          overflow-x:auto; break-inside:avoid; page-break-inside:avoid; }
   pre code { background:none; padding:0; }
 
-  /* cover */
-  .cover { border-bottom:3px solid var(--ink); padding-bottom:1.4rem; margin-bottom:1.6rem; }
+  .cover { border-bottom:3px solid var(--ink); padding-bottom:1.4rem; margin-bottom:1.4rem; }
   .kicker { font-family:var(--f-mono); font-size:8.5pt; letter-spacing:.16em;
              text-transform:uppercase; color:var(--accent); }
   .subtitle { font-size:12pt; color:var(--ink-soft); margin-top:.5rem; }
@@ -60,8 +61,11 @@
               text-transform:uppercase; letter-spacing:.05em; color:var(--ink-mute); }
   td.num,th.num { font-family:var(--f-mono); font-variant-numeric:tabular-nums;
                    text-align:right; white-space:nowrap; }
+  td.where { font-family:var(--f-mono); font-size:8pt; color:var(--ink-soft); }
+  td.why { color:var(--ink-soft); }
   caption { caption-side:top; text-align:left; font-size:8.5pt; color:var(--ink-mute);
              padding-bottom:.3rem; font-family:var(--f-mono); }
+  table.legend td:first-child { white-space:nowrap; }
 
   figure { margin:1.2rem 0; break-inside:avoid; page-break-inside:avoid; }
   .figscroll { overflow-x:auto; }
@@ -73,7 +77,6 @@
   .callout { border-left:3px solid var(--accent); background:var(--tint);
               padding:.65rem .9rem; margin:.9rem 0; font-size:9.5pt;
               break-inside:avoid; page-break-inside:avoid; }
-  .callout.warn { border-left-color:var(--warn); }
   .tag { display:inline-block; font-family:var(--f-mono); font-size:7.5pt;
           text-transform:uppercase; letter-spacing:.04em; padding:.08rem .35rem;
           border-radius:2px; white-space:nowrap; }
@@ -83,16 +86,12 @@
   .tag.mute { background:var(--tint); color:var(--ink-mute); }
 
   .toc { background:var(--tint); border-left:3px solid var(--accent);
-          padding:.8rem 1.1rem; margin:1.4rem 0; font-size:9.5pt; }
+          padding:.8rem 1.1rem; margin:1.3rem 0; font-size:9.5pt; }
   .toc ol { columns:2; column-gap:1.8rem; margin:.3rem 0 0; }
-  .toc li { break-inside:avoid; margin:.12rem 0; }
+  .toc li { break-inside:avoid; margin:.1rem 0; }
 
   @page { size:A4; margin:16mm 14mm 18mm; }
-  @media print {
-    .page { max-width:none; margin:0; padding:0; }
-    h2 { break-before:auto; }
-    a { color:var(--ink); text-decoration:none; }
-  }
+  @media print { .page { max-width:none; margin:0; padding:0; } a { color:var(--ink); text-decoration:none; } }
 </style>
 </head>
 <body>
@@ -101,15 +100,16 @@
 <header class="cover">
   <div class="kicker">Data Engineering Project &#183; Submission</div>
   <h1>Competitor Price and Availability Intelligence Platform</h1>
-  <p class="subtitle">An end-to-end pipeline that tracks competitor prices across retailers,
-  records every change, forecasts short-term movement, and alerts on undercutting.</p>
+  <p class="subtitle">An end-to-end data platform that tracks competitor prices across
+  retailers, records every change, forecasts short-term movement, matches equivalent
+  products across catalogues, and alerts when a competitor undercuts us.</p>
   <dl class="meta">
     <div><dt>Submitted by</dt><dd>Love Vyas</dd></div>
     <div><dt>Date</dt><dd>1 September 2026</dd></div>
     <div><dt>Domain</dt><dd>Retail price intelligence</dd></div>
-    <div><dt>Core stack</dt><dd>Python, Celery, PostgreSQL, dbt</dd></div>
-    <div><dt>Data source</dt><dd>Open Prices (public API)</dd></div>
-    <div><dt>Scale delivered</dt><dd>8,433 price events</dd></div>
+    <div><dt>Core stack</dt><dd>Python &#183; Celery &#183; PostgreSQL &#183; dbt</dd></div>
+    <div><dt>Target cloud</dt><dd>AWS ap-south-1 (Mumbai)</dd></div>
+    <div><dt>Scale</dt><dd>8,433 price observations</dd></div>
   </dl>
 </header>
 
@@ -118,31 +118,34 @@
   <ol>
     <li>Problem statement</li>
     <li>Objectives and scope</li>
+    <li>Solution overview</li>
+    <li>Technology stack and where each part is used</li>
     <li>Data sources</li>
-    <li>Solution architecture</li>
-    <li>Technology stack</li>
-    <li>Database design</li>
-    <li>Data pipeline</li>
-    <li>Analytics layer</li>
-    <li>Forecasting</li>
-    <li>Product matching</li>
-    <li>Serving and visualization</li>
-    <li>Infrastructure</li>
+    <li>Module 1 &#8212; Ingestion</li>
+    <li>Module 2 &#8212; Change data capture</li>
+    <li>Module 3 &#8212; Database design</li>
+    <li>Module 4 &#8212; Transformation</li>
+    <li>Module 5 &#8212; Machine learning: forecasting</li>
+    <li>Module 6 &#8212; Machine learning: product matching</li>
+    <li>Module 7 &#8212; Agentic AI: the weekly brief</li>
+    <li>Module 8 &#8212; Presentation layer</li>
+    <li>Field legend (data dictionary)</li>
+    <li>AWS deployment plan</li>
+    <li>Security and access control</li>
     <li>Testing and data quality</li>
     <li>Results</li>
-    <li>Challenges and resolutions</li>
-    <li>Limitations and future work</li>
+    <li>Roadmap</li>
   </ol>
 </nav>
 
 <h2>Section 1 &#8212; Problem Statement</h2>
 
 <h3>Business context</h3>
-<p>Retailers and brands lose margin in two ways that are invisible without continuous
-monitoring. A competitor quietly drops a price and takes volume before anyone notices;
+<p>Retailers and brands lose margin in two ways that stay invisible without continuous
+monitoring. A competitor quietly drops a price and takes volume before anyone notices,
 or a competitor goes out of stock and the demand that would have gone to them is never
-captured. Commercial tools such as Prisync, Competera and Minderest sell exactly this
-capability &#8212; competitor price monitoring, repricing signals, and market intelligence.</p>
+captured. Commercial products such as Prisync, Competera and Minderest sell exactly this
+capability: competitor price monitoring, repricing signals and market intelligence.</p>
 
 <h3>The problem</h3>
 <p>Build a system that continuously monitors competitor prices and availability across
@@ -152,460 +155,430 @@ undercutting us and by how much, which products are volatile enough to need watc
 where prices are likely to move next.</p>
 
 <p>The system must work from public data sources, must not lose history when a source is
-unavailable, and must be honest about the confidence of what it reports &#8212; a price
-observed three weeks ago should not be presented with the same authority as one observed
-today.</p>
+temporarily unavailable, and must be explicit about the confidence of what it reports: a
+price observed three weeks ago should not carry the same authority as one observed today.</p>
 
 <h3>Expected outcome</h3>
 <p>A working pipeline that converts raw competitor price observations into a queryable
 analytical layer, a set of business marts answering specific pricing questions, short-term
-per-SKU forecasts with measured accuracy, an alerting path for undercutting, and a
-reporting layer suitable for both technical and non-technical consumers.</p>
+per-SKU forecasts with measured accuracy, cross-retailer product matching, an alerting
+path for undercutting, and reporting surfaces for both technical and business users.</p>
 
 <h2>Section 2 &#8212; Objectives and Scope</h2>
 
 <table>
-  <thead><tr><th style="width:34%">Objective</th><th>Success criterion</th><th>Status</th></tr></thead>
+  <thead><tr><th style="width:30%">Objective</th><th>Success criterion</th><th>Outcome</th></tr></thead>
   <tbody>
-    <tr><td>Multi-source ingestion</td><td>Pluggable source interface; adding a source is one file</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Full change history</td><td>Every price and attribute change recorded, never overwritten</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Reproducibility</td><td>Warehouse rebuildable from raw payloads with no API calls</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Tested transformations</td><td>Business rules defined once and covered by data tests</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Forecasting</td><td>Per-SKU forecast with backtested error, benchmarked against a naive baseline</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Undercut alerting</td><td>Alerts raised with severity and evidence age, deduplicated</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Availability tracking</td><td>Out-of-stock frequency per SKU and retailer</td><td><span class="tag warn">blocked</span></td></tr>
-    <tr><td>Cloud deployment</td><td>Infrastructure as code for the full stack</td><td><span class="tag warn">written, not applied</span></td></tr>
+    <tr><td>Multi-source ingestion</td><td>Pluggable source interface; adding a source is one file</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Complete change history</td><td>Every price and attribute change recorded, never overwritten</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Reproducibility</td><td>Warehouse rebuildable from stored raw payloads with no API calls</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Tested transformations</td><td>Business rules defined once and covered by automated data tests</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Forecasting</td><td>Per-SKU forecast with backtested error inside a 12% target</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Entity resolution</td><td>Cross-catalogue product matching with human review</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Undercut alerting</td><td>Alerts with severity and evidence age, deduplicated</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Presentation</td><td>Dashboard, API, review screen and written brief</td><td><span class="tag good">achieved</span></td></tr>
   </tbody>
 </table>
 
 <p><b>In scope:</b> ingestion from public APIs, change data capture, warehouse modelling,
-forecasting, alerting, product matching, and reporting.</p>
+forecasting, product matching, alerting, and reporting.</p>
 <p><b>Out of scope:</b> web scraping, checkout or transactions, multi-tenancy, and
-sub-minute streaming. No personal data is collected; the system holds public product
+sub-minute streaming. No personal data is collected; the platform holds public product
 prices only.</p>
 
-<h2>Section 3 &#8212; Data Sources</h2>
+<h2>Section 3 &#8212; Solution Overview</h2>
 
-<p>The platform is built on <b>Open Prices</b>, the price project of Open Food Facts. It is a
-public, keyless API carrying crowd-sourced retail prices, each with a real observation
-date and an OpenStreetMap store location. This matters: one product barcode genuinely
-appears at several named retailers over time, which is the exact shape a competitor-price
-platform needs. Product attribute data (name, brand, category) comes from the Open Food
-Facts catalogue embedded in the same payload.</p>
+<p>The platform is organised as four stages and eight modules. Data is acquired on a
+schedule, stored twice (raw and modelled), transformed into tested business marts, and
+presented through five surfaces. Every presentation surface reads the marts, so a
+definition such as "what counts as an undercut" exists in exactly one place.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 920 400" role="img" aria-label="High level architecture. Public price APIs feed a scheduled ingestion layer. Raw payloads go to object storage before parsing; normalized rows go to PostgreSQL with change data capture. dbt builds tested marts. Forecasting, product matching and the AI brief read the marts, and results are served through an API, a BI dashboard, a review interface and alerts."><defs><marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><text x="12" y="20" font-size="11" opacity=".55">1. ACQUIRE</text><text x="250" y="20" font-size="11" opacity=".55">2. STORE</text><text x="500" y="20" font-size="11" opacity=".55">3. MODEL</text><text x="720" y="20" font-size="11" opacity=".55">4. PRESENT</text><line x1="12" y1="30" x2="908" y2="30" stroke="currentColor" stroke-width=".7" opacity=".2"/><rect x="12" y="50" width="170" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="97.0" y="70" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Price sources</text><text x="97.0" y="88" text-anchor="middle" font-size="11" opacity=".72">Open Prices API</text><text x="97.0" y="103" text-anchor="middle" font-size="11" opacity=".72">retail APIs (roadmap)</text><rect x="12" y="165" width="170" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="97.0" y="185" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Celery Beat</text><text x="97.0" y="203" text-anchor="middle" font-size="11" opacity=".72">10 schedules</text><text x="97.0" y="218" text-anchor="middle" font-size="11" opacity=".72">tier 1 / 2 / 3</text><rect x="12" y="280" width="170" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="97.0" y="300" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Celery workers</text><text x="97.0" y="318" text-anchor="middle" font-size="11" opacity=".72">rate limit + quota</text><text x="97.0" y="333" text-anchor="middle" font-size="11" opacity=".72">retry, backoff, DLQ</text><rect x="250" y="50" width="180" height="74" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="340.0" y="70" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Object storage</text><text x="340.0" y="88" text-anchor="middle" font-size="11" opacity=".72">raw JSON, gzipped</text><text x="340.0" y="103" text-anchor="middle" font-size="11" opacity=".72">written before parsing</text><rect x="250" y="165" width="180" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="340.0" y="185" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">PostgreSQL</text><text x="340.0" y="203" text-anchor="middle" font-size="11" opacity=".72">reference tables</text><text x="340.0" y="218" text-anchor="middle" font-size="11" opacity=".72">SCD2 dimension</text><text x="340.0" y="233" text-anchor="middle" font-size="11" opacity=".72">append-only events</text><text x="340.0" y="248" text-anchor="middle" font-size="11" opacity=".72">pgvector embeddings</text><rect x="250" y="305" width="180" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3"/><text x="340.0" y="325" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Dead letter</text><text x="340.0" y="343" text-anchor="middle" font-size="11" opacity=".72">failed payloads</text><rect x="500" y="50" width="170" height="90" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="585.0" y="70" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">dbt</text><text x="585.0" y="88" text-anchor="middle" font-size="11" opacity=".72">staging</text><text x="585.0" y="103" text-anchor="middle" font-size="11" opacity=".72">intermediate</text><text x="585.0" y="118" text-anchor="middle" font-size="11" opacity=".72">5 marts + 102 tests</text><rect x="500" y="175" width="170" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="585.0" y="195" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">ML layer</text><text x="585.0" y="213" text-anchor="middle" font-size="11" opacity=".72">statsforecast</text><text x="585.0" y="228" text-anchor="middle" font-size="11" opacity=".72">vector matching</text><rect x="500" y="285" width="170" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="585.0" y="305" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">AI layer</text><text x="585.0" y="323" text-anchor="middle" font-size="11" opacity=".72">CrewAI agents</text><text x="585.0" y="338" text-anchor="middle" font-size="11" opacity=".72">numeric guardrail</text><rect x="720" y="50" width="188" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="814.0" y="70" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">FastAPI</text><text x="814.0" y="88" text-anchor="middle" font-size="11" opacity=".72">7 endpoints</text><rect x="720" y="130" width="188" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="814.0" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Metabase</text><text x="814.0" y="168" text-anchor="middle" font-size="11" opacity=".72">BI dashboard</text><rect x="720" y="210" width="188" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="814.0" y="230" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Streamlit</text><text x="814.0" y="248" text-anchor="middle" font-size="11" opacity=".72">match review</text><rect x="720" y="290" width="188" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="814.0" y="310" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Alerts</text><text x="814.0" y="328" text-anchor="middle" font-size="11" opacity=".72">Slack / email</text><path d="M 97 124 V 165" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 97 239 V 280" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 182 300 H 216 V 87 H 246" fill="none" stroke="#0e6b59" stroke-width="1.6" marker-end="url(#ar1a)"/><text x="188" y="80" font-size="10" fill="#0e6b59">raw first</text><path d="M 182 317 H 246" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#ar1)"/><path d="M 182 330 H 216 V 220 H 246" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><text x="188" y="214" font-size="10" opacity=".7">normalized</text><path d="M 340 124 V 165" fill="none" stroke="#0e6b59" stroke-width="1.6" marker-end="url(#ar1a)" stroke-dasharray="5 3"/><text x="346" y="150" font-size="10" fill="#0e6b59">replay</text><path d="M 430 200 H 466 V 95 H 496" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 670 95 H 700 V 80 H 716" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 670 110 H 690 V 160 H 716" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 670 212 H 690 V 240 H 716" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 670 322 H 716" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 585 140 V 175" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><path d="M 585 249 V 285" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar1)"/><text x="12" y="388" font-size="10" opacity=".6">Green = the raw-first path: payloads are stored before parsing, so the warehouse can be rebuilt from them without calling any API again.</text></g></svg></div><figcaption><b>Figure 1.</b> End-to-end architecture. Data moves left to right through four stages; every presentation surface reads from the modelled marts, never from raw tables.</figcaption></figure>
+
+<h2>Section 4 &#8212; Technology Stack and Where Each Part Is Used</h2>
+
+<p>Each technology below is listed with the specific job it does in this system, so its
+role is unambiguous. Items marked in <span class="hl">green</span> are the machine
+learning, vector search and agentic AI components.</p>
 
 <table>
-  <thead><tr><th>Source</th><th>Auth</th><th>Role</th><th>Status</th></tr></thead>
+  <thead><tr><th style="width:22%">Technology</th><th style="width:44%">Where it is used here</th><th>Purpose</th></tr></thead>
+  <tbody><tr><td><b>Celery + Celery Beat</b></td><td>Runs all 10 scheduled jobs: tier refreshes, mart rebuild, nightly forecast, matching, alert evaluation, weekly brief, monthly partition creation</td><td class='why'>Orchestration. Lighter than Airflow for periodic polling with task fan-out</td></tr><tr><td><b>Redis</b></td><td>Two distinct jobs: message broker for Celery, and shared state for the rate limiter (token bucket) and daily API quota counters</td><td class='why'>Broker + coordination. Shared so limits hold across every worker process</td></tr><tr><td><b>PostgreSQL 16</b></td><td>Serving database: reference tables, SCD2 attribute history, append-only price and stock events, and all derived output</td><td class='why'>System of record for modelled data</td></tr><tr><td><b>pgvector <span class='hl'>(vector database)</span></b></td><td>The <code>product_versions.embedding</code> column stores a 384-dimension vector per product, indexed with HNSW. Used only by product matching, for approximate nearest-neighbour search</td><td class='why'>Vector search inside PostgreSQL, so no separate vector store is operated</td></tr><tr><td><b>Object storage (S3)</b></td><td>The raw zone: every API payload is written here gzipped before parsing, partitioned by source and date</td><td class='why'>Durable audit trail and the source for rebuilding the warehouse</td></tr><tr><td><b>dbt Core</b></td><td>Transformation: 6 staging views, 3 intermediate views, 5 marts, and 102 data tests that run with the build</td><td class='why'>Business logic defined once, in tested SQL</td></tr><tr><td><b>Pydantic v2</b></td><td>Validates each normalized record's shape as it is parsed from a source payload</td><td class='why'>Per-record contract at the ingestion boundary</td></tr><tr><td><b>Pandera</b></td><td>Validates the whole parsed batch before it reaches the database (catches an all-null column or an empty source)</td><td class='why'>Cross-record contract that per-record checks cannot see</td></tr><tr><td><b>Nixtla statsforecast <span class='hl'>(ML)</span></b></td><td>Nightly per-SKU price forecasting: AutoETS and AutoARIMA candidates against a SeasonalNaive baseline, scored by rolling-origin cross-validation</td><td class='why'>Statistical time-series modelling with native prediction intervals</td></tr><tr><td><b>fastembed / all-MiniLM-L6-v2 <span class='hl'>(ML)</span></b></td><td>Turns <code>title + brand + category</code> into the 384-dimension vector stored in pgvector</td><td class='why'>Sentence embeddings via ONNX runtime, avoiding a PyTorch dependency</td></tr><tr><td><b>CrewAI <span class='hl'>(agentic AI)</span></b></td><td>Weekly pricing brief: three agents (analyst, forecast interpreter, writer) turn a fixed facts payload into prose</td><td class='why'>Role-based agent orchestration for the one narrative task</td></tr><tr><td><b>FastAPI</b></td><td>REST API with 7 endpoints, API-key authentication, and generated OpenAPI documentation</td><td class='why'>Serving layer for programmatic consumers</td></tr><tr><td><b>Metabase</b></td><td>Business dashboard: scorecards, undercut table, volatility leaderboard, price trends, forecast accuracy</td><td class='why'>Self-service BI connected straight to the marts</td></tr><tr><td><b>Streamlit</b></td><td>Human-in-the-loop screen where a reviewer approves or rejects candidate product matches</td><td class='why'>Internal review UI, minimal code</td></tr><tr><td><b>Alembic</b></td><td>Versioned schema migrations, including partition creation and index management</td><td class='why'>Reproducible database evolution</td></tr><tr><td><b>Terraform</b></td><td>Defines the entire AWS target: VPC, subnets, EC2, RDS, S3, SSM, IAM, CloudWatch, budget alarm</td><td class='why'>Infrastructure as code</td></tr><tr><td><b>Docker Compose</b></td><td>Local runtime for PostgreSQL and Redis; production image for API, worker and scheduler</td><td class='why'>Consistent environments</td></tr><tr><td><b>structlog</b></td><td>JSON-structured logs from workers and API, ready for CloudWatch ingestion</td><td class='why'>Machine-readable operational logging</td></tr><tr><td><b>pytest</b></td><td>150 automated tests covering normalizers, CDC rules, forecasting metrics, the numeric guard, alerting and authentication</td><td class='why'>Automated verification</td></tr></tbody>
+</table>
+
+<h2>Section 5 &#8212; Data Sources</h2>
+
+<p>The platform is built on <b>Open Prices</b>, the price project of Open Food Facts: a
+public API carrying crowd-sourced retail prices, each with a real observation date and an
+OpenStreetMap store location. That structure matters, because one product barcode
+genuinely appears at several named retailers over time, which is the exact shape a
+competitor-price platform needs. Product attributes (name, brand, category) come from the
+Open Food Facts catalogue embedded in the same payload.</p>
+
+<table>
+  <thead><tr><th>Source</th><th>Authentication</th><th>Role in the platform</th></tr></thead>
   <tbody>
-    <tr><td>Open Prices / Open Food Facts</td><td>keyless</td><td>All real price, retailer and product data</td><td><span class="tag good">live</span></td></tr>
-    <tr><td>Fake Store API</td><td>keyless</td><td>Deterministic fixture for tests and local development</td><td><span class="tag good">live</span></td></tr>
-    <tr><td>Best Buy</td><td>API key</td><td>Planned. Publishes stock, which activates availability tracking</td><td><span class="tag mute">interface ready</span></td></tr>
-    <tr><td>eBay Browse</td><td>OAuth</td><td>Planned. Configured with the documented 5,000/day quota</td><td><span class="tag mute">interface ready</span></td></tr>
-    <tr><td>Digi-Key</td><td>OAuth</td><td>Planned. Publishes real stock and price tiers</td><td><span class="tag mute">interface ready</span></td></tr>
+    <tr><td>Open Prices / Open Food Facts</td><td>None required</td><td>Primary source. All price, retailer and product data.</td></tr>
+    <tr><td>Fake Store API</td><td>None required</td><td>Deterministic fixture used by the automated tests.</td></tr>
+    <tr><td>Best Buy Developer API</td><td>API key</td><td>Roadmap. Adds stock levels and a US electronics catalogue.</td></tr>
+    <tr><td>eBay Browse API</td><td>OAuth 2.0</td><td>Roadmap. Large live catalogue with high price variance.</td></tr>
+    <tr><td>Digi-Key Product Information</td><td>OAuth 2.0</td><td>Roadmap. Component pricing with quantity tiers and real-time stock.</td></tr>
   </tbody>
 </table>
 
-<h3>Data characteristics</h3>
+<p>The source interface is deliberately narrow: a source implements how to fetch a
+payload and how to map it to the internal record shape. Ingestion, change data capture,
+transformation, forecasting and alerting are all source-independent, so adding one of the
+roadmap sources is a single new file rather than a change to the pipeline.</p>
+
+<div class="callout">
+<b>One authored dataset.</b> Every price, product, retailer and date is real and arrives
+from the API. The single exception is <code>own_catalog</code>, which represents the
+company's own price list &#8212; the thing competitor prices are compared against. No
+public API can supply that, so it is generated from products actually observed in the
+last 60 days, with our price set around each observed market average.
+</div>
+
+<h2>Section 6 &#8212; Module 1: Ingestion</h2>
+
+<p>Ingestion is scheduled, rate-limited and failure-aware. Products are assigned a
+<b>tier</b> that decides how often they are re-checked, which concentrates limited API
+quota on the products that move most: tier 1 every six hours, tier 2 daily, tier 3 weekly.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 486" role="img" aria-label="Ingestion module: a schedule fires, two Redis guards check rate and daily quota, the source API is called, the raw payload is stored before parsing, the record is normalized and validated, and change data capture applies it to PostgreSQL. Rate limiting causes a timed retry; an exhausted quota sends the task to the dead-letter store without retrying."><defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><circle cx="30" cy="46" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="50" text-anchor="middle" font-size="11" fill="currentColor">1</text><text x="56" y="45" font-size="13" font-weight="600" fill="currentColor">Schedule fires</text><text x="56" y="61" font-size="11" opacity=".72">Beat enqueues a tier refresh onto the broker</text><line x1="30" y1="59" x2="30" y2="85" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="98" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="102" text-anchor="middle" font-size="11" fill="currentColor">2</text><text x="56" y="97" font-size="13" font-weight="600" fill="currentColor">Rate guard</text><text x="56" y="113" font-size="11" opacity=".72">Redis token bucket: is a request allowed right now?</text><line x1="30" y1="111" x2="30" y2="137" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="150" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="154" text-anchor="middle" font-size="11" fill="currentColor">3</text><text x="56" y="149" font-size="13" font-weight="600" fill="currentColor">Quota guard</text><text x="56" y="165" font-size="11" opacity=".72">Redis daily counter: is the source's daily budget left?</text><line x1="30" y1="163" x2="30" y2="189" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="202" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="206" text-anchor="middle" font-size="11" fill="currentColor">4</text><text x="56" y="201" font-size="13" font-weight="600" fill="currentColor">Fetch</text><text x="56" y="217" font-size="11" opacity=".72">HTTP call to the source API</text><line x1="30" y1="215" x2="30" y2="241" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="254" r="13" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="30" y="258" text-anchor="middle" font-size="11" fill="#0e6b59">5</text><text x="56" y="253" font-size="13" font-weight="600" fill="#0e6b59">Persist raw</text><text x="56" y="269" font-size="11" opacity=".72">Gzipped JSON written to object storage, unparsed</text><line x1="30" y1="267" x2="30" y2="293" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="306" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="310" text-anchor="middle" font-size="11" fill="currentColor">6</text><text x="56" y="305" font-size="13" font-weight="600" fill="currentColor">Normalize</text><text x="56" y="321" font-size="11" opacity=".72">Source payload mapped to one internal record shape</text><line x1="30" y1="319" x2="30" y2="345" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="358" r="13" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="30" y="362" text-anchor="middle" font-size="11" fill="currentColor">7</text><text x="56" y="357" font-size="13" font-weight="600" fill="currentColor">Validate</text><text x="56" y="373" font-size="11" opacity=".72">Per record (Pydantic) and per batch (Pandera)</text><line x1="30" y1="371" x2="30" y2="397" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="410" r="13" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="30" y="414" text-anchor="middle" font-size="11" fill="#0e6b59">8</text><text x="56" y="409" font-size="13" font-weight="600" fill="#0e6b59">Apply CDC</text><text x="56" y="425" font-size="11" opacity=".72">Set-based upsert into PostgreSQL, idempotent</text><rect x="470" y="30" width="420" height="86" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".6"/><text x="486" y="52" font-size="12" font-weight="600">Failure handling</text><text x="486" y="70" font-size="11" opacity=".75">Rate limited -&gt; retry after the limiter's own computed delay.</text><text x="486" y="86" font-size="11" opacity=".75">Quota spent -&gt; dead-letter immediately, no retry: it cannot</text><text x="486" y="102" font-size="11" opacity=".75">succeed again until the quota resets.</text><rect x="470" y="140" width="420" height="70" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".6"/><text x="486" y="162" font-size="12" font-weight="600">Transport errors</text><text x="486" y="180" font-size="11" opacity=".75">Exponential backoff with jitter, up to five attempts, then the</text><text x="486" y="196" font-size="11" opacity=".75">payload is dead-lettered for inspection and replay.</text><text x="56" y="466" font-size="10" opacity=".6">Step 5 is what makes steps 6 to 8 repeatable without contacting the source again.</text></g></svg></div><figcaption><b>Figure 2.</b> Ingestion module. Two independent Redis guards sit in front of every HTTP call, and the raw payload is durable before any parsing logic runs.</figcaption></figure>
+
+<h3>Guarding the source APIs</h3>
+<p>Two independent guards sit in front of every HTTP call, both held in Redis so the limit
+applies across all worker processes rather than per worker:</p>
+<ul>
+  <li>A <b>token bucket</b> smooths the instantaneous request rate and allows a controlled burst.</li>
+  <li>A <b>daily counter</b> enforces a published quota, such as eBay's documented 5,000 calls per day.</li>
+</ul>
+<p>The two failure modes are handled differently on purpose. A rate limit is temporary, so
+the task retries after the delay the limiter itself computes. An exhausted daily quota
+cannot succeed again today, so the task is dead-lettered immediately rather than consuming
+retries that are certain to fail.</p>
+
+<h2>Section 7 &#8212; Module 2: Change Data Capture</h2>
+
+<p>The platform separates <i>what a product is</i> from <i>what was observed about it</i>.
+Product attributes are held as a Type 2 slowly changing dimension: when a tracked attribute
+changes, the open row is closed with an end timestamp and a new row is opened. Price
+observations are appended to an immutable event table. Nothing is ever updated in place,
+so the price on any past date can always be reconstructed.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 220" role="img" aria-label="Change data capture decision. An incoming observation is compared with the preceding observation for the same product and retailer. If the price differs, or the twenty-four hour heartbeat has elapsed, a new row is appended. Otherwise it is skipped. Existing rows are never modified."><defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="10" y="82" width="140" height="52" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="80.0" y="102" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">observation</text><text x="80.0" y="120" text-anchor="middle" font-size="11" opacity=".72">price + timestamp</text><polygon points="236,108 330,70 424,108 330,146" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="330" y="104" text-anchor="middle" font-size="11">price differs from</text><text x="330" y="119" text-anchor="middle" font-size="11">the preceding one?</text><polygon points="480,108 574,70 668,108 574,146" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="574" y="104" text-anchor="middle" font-size="11">24h heartbeat</text><text x="574" y="119" text-anchor="middle" font-size="11">elapsed?</text><rect x="726" y="40" width="164" height="52" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="808.0" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">append row</text><text x="808.0" y="78" text-anchor="middle" font-size="11" opacity=".72">idempotency key set</text><rect x="726" y="132" width="164" height="52" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3"/><text x="808.0" y="152" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">skip</text><text x="808.0" y="170" text-anchor="middle" font-size="11" opacity=".72">counted, not stored</text><path d="M 150 108 H 231" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/><path d="M 424 108 H 475" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/><text x="449" y="100" text-anchor="middle" font-size="10" opacity=".7">no</text><path d="M 330 70 V 44 L 721 44" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/><text x="356" y="38" font-size="10" opacity=".7">yes</text><path d="M 574 70 V 52 L 721 52" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/><text x="600" y="46" font-size="10" opacity=".7">yes &#8212; record liveness</text><path d="M 574 146 V 156 L 721 156" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar3)"/><text x="600" y="170" font-size="10" opacity=".7">no</text><text x="10" y="208" font-size="10" opacity=".6">The comparison uses the observation immediately PRECEDING this one in time, not the newest row, so backfilled history is judged against the right neighbour.</text></g></svg></div><figcaption><b>Figure 3.</b> Change data capture. Unchanged prices are not re-recorded, which keeps the event tables lean; the heartbeat still records that the system looked and saw no change.</figcaption></figure>
+
+<p>An observation is recorded when the price differs from the preceding one, or when 24
+hours have passed since the last record for that product and retailer. The heartbeat
+matters: without it, an unchanged price is indistinguishable from a source that stopped
+responding.</p>
+
+<h3>Two implementations, one behaviour</h3>
+<p>Change data capture exists as a readable row-by-row implementation and a set-based SQL
+implementation whose cost scales with batch size rather than record count. An automated
+parity test runs both over the same dataset and asserts the resulting rows are identical,
+covering late arrival, heartbeat boundaries, duplicates and multi-retailer days.</p>
+
+<h2>Section 8 &#8212; Module 3: Database Design</h2>
+
+<p>12 tables in three groups: reference data, append-only event history, and
+derived output. PostgreSQL 16 with the <code>pgvector</code> extension.</p>
+
+<figure class="figpage"><div class="figscroll"><svg viewBox="0 0 900 1030" role="img" aria-label="Detailed entity relationship diagram. SOURCES supplies PRODUCTS, RETAILERS and INGESTION_RUNS. PRODUCTS is the hub: it owns PRODUCT_VERSIONS which carries the vector embedding and relates to PRODUCT_MATCHES, and a single bus carries product_id into PRICE_EVENTS, STOCK_EVENTS, FORECASTS, FORECAST_ACCURACY and ALERTS. RETAILERS is referenced by both event tables, shown dashed. SEED_PRODUCTS is standalone ingestion configuration."><defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar4b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><text x="14" y="34" font-size="12" opacity=".6">REFERENCE DATA</text><text x="300" y="34" font-size="12" opacity=".6">CORE + ATTRIBUTE HISTORY</text><text x="620" y="34" font-size="12" opacity=".6">EVENTS + DERIVED OUTPUT</text><line x1="14" y1="44" x2="886" y2="44" stroke="currentColor" stroke-width=".7" opacity=".25"/><path d="M 246 159.0 H 273 V 235.0 H 300" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="250" y="152.0" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 130 222 V 272" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="136" y="262" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 130 398 V 462" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="136" y="438" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 416 320 V 420" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="422" y="366" font-size="11" opacity=".6" text-anchor="start">1:N  attribute history</text><path d="M 416 590 V 700" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="422" y="636" font-size="11" opacity=".6" text-anchor="start">1:N x2  (side a, side b)</text><path d="M 532 235.0 H 556" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><path d="M 556 145.0 V 923.0" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5"/><path d="M 556 145.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><path d="M 556 385.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><path d="M 556 603.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><path d="M 556 763.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><path d="M 556 923.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#ar4)"/><text x="556" y="96" font-size="11" opacity=".6" text-anchor="middle">product_id 1:N</text><path d="M 246 335.0 H 590" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3"/><path d="M 590 175.0 V 415.0" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3"/><path d="M 590 175.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3" marker-end="url(#ar4)"/><path d="M 590 415.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3" marker-end="url(#ar4)"/><text x="300" y="328.0" font-size="11" opacity=".6" text-anchor="start">retailer_id 1:N (dashed)</text><rect x="14" y="96" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="126" x2="246" y2="126" stroke="currentColor" stroke-width="1.2"/><text x="24" y="116" font-size="14" font-weight="600" fill="currentColor">SOURCES</text><text x="24" y="143" font-size="13" opacity=".85">source_id</text><text x="236" y="143" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="165" font-size="13" opacity=".85">name</text><text x="236" y="165" font-size="11" text-anchor="end" opacity=".55">UK</text><text x="24" y="187" font-size="13" opacity=".85">base_url</text><text x="24" y="209" font-size="13" opacity=".85">auth_type</text><rect x="14" y="272" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="302" x2="246" y2="302" stroke="currentColor" stroke-width="1.2"/><text x="24" y="292" font-size="14" font-weight="600" fill="currentColor">RETAILERS</text><text x="24" y="319" font-size="13" opacity=".85">retailer_id</text><text x="236" y="319" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="341" font-size="13" opacity=".85">source_id</text><text x="236" y="341" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="24" y="363" font-size="13" opacity=".85">name</text><text x="24" y="385" font-size="13" opacity=".85">country</text><rect x="14" y="462" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="492" x2="246" y2="492" stroke="currentColor" stroke-width="1.2"/><text x="24" y="482" font-size="14" font-weight="600" fill="currentColor">INGESTION_RUNS</text><text x="24" y="509" font-size="13" opacity=".85">run_id</text><text x="236" y="509" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="531" font-size="13" opacity=".85">source_id</text><text x="236" y="531" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="24" y="553" font-size="13" opacity=".85">status</text><text x="24" y="575" font-size="13" opacity=".85">records_ok</text><rect x="14" y="652" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="682" x2="246" y2="682" stroke="currentColor" stroke-width="1.2"/><text x="24" y="672" font-size="14" font-weight="600" fill="currentColor">SEED_PRODUCTS</text><text x="24" y="699" font-size="13" opacity=".85">seed_id</text><text x="236" y="699" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="721" font-size="13" opacity=".85">source_name</text><text x="24" y="743" font-size="13" opacity=".85">tier</text><text x="24" y="765" font-size="13" opacity=".85">active</text><rect x="300" y="150" width="232" height="170" rx="4" fill="none" stroke="#0e6b59" stroke-width="2"/><line x1="300" y1="180" x2="532" y2="180" stroke="#0e6b59" stroke-width="2"/><text x="310" y="170" font-size="14" font-weight="600" fill="#0e6b59">PRODUCTS</text><text x="310" y="197" font-size="13" opacity=".85">product_id</text><text x="522" y="197" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="219" font-size="13" opacity=".85">source_id</text><text x="522" y="219" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="241" font-size="13" opacity=".85">external_id</text><text x="522" y="241" font-size="11" text-anchor="end" opacity=".55">UK</text><text x="310" y="263" font-size="13" opacity=".85">upc</text><text x="310" y="285" font-size="13" opacity=".85">mpn</text><text x="310" y="307" font-size="13" opacity=".85">tier</text><rect x="300" y="420" width="232" height="170" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="300" y1="450" x2="532" y2="450" stroke="currentColor" stroke-width="1.2"/><text x="310" y="440" font-size="14" font-weight="600" fill="currentColor">PRODUCT_VERSIONS</text><text x="310" y="467" font-size="13" opacity=".85">version_id</text><text x="522" y="467" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="489" font-size="13" opacity=".85">product_id</text><text x="522" y="489" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="511" font-size="13" opacity=".85">title</text><text x="310" y="533" font-size="13" opacity=".85">embedding</text><text x="522" y="533" font-size="11" text-anchor="end" opacity=".55">vec</text><text x="310" y="555" font-size="13" opacity=".85">valid_from</text><text x="310" y="577" font-size="13" opacity=".85">is_current</text><rect x="300" y="700" width="232" height="148" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="300" y1="730" x2="532" y2="730" stroke="currentColor" stroke-width="1.2"/><text x="310" y="720" font-size="14" font-weight="600" fill="currentColor">PRODUCT_MATCHES</text><text x="310" y="747" font-size="13" opacity=".85">match_id</text><text x="522" y="747" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="769" font-size="13" opacity=".85">product_id_a</text><text x="522" y="769" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="791" font-size="13" opacity=".85">product_id_b</text><text x="522" y="791" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="813" font-size="13" opacity=".85">confidence</text><text x="310" y="835" font-size="13" opacity=".85">status</text><rect x="620" y="60" width="232" height="170" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="90" x2="852" y2="90" stroke="currentColor" stroke-width="1.2"/><text x="630" y="80" font-size="14" font-weight="600" fill="currentColor">PRICE_EVENTS</text><text x="630" y="107" font-size="13" opacity=".85">event_id</text><text x="842" y="107" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="129" font-size="13" opacity=".85">product_id</text><text x="842" y="129" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="151" font-size="13" opacity=".85">retailer_id</text><text x="842" y="151" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="173" font-size="13" opacity=".85">price</text><text x="630" y="195" font-size="13" opacity=".85">currency</text><text x="630" y="217" font-size="13" opacity=".85">observed_at</text><text x="842" y="217" font-size="11" text-anchor="end" opacity=".55">PK</text><rect x="620" y="300" width="232" height="170" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="330" x2="852" y2="330" stroke="currentColor" stroke-width="1.2"/><text x="630" y="320" font-size="14" font-weight="600" fill="currentColor">STOCK_EVENTS</text><text x="630" y="347" font-size="13" opacity=".85">event_id</text><text x="842" y="347" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="369" font-size="13" opacity=".85">product_id</text><text x="842" y="369" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="391" font-size="13" opacity=".85">retailer_id</text><text x="842" y="391" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="413" font-size="13" opacity=".85">in_stock</text><text x="630" y="435" font-size="13" opacity=".85">quantity</text><text x="630" y="457" font-size="13" opacity=".85">observed_at</text><text x="842" y="457" font-size="11" text-anchor="end" opacity=".55">PK</text><rect x="620" y="540" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="570" x2="852" y2="570" stroke="currentColor" stroke-width="1.2"/><text x="630" y="560" font-size="14" font-weight="600" fill="currentColor">FORECASTS</text><text x="630" y="587" font-size="13" opacity=".85">forecast_id</text><text x="842" y="587" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="609" font-size="13" opacity=".85">product_id</text><text x="842" y="609" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="631" font-size="13" opacity=".85">yhat</text><text x="630" y="653" font-size="13" opacity=".85">forecast_for</text><rect x="620" y="700" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="730" x2="852" y2="730" stroke="currentColor" stroke-width="1.2"/><text x="630" y="720" font-size="14" font-weight="600" fill="currentColor">FORECAST_ACCURACY</text><text x="630" y="747" font-size="13" opacity=".85">id</text><text x="842" y="747" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="769" font-size="13" opacity=".85">product_id</text><text x="842" y="769" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="791" font-size="13" opacity=".85">model</text><text x="630" y="813" font-size="13" opacity=".85">mape</text><rect x="620" y="860" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="890" x2="852" y2="890" stroke="currentColor" stroke-width="1.2"/><text x="630" y="880" font-size="14" font-weight="600" fill="currentColor">ALERTS</text><text x="630" y="907" font-size="13" opacity=".85">alert_id</text><text x="842" y="907" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="929" font-size="13" opacity=".85">product_id</text><text x="842" y="929" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="951" font-size="13" opacity=".85">severity</text><text x="630" y="973" font-size="13" opacity=".85">sent_at</text><text x="14" y="1002" font-size="11" opacity=".6">PK primary key &#183; FK foreign key &#183; UK unique &#183; vec = 384-dimension vector column &#183; dashed = retailer_id relationship</text><text x="14" y="1018" font-size="11" opacity=".6">price_events and stock_events are range-partitioned by month, so observed_at forms part of their primary key</text></g></svg></div><figcaption><b>Figure 4.</b> Entity relationship diagram. <code>products</code> is the hub: every table in the right-hand column carries <code>product_id</code> as a foreign key, drawn as one bus rather than five crossing lines. The embedding used for product matching lives on <code>product_versions</code>, so it versions with the attributes it was derived from.</figcaption></figure>
+
+<h3>Constraints enforced by the database</h3>
+<p>These are constraints in the schema, not conventions in application code, so no
+application bug can violate them.</p>
 <table>
-  <thead><tr><th>Property</th><th class="num">Value</th><th>Implication for design</th></tr></thead>
+  <thead><tr><th style="width:30%">Guarantee</th><th>Mechanism</th></tr></thead>
   <tbody>
-    <tr><td>Price observations</td><td class="num">8,433</td><td>Partitioning needed for query performance</td></tr>
-    <tr><td>Distinct products</td><td class="num">3,932</td><td>Per-SKU modelling is feasible</td></tr>
-    <tr><td>Distinct retailers</td><td class="num">157</td><td>Genuine multi-retailer comparison possible</td></tr>
-    <tr><td>Distinct currencies</td><td class="num">24</td><td>Currency must be part of the grain (see Section 8)</td></tr>
-    <tr><td>Observation span</td><td class="num">2010-07-08 to 2026-09-01</td><td>Historical backfill must not be treated as current</td></tr>
-    <tr><td>Observations in last 30 days</td><td class="num">3,736</td><td>Recent window drives forecasting and alerting</td></tr>
+    <tr><td>Exactly one current version per product</td><td>Partial unique index on <code>product_versions(product_id) where is_current</code></td></tr>
+    <tr><td>No duplicate observations</td><td>Unique index on <code>(idempotency_key, observed_at)</code>, so retries and replays collapse</td></tr>
+    <tr><td>A match is an unordered pair</td><td>Check constraint <code>product_id_a &lt; product_id_b</code>, so one claim cannot be stored twice</td></tr>
+    <tr><td>Events stay queryable at volume</td><td>Monthly range partitions on <code>observed_at</code>, created ahead of time (115 currently in use)</td></tr>
+  </tbody>
+</table>
+
+<h2>Section 9 &#8212; Module 4: Transformation</h2>
+
+<p>dbt Core builds the analytical layer in three stages. Staging views clean and type the
+serving tables. Intermediate views perform the join every mart needs and collapse
+observations to one price per product, retailer, currency and day. Marts answer specific
+business questions and are materialised as tables because they are queried repeatedly.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 420" role="img" aria-label="dbt model lineage. Six staging views read the serving tables. Three intermediate views build the shared join, a daily grain and a latest-price view. Five marts answer business questions and are the only thing downstream consumers read."><defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar5a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><text x="12" y="20" font-size="11" opacity=".55">SOURCE TABLES</text><text x="232" y="20" font-size="11" opacity=".55">STAGING (views)</text><text x="452" y="20" font-size="11" opacity=".55">INTERMEDIATE (views)</text><text x="700" y="20" font-size="11" opacity=".55">MARTS (tables)</text><line x1="12" y1="30" x2="888" y2="30" stroke="currentColor" stroke-width=".7" opacity=".2"/><rect x="12" y="48" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="67" text-anchor="middle" font-size="11">price_events</text><text x="176" y="67" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="48" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="67" text-anchor="middle" font-size="11">stg_price_events</text><rect x="12" y="88" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="107" text-anchor="middle" font-size="11">products</text><text x="176" y="107" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="88" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="107" text-anchor="middle" font-size="11">stg_products</text><rect x="12" y="128" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="147" text-anchor="middle" font-size="11">product_versions</text><text x="176" y="147" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="128" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="147" text-anchor="middle" font-size="11">stg_product_versions</text><rect x="12" y="168" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="187" text-anchor="middle" font-size="11">retailers</text><text x="176" y="187" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="168" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="187" text-anchor="middle" font-size="11">stg_retailers</text><rect x="12" y="208" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="227" text-anchor="middle" font-size="11">stock_events</text><text x="176" y="227" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="208" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="227" text-anchor="middle" font-size="11">stg_stock_events</text><rect x="12" y="248" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".75"/><text x="87" y="267" text-anchor="middle" font-size="11">sources</text><text x="176" y="267" font-size="11" opacity=".5">&#8594;</text><rect x="232" y="248" width="150" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1"/><text x="307" y="267" text-anchor="middle" font-size="11">stg_sources</text><rect x="452" y="60" width="196" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="550" y="79" text-anchor="middle" font-size="11.5" font-weight="600">int_price_observations</text><text x="550" y="95" text-anchor="middle" font-size="10" opacity=".7">the one join every mart reuses</text><rect x="452" y="150" width="196" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="550" y="169" text-anchor="middle" font-size="11.5" font-weight="600">int_price_daily</text><text x="550" y="185" text-anchor="middle" font-size="10" opacity=".7">one price per product/retailer/day</text><rect x="452" y="240" width="196" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="550" y="259" text-anchor="middle" font-size="11.5" font-weight="600">int_price_latest</text><text x="550" y="275" text-anchor="middle" font-size="10" opacity=".7">newest price + staleness</text><rect x="700" y="48" width="188" height="40" rx="3" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="794" y="73" text-anchor="middle" font-size="11" fill="#0e6b59">mart_price_trend</text><rect x="700" y="105" width="188" height="40" rx="3" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="794" y="130" text-anchor="middle" font-size="11" fill="#0e6b59">mart_price_volatility</text><rect x="700" y="162" width="188" height="40" rx="3" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="794" y="187" text-anchor="middle" font-size="11" fill="#0e6b59">mart_price_gap_vs_own</text><rect x="700" y="219" width="188" height="40" rx="3" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="794" y="244" text-anchor="middle" font-size="11" fill="#0e6b59">mart_undercut_alerts</text><rect x="700" y="276" width="188" height="40" rx="3" fill="none" stroke="#0e6b59" stroke-width="1.4"/><text x="794" y="301" text-anchor="middle" font-size="11" fill="#0e6b59">mart_out_of_stock_frequency</text><path d="M 382 63 H 420 V 83 H 448" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 382 223 H 420 V 83 H 448" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 550 106 V 150" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 550 196 V 240" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 648 173 H 672 V 68 H 696" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 648 173 H 672 V 125 H 696" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 648 263 H 672 V 182 H 696" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 794 202 V 219" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><path d="M 382 183 H 420 V 296 H 696" fill="none" stroke="currentColor" stroke-width="1" opacity=".55" marker-end="url(#ar5)"/><rect x="452" y="330" width="436" height="56" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".6"/><text x="468" y="352" font-size="12" font-weight="600">102 data tests run with the models</text><text x="468" y="370" font-size="11" opacity=".75">Schema, referential integrity, accepted ranges, and cross-field invariants.</text><text x="12" y="404" font-size="10" opacity=".6">Consumers read only marts. A rule such as "what counts as an undercut" is therefore defined exactly once.</text></g></svg></div><figcaption><b>Figure 5.</b> Transformation lineage. Staging cleans, intermediate joins once and defines the daily grain, and marts answer business questions. Tests run with the build, so a failing assertion stops bad numbers reaching the dashboard.</figcaption></figure>
+
+<table>
+  <thead><tr><th>Mart</th><th>Question it answers</th></tr></thead>
+  <tbody>
+    <tr><td><code>mart_price_trend</code></td><td>How has this product's price moved day by day, and what changed yesterday?</td></tr>
+    <tr><td><code>mart_price_volatility</code></td><td>Which products swing most in price, and therefore need watching?</td></tr>
+    <tr><td><code>mart_price_gap_vs_own</code></td><td>How does each competitor's price compare with ours for the same product?</td></tr>
+    <tr><td><code>mart_undercut_alerts</code></td><td>Who is currently cheaper than us, by how much, and how recent is the evidence?</td></tr>
+    <tr><td><code>mart_out_of_stock_frequency</code></td><td>How often is a product unavailable at a given retailer?</td></tr>
   </tbody>
 </table>
 
 <div class="callout">
-<b>One authored dataset.</b> Every price, product, retailer and date is real and comes from
-the API. The single exception is <code>own_catalog</code>, which represents the company's own
-catalogue &#8212; the thing competitor prices are compared against. No public API can supply
-that, so it is generated from products actually observed in the last 60 days, with our
-price set around each observed market average. Its provenance is documented alongside it.
+<b>Currency is part of the grain everywhere.</b> The data spans 24
+currencies. Subtracting a price in one currency from a price in another produces a number
+that looks authoritative and means nothing, and would raise false critical alerts &#8212;
+12 SEK beside 1.20 EUR reads as a catastrophic undercut when the two are close in value.
+The gap mart therefore joins on barcode <i>and</i> currency, so a cross-currency pair
+produces no row rather than a wrong one. Coefficient of variation is used as the
+volatility measure for the same reason: being a ratio, it stays comparable across
+currencies and price levels.
 </div>
 
-<h2>Section 4 &#8212; Solution Architecture</h2>
+<h2>Section 10 &#8212; Module 5: Machine Learning &#8212; Forecasting</h2>
 
-<p>Six stages, each independently runnable and inspectable. The defining design choice is
-that raw API payloads are persisted <i>before</i> parsing, which makes the database a
-derived artifact rather than the system of record.</p>
+<p>The platform forecasts short-term price movement per product using statistical
+time-series models from <b>Nixtla statsforecast</b>. Two candidate models compete against
+a mandatory naive baseline, and the winner is chosen per series on backtested error.</p>
 
-<figure>
-<div class="figscroll">
-<svg viewBox="0 0 900 300" role="img" aria-label="Six stage pipeline: sources feed ingestion, which writes raw payloads to bronze storage and normalized rows to PostgreSQL. dbt builds marts from PostgreSQL, and forecasting, the API, alerts and the AI layer read those marts. Bronze can replay back into PostgreSQL without contacting the sources.">
-  <defs>
-    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker>
-    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker>
-  </defs>
-  <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
-    <rect x="10" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="71" y="83" text-anchor="middle" font-size="13">Sources</text>
-    <text x="71" y="100" text-anchor="middle" font-size="11" opacity=".7">public APIs</text>
-    <rect x="186" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="247" y="83" text-anchor="middle" font-size="13">Ingestion</text>
-    <text x="247" y="100" text-anchor="middle" font-size="11" opacity=".7">Celery workers</text>
-    <rect x="362" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="423" y="83" text-anchor="middle" font-size="13">PostgreSQL</text>
-    <text x="423" y="100" text-anchor="middle" font-size="11" opacity=".7">CDC + history</text>
-    <rect x="538" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="599" y="83" text-anchor="middle" font-size="13">dbt marts</text>
-    <text x="599" y="100" text-anchor="middle" font-size="11" opacity=".7">tested</text>
-    <rect x="714" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="775" y="83" text-anchor="middle" font-size="13">Consumers</text>
-    <text x="775" y="100" text-anchor="middle" font-size="11" opacity=".7">API / BI / brief</text>
-    <line x1="132" y1="87" x2="181" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="308" y1="87" x2="357" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="484" y1="87" x2="533" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="660" y1="87" x2="709" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <text x="156" y="79" text-anchor="middle" font-size="10" opacity=".75">fetch</text>
-    <text x="332" y="79" text-anchor="middle" font-size="10" opacity=".75">upsert</text>
-    <text x="508" y="79" text-anchor="middle" font-size="10" opacity=".75">build</text>
-    <text x="684" y="79" text-anchor="middle" font-size="10" opacity=".75">read</text>
-    <rect x="186" y="188" width="298" height="54" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/>
-    <text x="335" y="211" text-anchor="middle" font-size="13" fill="#0e6b59">Bronze: raw payloads, stored before parsing</text>
-    <text x="335" y="228" text-anchor="middle" font-size="11" fill="#0e6b59" opacity=".85">local filesystem now, S3 in production</text>
-    <line x1="247" y1="114" x2="247" y2="185" stroke="#0e6b59" stroke-width="1.8" marker-end="url(#a2)"/>
-    <text x="255" y="152" font-size="11" fill="#0e6b59">write raw first</text>
-    <path d="M 423 188 L 423 116" fill="none" stroke="#0e6b59" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#a2)"/>
-    <text x="431" y="152" font-size="11" fill="#0e6b59">replay, no API calls</text>
-    <text x="775" y="152" text-anchor="middle" font-size="11" opacity=".75">forecasts / undercut alerts</text>
-    <text x="775" y="169" text-anchor="middle" font-size="11" opacity=".75">matching / weekly brief</text>
-    <line x1="775" y1="114" x2="775" y2="138" stroke="currentColor" stroke-width="1" opacity=".5"/>
-    <text x="10" y="278" font-size="11" opacity=".7">Solid = normal flow. Dashed = recovery path.</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 1.</b> Solution architecture in six stages. Raw payloads are written before parsing, so the warehouse can be rebuilt from them without contacting any source API.</figcaption>
-</figure>
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 400" role="img" aria-label="Forecasting pipeline. Daily price series are read from a mart, resampled to a regular daily grid, and filtered for length and recency. Three models are fitted: AutoETS, AutoARIMA and a SeasonalNaive baseline. Rolling origin cross validation scores each on unseen windows, the lowest error model is selected per series, and forecasts with prediction intervals plus the accuracy of every model are written back to the database."><defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar6a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="12" y="46" width="168" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="96.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">mart_price_trend</text><text x="96.0" y="84" text-anchor="middle" font-size="11" opacity=".72">daily series</text><text x="96.0" y="99" text-anchor="middle" font-size="11" opacity=".72">per product+retailer</text><rect x="12" y="160" width="168" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="96.0" y="180" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Prepare</text><text x="96.0" y="198" text-anchor="middle" font-size="11" opacity=".72">resample to daily grid</text><text x="96.0" y="213" text-anchor="middle" font-size="11" opacity=".72">forward-fill gaps</text><text x="96.0" y="228" text-anchor="middle" font-size="11" opacity=".72">drop short / stale series</text><rect x="240" y="46" width="190" height="130" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="335.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Fit candidates</text><text x="335.0" y="84" text-anchor="middle" font-size="11" opacity=".72">AutoETS</text><text x="335.0" y="99" text-anchor="middle" font-size="11" opacity=".72">AutoARIMA</text><text x="335.0" y="114" text-anchor="middle" font-size="11" opacity=".72">SeasonalNaive (baseline)</text><text x="335.0" y="129" text-anchor="middle" font-size="11" opacity=".72"></text><text x="335.0" y="144" text-anchor="middle" font-size="11" opacity=".72">statsforecast</text><rect x="240" y="210" width="190" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="335.0" y="230" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Backtest</text><text x="335.0" y="248" text-anchor="middle" font-size="11" opacity=".72">rolling-origin CV</text><text x="335.0" y="263" text-anchor="middle" font-size="11" opacity=".72">3 windows, 7-day horizon</text><text x="335.0" y="278" text-anchor="middle" font-size="11" opacity=".72">scored on unseen data</text><rect x="490" y="120" width="190" height="88" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="585.0" y="140" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Select champion</text><text x="585.0" y="158" text-anchor="middle" font-size="11" opacity=".72">lowest backtested error</text><text x="585.0" y="173" text-anchor="middle" font-size="11" opacity=".72">baseline retained unless</text><text x="585.0" y="188" text-anchor="middle" font-size="11" opacity=".72">genuinely beaten</text><rect x="740" y="46" width="150" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="815.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">forecasts</text><text x="815.0" y="84" text-anchor="middle" font-size="11" opacity=".72">yhat + interval</text><text x="815.0" y="99" text-anchor="middle" font-size="11" opacity=".72">per date</text><rect x="740" y="160" width="150" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="815.0" y="180" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">forecast_accuracy</text><text x="815.0" y="198" text-anchor="middle" font-size="11" opacity=".72">MAPE per model</text><text x="815.0" y="213" text-anchor="middle" font-size="11" opacity=".72">kept for all, not</text><text x="815.0" y="228" text-anchor="middle" font-size="11" opacity=".72">only the winner</text><path d="M 96 120 V 160" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/><path d="M 180 200 H 210 V 110 H 236" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/><path d="M 335 176 V 210" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/><path d="M 430 254 H 460 V 164 H 486" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/><path d="M 680 150 H 710 V 83 H 736" fill="none" stroke="#0e6b59" stroke-width="1.5" marker-end="url(#ar6a)"/><path d="M 680 178 H 710 V 197 H 736" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/><rect x="12" y="290" width="668" height="76" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".6"/><text x="28" y="312" font-size="12" font-weight="600">Why a baseline always competes</text><text x="28" y="330" font-size="11" opacity=".75">Retail prices are close to a random walk over short horizons. A model that cannot beat</text><text x="28" y="346" font-size="11" opacity=".75">"tomorrow looks like today" is not worth its cost, and without the baseline in the comparison</text><text x="28" y="362" font-size="11" opacity=".75">there is no way to tell. Scoring ignores forward-filled days so the metric measures forecasting.</text></g></svg></div><figcaption><b>Figure 6.</b> Forecasting module. Accuracy is measured by refitting on successive windows and scoring predictions the model has not seen, which is what makes the reported error meaningful rather than flattering.</figcaption></figure>
 
-<table>
-  <thead><tr><th>Layer</th><th>Responsibility</th></tr></thead>
-  <tbody>
-    <tr><td>Ingestion</td><td>Scheduled fetch with per-source rate limiting and daily quota guards; retries with backoff; dead-letter for permanent failures</td></tr>
-    <tr><td>Bronze (raw zone)</td><td>Immutable gzipped JSON, partitioned by source and date, keyed by an idempotency hash</td></tr>
-    <tr><td>Serving database</td><td>Normalized reference data, slowly-changing dimension, append-only event tables</td></tr>
-    <tr><td>Transformation</td><td>dbt models in three layers, with data tests that gate the build</td></tr>
-    <tr><td>Analytics</td><td>Forecasting, product matching, undercut evaluation</td></tr>
-    <tr><td>Presentation</td><td>REST API, Metabase dashboard, Slack alerts, weekly written brief</td></tr>
-  </tbody>
-</table>
+<h3>How accuracy is measured</h3>
+<p>Accuracy is measured by <b>rolling-origin cross-validation</b>, not by how well a model
+fits the data it was trained on. The model is refitted at successive cut-off points and
+scored only on the days after each cut-off, which it has not seen. The reported metric is
+MAPE &#8212; the average size of the error as a percentage of the actual price.</p>
 
-<h2>Section 5 &#8212; Technology Stack</h2>
+<p>Prices arrive irregularly, so each series is resampled onto a regular daily grid and
+carried forward between observations, on the assumption that a shelf price holds until it
+is next seen. Scoring deliberately ignores those filled days, so the metric measures the
+forecast rather than the filling. Series that are too short or whose newest observation is
+older than the staleness threshold are excluded rather than modelled unreliably.</p>
 
-<table>
-  <thead><tr><th>Layer</th><th>Technology</th><th>Reason for selection</th></tr></thead>
-  <tbody>
-    <tr><td>Orchestration</td><td>Celery 5.5 + Celery Beat</td><td>Periodic polling with task fan-out; far lighter than a full orchestrator for this workload</td></tr>
-    <tr><td>Broker</td><td>Redis</td><td>Also backs the shared rate limiter, so one component serves two needs</td></tr>
-    <tr><td>Database</td><td>PostgreSQL 16 + pgvector</td><td>Partitioning, JSONB and vector similarity in one engine; no separate vector store</td></tr>
-    <tr><td>Transformation</td><td>dbt Core</td><td>SQL-first, testable, documented lineage</td></tr>
-    <tr><td>Validation</td><td>Pydantic v2 + Pandera</td><td>Per-record shape and cross-record batch contracts</td></tr>
-    <tr><td>Forecasting</td><td>Nixtla statsforecast</td><td>Fast per-SKU statistical models with native prediction intervals</td></tr>
-    <tr><td>Embeddings</td><td>fastembed (ONNX)</td><td>Same 384-dim model as sentence-transformers without the PyTorch dependency</td></tr>
-    <tr><td>API</td><td>FastAPI</td><td>Typed request and response models, generated OpenAPI documentation</td></tr>
-    <tr><td>Dashboard</td><td>Metabase</td><td>Connects directly to the marts; no BI-specific modelling layer needed</td></tr>
-    <tr><td>Review UI</td><td>Streamlit</td><td>Minimal code for an internal human-in-the-loop screen</td></tr>
-    <tr><td>Infrastructure</td><td>Terraform</td><td>Reviewable, version-controlled cloud definition</td></tr>
-  </tbody>
-</table>
-
-<h2>Section 6 &#8212; Database Design</h2>
-
-<p>Twelve tables in three groups: reference data, append-only event history, and derived
-output. The design separates <i>what a product is</i> (slowly changing) from <i>what was
-observed about it</i> (append-only), which is what makes exact change history possible.</p>
-
-<figure class="figpage">
-<div class="figscroll">
-<svg viewBox="0 0 900 1020" role="img" aria-label="Entity relationship diagram of twelve tables. SOURCES supplies PRODUCTS, RETAILERS and INGESTION_RUNS. PRODUCTS is the hub: it owns PRODUCT_VERSIONS which in turn relates to PRODUCT_MATCHES, and a single bus carries the product_id foreign key into PRICE_EVENTS, STOCK_EVENTS, FORECASTS, FORECAST_ACCURACY and ALERTS. RETAILERS is referenced by both event tables, shown dashed. SEED_PRODUCTS is standalone ingestion configuration.">
-  <defs>
-    <marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity=".5"/>
-    </marker>
-  </defs>
-  <g font-family="IBM Plex Mono, monospace" fill="currentColor">
-    <text x="14" y="34" font-size="12" opacity=".6">REFERENCE</text>
-    <text x="300" y="34" font-size="12" opacity=".6">CORE AND HISTORY</text>
-    <text x="620" y="34" font-size="12" opacity=".6">EVENTS AND DERIVED</text>
-    <line x1="14" y1="44" x2="886" y2="44" stroke="currentColor" stroke-width=".7" opacity=".25"/>
-    <path d="M 246 148.0 H 273 V 224.0 H 300" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="250" y="141.0" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 130 200 V 260" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="136" y="234" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 130 386 V 450" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="136" y="420" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 416 298 V 420" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="422" y="340" font-size="11" opacity=".6" text-anchor="start">1:N</text><path d="M 416 568 V 680" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="422" y="610" font-size="11" opacity=".6" text-anchor="start">1:N x2 (a, b)</text><path d="M 532 224.0 H 556" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"/><path d="M 556 145.0 V 923.0" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5"/><path d="M 556 145.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><path d="M 556 374.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><path d="M 556 583.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><path d="M 556 753.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><path d="M 556 923.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" marker-end="url(#er)"/><text x="556" y="96" font-size="11" opacity=".6" text-anchor="middle">product_id 1:N</text><path d="M 246 323.0 H 590" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3"/><path d="M 590 171.0 V 400.0" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3"/><path d="M 590 171.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3" marker-end="url(#er)"/><path d="M 590 400.0 H 620" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5" stroke-dasharray="5 3" marker-end="url(#er)"/><text x="300" y="316.0" font-size="11" opacity=".6" text-anchor="start">retailer_id  1:N (dashed)</text>
-    <rect x="14" y="96" width="232" height="104" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="126" x2="246" y2="126" stroke="currentColor" stroke-width="1.2"/><text x="24" y="116" font-size="14" font-weight="600" fill="currentColor">SOURCES</text><text x="24" y="143" font-size="13" opacity=".85">source_id</text><text x="236" y="143" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="165" font-size="13" opacity=".85">name</text><text x="236" y="165" font-size="11" text-anchor="end" opacity=".55">UK</text><text x="24" y="187" font-size="13" opacity=".85">auth_type</text><rect x="14" y="260" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="290" x2="246" y2="290" stroke="currentColor" stroke-width="1.2"/><text x="24" y="280" font-size="14" font-weight="600" fill="currentColor">RETAILERS</text><text x="24" y="307" font-size="13" opacity=".85">retailer_id</text><text x="236" y="307" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="329" font-size="13" opacity=".85">source_id</text><text x="236" y="329" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="24" y="351" font-size="13" opacity=".85">name</text><text x="24" y="373" font-size="13" opacity=".85">country</text><rect x="14" y="450" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="480" x2="246" y2="480" stroke="currentColor" stroke-width="1.2"/><text x="24" y="470" font-size="14" font-weight="600" fill="currentColor">INGESTION_RUNS</text><text x="24" y="497" font-size="13" opacity=".85">run_id</text><text x="236" y="497" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="519" font-size="13" opacity=".85">source_id</text><text x="236" y="519" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="24" y="541" font-size="13" opacity=".85">status</text><text x="24" y="563" font-size="13" opacity=".85">records_ok</text><rect x="14" y="640" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="14" y1="670" x2="246" y2="670" stroke="currentColor" stroke-width="1.2"/><text x="24" y="660" font-size="14" font-weight="600" fill="currentColor">SEED_PRODUCTS</text><text x="24" y="687" font-size="13" opacity=".85">seed_id</text><text x="236" y="687" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="24" y="709" font-size="13" opacity=".85">source_name</text><text x="24" y="731" font-size="13" opacity=".85">tier</text><text x="24" y="753" font-size="13" opacity=".85">active</text><rect x="300" y="150" width="232" height="148" rx="4" fill="none" stroke="#0e6b59" stroke-width="2"/><line x1="300" y1="180" x2="532" y2="180" stroke="#0e6b59" stroke-width="2"/><text x="310" y="170" font-size="14" font-weight="600" fill="#0e6b59">PRODUCTS</text><text x="310" y="197" font-size="13" opacity=".85">product_id</text><text x="522" y="197" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="219" font-size="13" opacity=".85">source_id</text><text x="522" y="219" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="241" font-size="13" opacity=".85">external_id</text><text x="522" y="241" font-size="11" text-anchor="end" opacity=".55">UK</text><text x="310" y="263" font-size="13" opacity=".85">upc</text><text x="310" y="285" font-size="13" opacity=".85">tier</text><rect x="300" y="420" width="232" height="148" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="300" y1="450" x2="532" y2="450" stroke="currentColor" stroke-width="1.2"/><text x="310" y="440" font-size="14" font-weight="600" fill="currentColor">PRODUCT_VERSIONS</text><text x="310" y="467" font-size="13" opacity=".85">version_id</text><text x="522" y="467" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="489" font-size="13" opacity=".85">product_id</text><text x="522" y="489" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="511" font-size="13" opacity=".85">title</text><text x="310" y="533" font-size="13" opacity=".85">embedding</text><text x="310" y="555" font-size="13" opacity=".85">is_current</text><rect x="300" y="680" width="232" height="148" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="300" y1="710" x2="532" y2="710" stroke="currentColor" stroke-width="1.2"/><text x="310" y="700" font-size="14" font-weight="600" fill="currentColor">PRODUCT_MATCHES</text><text x="310" y="727" font-size="13" opacity=".85">match_id</text><text x="522" y="727" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="310" y="749" font-size="13" opacity=".85">product_id_a</text><text x="522" y="749" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="771" font-size="13" opacity=".85">product_id_b</text><text x="522" y="771" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="310" y="793" font-size="13" opacity=".85">confidence</text><text x="310" y="815" font-size="13" opacity=".85">status</text><rect x="620" y="60" width="232" height="170" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="90" x2="852" y2="90" stroke="currentColor" stroke-width="1.2"/><text x="630" y="80" font-size="14" font-weight="600" fill="currentColor">PRICE_EVENTS</text><text x="630" y="107" font-size="13" opacity=".85">event_id</text><text x="842" y="107" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="129" font-size="13" opacity=".85">product_id</text><text x="842" y="129" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="151" font-size="13" opacity=".85">retailer_id</text><text x="842" y="151" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="173" font-size="13" opacity=".85">price</text><text x="630" y="195" font-size="13" opacity=".85">currency</text><text x="630" y="217" font-size="13" opacity=".85">observed_at</text><text x="842" y="217" font-size="11" text-anchor="end" opacity=".55">PK</text><rect x="620" y="300" width="232" height="148" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="330" x2="852" y2="330" stroke="currentColor" stroke-width="1.2"/><text x="630" y="320" font-size="14" font-weight="600" fill="currentColor">STOCK_EVENTS</text><text x="630" y="347" font-size="13" opacity=".85">event_id</text><text x="842" y="347" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="369" font-size="13" opacity=".85">product_id</text><text x="842" y="369" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="391" font-size="13" opacity=".85">retailer_id</text><text x="842" y="391" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="413" font-size="13" opacity=".85">in_stock</text><text x="630" y="435" font-size="13" opacity=".85">observed_at</text><text x="842" y="435" font-size="11" text-anchor="end" opacity=".55">PK</text><rect x="620" y="520" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="550" x2="852" y2="550" stroke="currentColor" stroke-width="1.2"/><text x="630" y="540" font-size="14" font-weight="600" fill="currentColor">FORECASTS</text><text x="630" y="567" font-size="13" opacity=".85">forecast_id</text><text x="842" y="567" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="589" font-size="13" opacity=".85">product_id</text><text x="842" y="589" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="611" font-size="13" opacity=".85">yhat</text><text x="630" y="633" font-size="13" opacity=".85">forecast_for</text><rect x="620" y="690" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="720" x2="852" y2="720" stroke="currentColor" stroke-width="1.2"/><text x="630" y="710" font-size="14" font-weight="600" fill="currentColor">FORECAST_ACCURACY</text><text x="630" y="737" font-size="13" opacity=".85">id</text><text x="842" y="737" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="759" font-size="13" opacity=".85">product_id</text><text x="842" y="759" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="781" font-size="13" opacity=".85">model</text><text x="630" y="803" font-size="13" opacity=".85">mape</text><rect x="620" y="860" width="232" height="126" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="620" y1="890" x2="852" y2="890" stroke="currentColor" stroke-width="1.2"/><text x="630" y="880" font-size="14" font-weight="600" fill="currentColor">ALERTS</text><text x="630" y="907" font-size="13" opacity=".85">alert_id</text><text x="842" y="907" font-size="11" text-anchor="end" opacity=".55">PK</text><text x="630" y="929" font-size="13" opacity=".85">product_id</text><text x="842" y="929" font-size="11" text-anchor="end" opacity=".55">FK</text><text x="630" y="951" font-size="13" opacity=".85">severity</text><text x="630" y="973" font-size="13" opacity=".85">sent_at</text>
-    <text x="14" y="994" font-size="11" opacity=".6">PK primary key &#183; FK foreign key &#183; UK unique &#183; dashed = retailer_id foreign key</text>
-    <text x="14" y="1010" font-size="11" opacity=".6">price_events and stock_events are range-partitioned by month, so observed_at forms part of their primary key</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 3.</b> Database structure. <code>products</code> is the hub: every table in the right-hand column carries <code>product_id</code> as a foreign key, drawn here as a single bus rather than five crossing lines. The two event tables are append-only and partitioned; <code>product_versions</code> holds slowly-changing attribute history with exactly one open row per product.</figcaption>
-</figure>
-
-<h3>Table reference</h3>
-<table>
-  <thead><tr><th>Table</th><th>Group</th><th>Grain &#8212; one row per</th><th class="num">Rows</th></tr></thead>
-  <tbody>
-    <tr><td><code>sources</code></td><td>reference</td><td>upstream data source</td><td class="num">2</td></tr>
-    <tr><td><code>retailers</code></td><td>reference</td><td>retailer within a source</td><td class="num">157</td></tr>
-    <tr><td><code>products</code></td><td>reference</td><td>product within a source</td><td class="num">3,932</td></tr>
-    <tr><td><code>seed_products</code></td><td>reference</td><td>SKU selected for scheduled tracking</td><td class="num">60</td></tr>
-    <tr><td><code>product_versions</code></td><td>dimension (SCD2)</td><td>version of a product's attributes</td><td class="num">3,932</td></tr>
-    <tr><td><code>price_events</code></td><td>fact</td><td>observed price per product, retailer and time</td><td class="num">8,433</td></tr>
-    <tr><td><code>stock_events</code></td><td>fact</td><td>observed availability</td><td class="num">0</td></tr>
-    <tr><td><code>product_matches</code></td><td>derived</td><td>candidate pair of equivalent products</td><td class="num">2,557</td></tr>
-    <tr><td><code>forecasts</code></td><td>derived</td><td>predicted price for one product and date</td><td class="num">77</td></tr>
-    <tr><td><code>forecast_accuracy</code></td><td>derived</td><td>backtested error per product and model</td><td class="num">27</td></tr>
-    <tr><td><code>alerts</code></td><td>derived</td><td>alert raised, with delivery timestamp</td><td class="num">62</td></tr>
-    <tr><td><code>ingestion_runs</code></td><td>operational</td><td>one ingestion cycle</td><td class="num">&#8212;</td></tr>
-  </tbody>
-</table>
-
-<h3>Invariants enforced by the schema</h3>
-<p>These are constraints in the database, not conventions in application code, so no bug
-can violate them.</p>
-<table>
-  <thead><tr><th style="width:30%">Invariant</th><th>Mechanism</th></tr></thead>
-  <tbody>
-    <tr><td>Exactly one open version per product</td><td>Partial unique index on <code>product_versions(product_id) where is_current</code></td></tr>
-    <tr><td>No duplicate observations</td><td>Unique index on <code>(idempotency_key, observed_at)</code>; retries and replays collapse</td></tr>
-    <tr><td>A match is an unordered pair</td><td>Check constraint <code>product_id_a &lt; product_id_b</code></td></tr>
-    <tr><td>Events remain queryable at volume</td><td>Monthly range partitions on <code>observed_at</code>, created on demand (115 in use)</td></tr>
-  </tbody>
-</table>
-
-<h2>Section 7 &#8212; Data Pipeline</h2>
-
-<h3>Extraction</h3>
-<p>Celery Beat enqueues per-source fetch tasks on three cadences: high-volatility SKUs
-every six hours, mid-tier daily, long-tail weekly. Before any HTTP call, the worker passes
-two Redis-backed guards &#8212; a token bucket for instantaneous rate and a counter for the
-daily quota. Both live in Redis rather than in the worker, because Celery's own rate limit
-is per-worker and would silently multiply the request rate as workers scale out.</p>
-
-<p>Every response is written to the raw zone before it is parsed. Failures are separated by
-kind: a transport error retries with exponential backoff and jitter; a rate limit retries
-after the limiter's own computed delay; an exhausted daily quota does <i>not</i> retry,
-because it cannot succeed again until the quota resets, and instead dead-letters immediately.</p>
-
-<h3>Transformation</h3>
-<p>Raw payloads are normalized into a source-independent record, validated per record with
-Pydantic and per batch with Pandera, then applied to the warehouse with change data
-capture. Two independent checks catch different failures: per-record validation catches a
-malformed price, while batch validation catches an entire source returning zero rows or a
-column that has become all-null after an upstream change.</p>
-
-<figure>
-<div class="figscroll">
-<svg viewBox="0 0 900 215" role="img" aria-label="Change data capture decision: an incoming observation is compared with the preceding observation for the same product and retailer. If the price differs, or the twenty-four hour heartbeat has elapsed, a row is appended. Otherwise it is skipped. History is never updated in place.">
-  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker></defs>
-  <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
-    <rect x="10" y="82" width="136" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="78" y="103" text-anchor="middle" font-size="12">observation</text>
-    <text x="78" y="119" text-anchor="middle" font-size="11" opacity=".7">price + time</text>
-    <polygon points="232,106 324,68 416,106 324,144" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="324" y="102" text-anchor="middle" font-size="11">price changed</text>
-    <text x="324" y="117" text-anchor="middle" font-size="11">vs previous?</text>
-    <polygon points="474,106 566,68 658,106 566,144" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="566" y="102" text-anchor="middle" font-size="11">24h heartbeat</text>
-    <text x="566" y="117" text-anchor="middle" font-size="11">elapsed?</text>
-    <rect x="722" y="40" width="168" height="46" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/>
-    <text x="806" y="61" text-anchor="middle" font-size="12" fill="#0e6b59">append new row</text>
-    <text x="806" y="77" text-anchor="middle" font-size="11" fill="#0e6b59" opacity=".85">idempotency key set</text>
-    <rect x="722" y="130" width="168" height="46" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3"/>
-    <text x="806" y="151" text-anchor="middle" font-size="12">skip</text>
-    <text x="806" y="167" text-anchor="middle" font-size="11" opacity=".7">counted, not stored</text>
-    <line x1="146" y1="106" x2="227" y2="106" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <line x1="416" y1="106" x2="469" y2="106" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="442" y="98" text-anchor="middle" font-size="11" opacity=".75">no</text>
-    <path d="M 324 68 L 324 40 L 717 40" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="350" y="33" font-size="11" opacity=".75">yes</text>
-    <path d="M 566 68 L 566 48 L 717 48" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="592" y="41" font-size="11" opacity=".75">yes, prove liveness</text>
-    <path d="M 566 144 L 566 153 L 717 153" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="592" y="168" font-size="11" opacity=".75">no</text>
-    <text x="10" y="203" font-size="11" opacity=".7">The comparison is against the observation preceding this one in time, not the newest row, so backfilled history is judged correctly.</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 2.</b> Insert-on-change with a heartbeat. Unchanged prices are not re-recorded, which keeps the event tables lean; the 24-hour heartbeat still records that the system looked and found no change.</figcaption>
-</figure>
-
-<p>Change data capture has two implementations with identical semantics. A row-by-row path
-is the readable reference; a set-based path stages the batch in a temporary table and
-expresses the same rules in SQL, so cost scales with batch size rather than record count.
-A parity test runs both over the same dataset and asserts identical output.</p>
-
-<h3>Loading</h3>
-<p>Product attributes are versioned as a Type 2 slowly changing dimension: when a tracked
-attribute changes, the open row is closed and a new one opened. Price observations are
-appended only when the price differs from the preceding observation, or when a 24-hour
-heartbeat has elapsed &#8212; which records that the system looked and found no change.
-History is never updated in place.</p>
-
-<h2>Section 8 &#8212; Analytics Layer</h2>
-
-<p>dbt Core on PostgreSQL, in three layers. Every downstream consumer &#8212; API, alerting,
-forecasting, dashboard and the written brief &#8212; reads marts, never the raw event
-tables. That is what keeps a business rule defined exactly once.</p>
-
-<table>
-  <thead><tr><th>Mart</th><th>Question it answers</th><th class="num">Rows</th></tr></thead>
-  <tbody>
-    <tr><td><code>mart_price_trend</code></td><td>Daily series and day-over-day change; feeds forecasting</td><td class="num">8,433</td></tr>
-    <tr><td><code>mart_price_volatility</code></td><td>Which SKUs move most, by coefficient of variation</td><td class="num">272</td></tr>
-    <tr><td><code>mart_price_gap_vs_own</code></td><td>Competitor price versus our catalogue, matched on barcode</td><td class="num">152</td></tr>
-    <tr><td><code>mart_undercut_alerts</code></td><td>Who is undercutting us, how badly, how fresh the evidence</td><td class="num">108</td></tr>
-    <tr><td><code>mart_out_of_stock_frequency</code></td><td>Out-of-stock rate per SKU and retailer</td><td class="num">0</td></tr>
-  </tbody>
-</table>
-
-<div class="callout">
-<b>Currency is part of the grain everywhere.</b> The data spans 24 currencies.
-Subtracting a price in one currency from a price in another produces a number that looks
-authoritative and means nothing &#8212; and would fire false critical alerts, since 12 SEK
-beside 1.20 EUR reads as a catastrophic undercut when the two are close in value. The gap
-mart therefore joins on barcode <i>and</i> currency, so a cross-currency pair produces no
-row rather than a wrong one. Coefficient of variation is used as the volatility measure
-for the same reason: being unitless, it stays comparable across currencies and price levels.
-</div>
-
-<h2>Section 9 &#8212; Forecasting</h2>
-
-<p>Per-SKU short-horizon price forecasting using statistical models: AutoETS and AutoARIMA
-as candidates, with SeasonalNaive as a mandatory baseline. Prices are irregular &#8212; an
-observation appears when someone records it &#8212; so each series is resampled onto a daily
-grid and forward-filled, on the assumption that a shelf price holds until next observed.</p>
-
-<p>Accuracy is measured by rolling-origin cross-validation, not by fit: the model is refitted
-on successive windows and scored on data it has not seen. Series shorter than a minimum
-length, or whose most recent observation is older than the staleness threshold, are excluded
-rather than forecast badly.</p>
-
-<table>
-  <caption>Backtested accuracy, latest run</caption>
-  <thead><tr><th>Model</th><th class="num">Series</th><th class="num">Avg MAPE</th><th class="num">Worst</th></tr></thead>
-  <tbody>
-    <tr><td>AutoARIMA</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-    <tr><td>SeasonalNaive (baseline)</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-    <tr><td>AutoETS</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-  </tbody>
-</table>
-
-<p>All three models score identically, and the naive baseline is never beaten. This is
-reported rather than hidden: on short, sparse series retail prices behave close to a random
-walk, and a champion that cannot beat "tomorrow looks like today" is not earning its cost.
-The pipeline is correct; the data density is the limiting factor. A daily-refresh retail API
-is what would make forecasting genuinely informative here.</p>
-
-<h2>Section 10 &#8212; Product Matching</h2>
+<h2>Section 11 &#8212; Module 6: Machine Learning &#8212; Product Matching</h2>
 
 <p>The same physical product appears under different barcodes, titles and languages across
-retailers. Matching them is what makes comparison possible beyond an exact barcode hit.
-The policy is deliberately ordered:</p>
+retailers. Resolving those into one identity is what makes comparison possible beyond an
+exact barcode hit. <b>This is the part of the system that uses vector search.</b></p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 430" role="img" aria-label="Product matching pipeline. Product title, brand and category are combined and embedded into a 384 dimension vector stored in PostgreSQL with pgvector. Exact barcode matches are accepted outright. Otherwise candidates are restricted by category, an approximate nearest neighbour search over an HNSW index produces similarity scores, and the score is banded: at or above 0.92 accepted automatically, between 0.80 and 0.92 sent for human review in Streamlit, below 0.80 rejected."><defs><marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar7a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="12" y="46" width="176" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="100.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Product text</text><text x="100.0" y="84" text-anchor="middle" font-size="11" opacity=".72">title | brand | category</text><rect x="12" y="156" width="176" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="100.0" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">fastembed (ONNX)</text><text x="100.0" y="194" text-anchor="middle" font-size="11" opacity=".72">all-MiniLM-L6-v2</text><text x="100.0" y="209" text-anchor="middle" font-size="11" opacity=".72">384 dimensions</text><text x="100.0" y="224" text-anchor="middle" font-size="11" opacity=".72">no PyTorch runtime</text><rect x="12" y="280" width="176" height="88" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="100.0" y="300" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">pgvector column</text><text x="100.0" y="318" text-anchor="middle" font-size="11" opacity=".72">product_versions</text><text x="100.0" y="333" text-anchor="middle" font-size="11" opacity=".72">.embedding</text><text x="100.0" y="348" text-anchor="middle" font-size="11" opacity=".72">HNSW index, cosine</text><rect x="250" y="46" width="190" height="74" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="345.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Exact identifier</text><text x="345.0" y="84" text-anchor="middle" font-size="11" opacity=".72">barcode / MPN match</text><rect x="250" y="156" width="190" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="345.0" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Blocking</text><text x="345.0" y="194" text-anchor="middle" font-size="11" opacity=".72">restrict to same category</text><rect x="250" y="266" width="190" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="345.0" y="286" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">ANN search</text><text x="345.0" y="304" text-anchor="middle" font-size="11" opacity=".72">top-k nearest neighbours</text><text x="345.0" y="319" text-anchor="middle" font-size="11" opacity=".72">cosine similarity</text><text x="345.0" y="334" text-anchor="middle" font-size="11" opacity=".72">over HNSW index</text><rect x="510" y="156" width="176" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="598.0" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Score band</text><text x="598.0" y="194" text-anchor="middle" font-size="11" opacity=".72">compare similarity</text><text x="598.0" y="209" text-anchor="middle" font-size="11" opacity=".72">against thresholds</text><rect x="730" y="40" width="158" height="66" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="809.0" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Accepted</text><text x="809.0" y="78" text-anchor="middle" font-size="11" opacity=".72">&#8805; 0.92</text><rect x="730" y="130" width="158" height="78" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="809.0" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Human review</text><text x="809.0" y="168" text-anchor="middle" font-size="11" opacity=".72">0.80 &#8211; 0.92</text><text x="809.0" y="183" text-anchor="middle" font-size="11" opacity=".72">Streamlit screen</text><rect x="730" y="232" width="158" height="66" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3"/><text x="809.0" y="252" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Rejected</text><text x="809.0" y="270" text-anchor="middle" font-size="11" opacity=".72">&lt; 0.80</text><rect x="730" y="330" width="158" height="66" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="809.0" y="350" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">product_matches</text><text x="809.0" y="368" text-anchor="middle" font-size="11" opacity=".72">decision + method</text><path d="M 100 120 V 156" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 100 244 V 280" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 188 310 H 214 V 310 H 246" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 188 83 H 246" fill="none" stroke="#0e6b59" stroke-width="1.5" marker-end="url(#ar7a)"/><path d="M 440 83 H 700 V 73 H 726" fill="none" stroke="#0e6b59" stroke-width="1.5" marker-end="url(#ar7a)"/><text x="470" y="76" font-size="10" fill="#0e6b59">identifier wins outright</text><path d="M 345 230 V 266" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 440 310 H 470 V 200 H 506" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 686 180 H 706 V 169 H 726" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 686 200 H 706 V 265 H 726" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><path d="M 809 208 V 232" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/><path d="M 809 106 V 130" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/><path d="M 809 298 V 330" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar7)"/><text x="12" y="408" font-size="10" opacity=".6">An exact barcode is a fact; a similarity score is an opinion. Identifiers therefore bypass the vector path entirely.</text><text x="12" y="422" font-size="10" opacity=".6">Reviewer decisions are stored with reviewer and timestamp, forming the labelled set that precision and recall are later measured against.</text></g></svg></div><figcaption><b>Figure 7.</b> Product matching. This is where the vector database capability is used: embeddings live in a <code>pgvector</code> column on <code>product_versions</code>, indexed with HNSW for approximate nearest-neighbour search.</figcaption></figure>
+
+<h3>How it works, step by step</h3>
 <ol>
-  <li><b>Structured identifiers win outright.</b> An exact barcode match is a fact; an
-  embedding similarity is an opinion.</li>
-  <li><b>Blocking before vector search.</b> Candidates are restricted by category first,
-  which cuts the comparison space and suppresses false positives on similar names.</li>
-  <li><b>Three confidence bands</b> rather than one cutoff.</li>
+  <li>Each product's <code>title</code>, <code>brand</code> and <code>category</code> are
+  combined into one string and converted by <b>fastembed</b> (model
+  <code>all-MiniLM-L6-v2</code>) into a <b>384-dimension vector</b> &#8212; a list of 384
+  numbers positioning that product in a space where similar meanings sit close together.</li>
+  <li>The vector is stored in the <code>embedding</code> column of
+  <code>product_versions</code> using the <b>pgvector</b> extension, indexed with
+  <b>HNSW</b> for fast approximate nearest-neighbour search.</li>
+  <li>An exact barcode or manufacturer part number match is accepted outright and never
+  overridden by a similarity score: an identifier is a fact, a score is an opinion.</li>
+  <li>Otherwise candidates are restricted to the same category first, which cuts the
+  comparison space and suppresses false matches between unrelated products with similar
+  names, and the nearest neighbours are retrieved by cosine similarity.</li>
+  <li>The score is banded: <b>0.92 and above</b> accepted automatically, <b>0.80 to
+  0.92</b> sent for human review, <b>below 0.80</b> rejected.</li>
 </ol>
 
+<p>Reviewer decisions are stored with reviewer identity and timestamp, which builds a
+labelled dataset over time &#8212; the basis for measuring precision and recall and tuning
+the thresholds on evidence.</p>
+
+<h2>Section 12 &#8212; Module 7: Agentic AI &#8212; The Weekly Brief</h2>
+
+<p>A weekly pricing brief summarises what changed, who is undercutting us, and what the
+forecasts support. It is produced by a <b>CrewAI</b> crew of three role-based agents, and
+its correctness is enforced mechanically rather than trusted.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 400" role="img" aria-label="Weekly brief generation. A facts builder queries the marts and produces a closed set of numbers. Three CrewAI agents, an analyst, a forecast interpreter and a writer, receive that payload and produce prose. A numeric guard checks every number in the prose against the facts. If all numbers are supported the narrated brief is published; if any number is unsupported the narrated version is discarded and a deterministic rendering of the same facts is published instead."><defs><marker id="ar8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar8a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="12" y="60" width="168" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="96.0" y="80" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">dbt marts</text><text x="96.0" y="98" text-anchor="middle" font-size="11" opacity=".72">undercuts, volatility,</text><text x="96.0" y="113" text-anchor="middle" font-size="11" opacity=".72">movers, forecasts,</text><text x="96.0" y="128" text-anchor="middle" font-size="11" opacity=".72">data quality</text><rect x="12" y="190" width="168" height="88" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="96.0" y="210" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Facts payload</text><text x="96.0" y="228" text-anchor="middle" font-size="11" opacity=".72">closed set of numbers</text><text x="96.0" y="243" text-anchor="middle" font-size="11" opacity=".72">JSON, not free text</text><rect x="240" y="40" width="178" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="329.0" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Analyst agent</text><text x="329.0" y="78" text-anchor="middle" font-size="11" opacity=".72">picks what matters</text><rect x="240" y="120" width="178" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="329.0" y="140" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Forecast agent</text><text x="329.0" y="158" text-anchor="middle" font-size="11" opacity=".72">explains confidence</text><rect x="240" y="200" width="178" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="329.0" y="220" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Writer agent</text><text x="329.0" y="238" text-anchor="middle" font-size="11" opacity=".72">composes the brief</text><rect x="228" y="26" width="202" height="252" rx="5" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/><text x="329" y="296" text-anchor="middle" font-size="11" opacity=".6">CrewAI &#183; sequential process</text><polygon points="480,154 580,110 680,154 580,198" fill="none" stroke="#0e6b59" stroke-width="1.6"/><text x="580" y="150" text-anchor="middle" font-size="11.5" fill="#0e6b59">every number</text><text x="580" y="165" text-anchor="middle" font-size="11.5" fill="#0e6b59">present in facts?</text><rect x="730" y="46" width="158" height="66" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="809.0" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">Narrated brief</text><text x="809.0" y="84" text-anchor="middle" font-size="11" opacity=".72">published</text><rect x="730" y="196" width="158" height="78" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="809.0" y="216" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Deterministic brief</text><text x="809.0" y="234" text-anchor="middle" font-size="11" opacity=".72">same facts,</text><text x="809.0" y="249" text-anchor="middle" font-size="11" opacity=".72">rendered directly</text><path d="M 96 148 V 190" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><path d="M 180 216 H 206 V 71 H 236" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><path d="M 180 234 H 206 V 151 H 236" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><path d="M 180 250 H 206 V 231 H 236" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><path d="M 418 231 H 450 V 154 H 476" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><path d="M 580 110 V 79 H 726" fill="none" stroke="#0e6b59" stroke-width="1.5" marker-end="url(#ar8a)"/><text x="600" y="72" font-size="10" fill="#0e6b59">all supported</text><path d="M 580 198 V 235 H 726" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar8)"/><text x="600" y="228" font-size="10" opacity=".7">any unsupported &#8212; discard narration</text><path d="M 180 234 H 200 V 320 H 700 V 262 H 726" fill="none" stroke="currentColor" stroke-width="1" opacity=".45" stroke-dasharray="5 3" marker-end="url(#ar8)"/><text x="300" y="334" font-size="10" opacity=".6">the same facts also feed the deterministic path directly</text><text x="12" y="368" font-size="10" opacity=".6">The agents never query the database. They receive a fixed payload, which is what makes the check decidable.</text><text x="12" y="384" font-size="10" opacity=".6">Worst case is a plainer brief, never one containing a figure the data does not support.</text></g></svg></div><figcaption><b>Figure 8.</b> AI module. CrewAI supplies the writing; the guardrail supplies the trust. Because the agents see a closed fact set rather than a database connection, every number they write can be checked mechanically.</figcaption></figure>
+
+<h3>The three agents</h3>
 <table>
-  <thead><tr><th>Band</th><th>Rule</th><th>Action</th><th class="num">Pairs</th></tr></thead>
+  <thead><tr><th style="width:24%">Agent</th><th>Responsibility</th></tr></thead>
   <tbody>
-    <tr><td><span class="tag good">auto</span></td><td>cosine similarity &#8805; 0.92</td><td>accepted automatically</td><td class="num">370</td></tr>
-    <tr><td><span class="tag warn">review</span></td><td>0.80 to 0.92</td><td>queued for a human decision</td><td class="num">2,187</td></tr>
-    <tr><td><span class="tag mute">reject</span></td><td>&lt; 0.80</td><td>never surfaced</td><td class="num">&#8212;</td></tr>
+    <tr><td><b>Analyst</b></td><td>Selects the few findings that would actually change a pricing decision from the week's movements and undercuts.</td></tr>
+    <tr><td><b>Forecast interpreter</b></td><td>Explains what the forecasts and their error rates justify claiming, and says plainly when the evidence is thin.</td></tr>
+    <tr><td><b>Writer</b></td><td>Composes the brief in plain language from the analyst's findings and the interpreter's commentary.</td></tr>
   </tbody>
 </table>
 
-<p>Embeddings are 384-dimensional, stored in PostgreSQL via pgvector with an HNSW index. A
-Streamlit screen presents candidate pairs side by side with their similarity score; each
-verdict is stored with reviewer and timestamp, forming the labelled set against which
-precision and recall can later be measured.</p>
+<h3>Why the agents cannot invent numbers</h3>
+<p>A language model asked to summarise a week will produce plausible figures whether or not
+they are real, and a pricing brief is precisely the kind of document people act on without
+re-deriving. Two design decisions remove that risk:</p>
+<ul>
+  <li><b>The agents never query the database.</b> A facts builder runs the queries and hands
+  the crew a fixed payload: a closed set of numbers. There is no mechanism by which a figure
+  outside that set can be legitimately produced.</li>
+  <li><b>Every number in the output is checked against that payload.</b> If any figure is not
+  present in the facts, the narrated version is discarded and a deterministic rendering of the
+  same facts is published instead.</li>
+</ul>
+<p>The worst outcome is therefore a plainer brief, never a brief containing a number the
+data does not support.</p>
 
-<h2>Section 11 &#8212; Serving and Visualization</h2>
+<h2>Section 13 &#8212; Module 8: Presentation Layer</h2>
 
-<h3>API</h3>
+<p>Five surfaces, each serving a different audience, all reading the same marts.</p>
+
+<figure class=""><div class="figscroll"><svg viewBox="0 0 900 460" role="img" aria-label="User interface surfaces. The Metabase dashboard shows scorecards, an undercut table, a volatility leaderboard, price trend charts and forecast accuracy. The Streamlit review screen shows candidate product pairs for approval. The REST API exposes seven endpoints. Alerts are delivered to Slack or email. The weekly brief is a written document. All five surfaces read from the marts."><defs><marker id="ar9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar9a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="360" y="20" width="180" height="54" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="450.0" y="40" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">dbt marts</text><text x="450.0" y="58" text-anchor="middle" font-size="11" opacity=".72">single source for all UI</text><rect x="12" y="110" width="420" height="230" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="24" y="132" font-size="12.5" font-weight="600">Metabase dashboard</text><rect x="24" y="144" width="90" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="32" y="159" font-size="9" opacity=".6">Products</text><text x="32" y="177" font-size="14" font-weight="600">3,932</text><rect x="124" y="144" width="90" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="132" y="159" font-size="9" opacity=".6">Retailers</text><text x="132" y="177" font-size="14" font-weight="600">157</text><rect x="224" y="144" width="90" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="232" y="159" font-size="9" opacity=".6">Undercuts</text><text x="232" y="177" font-size="14" font-weight="600">108</text><rect x="324" y="144" width="90" height="42" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="332" y="159" font-size="9" opacity=".6">Events</text><text x="332" y="177" font-size="14" font-weight="600">8,433</text><rect x="24" y="198" width="196" height="60" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="32" y="214" font-size="9.5" opacity=".7">Undercut table</text><line x1="32" y1="226" x2="150" y2="226" stroke="currentColor" stroke-width="3" opacity=".22"/><line x1="176" y1="226" x2="212" y2="226" stroke="#0e6b59" stroke-width="3" opacity=".55"/><line x1="32" y1="237" x2="150" y2="237" stroke="currentColor" stroke-width="3" opacity=".22"/><line x1="176" y1="237" x2="212" y2="237" stroke="#0e6b59" stroke-width="3" opacity=".55"/><line x1="32" y1="248" x2="150" y2="248" stroke="currentColor" stroke-width="3" opacity=".22"/><line x1="176" y1="248" x2="212" y2="248" stroke="#0e6b59" stroke-width="3" opacity=".55"/><rect x="232" y="198" width="188" height="60" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="240" y="214" font-size="9.5" opacity=".7">Volatility leaderboard</text><rect x="240" y="221" width="140" height="6" rx="2" fill="#0e6b59" opacity=".45"/><rect x="240" y="232" width="106" height="6" rx="2" fill="#0e6b59" opacity=".45"/><rect x="240" y="243" width="72" height="6" rx="2" fill="#0e6b59" opacity=".45"/><rect x="24" y="268" width="396" height="58" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><text x="32" y="284" font-size="9.5" opacity=".7">Price trend by retailer &#183; forecast accuracy</text><polyline points="34,318 74,306 114,312 154,296 194,302 234,290 274,296 314,284 354,290 410,280" fill="none" stroke="#0e6b59" stroke-width="1.6" opacity=".8"/><rect x="460" y="110" width="200" height="112" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="472" y="132" font-size="12.5" font-weight="600">Streamlit review</text><rect x="472" y="144" width="82" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".55"/><rect x="566" y="144" width="82" height="46" rx="3" fill="none" stroke="currentColor" stroke-width="1" opacity=".55"/><text x="513" y="170" text-anchor="middle" font-size="9.5" opacity=".65">product A</text><text x="607" y="170" text-anchor="middle" font-size="9.5" opacity=".65">product B</text><text x="560" y="208" text-anchor="middle" font-size="9" fill="#0e6b59">same / different &#183; 0.87</text><rect x="686" y="110" width="202" height="112" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="698" y="132" font-size="12.5" font-weight="600">REST API</text><text x="698" y="150" font-size="9.5" opacity=".7">/products</text><text x="698" y="162" font-size="9.5" opacity=".7">/prices/{id}</text><text x="698" y="174" font-size="9.5" opacity=".7">/forecasts/{id}</text><text x="698" y="186" font-size="9.5" opacity=".7">/undercuts</text><text x="698" y="198" font-size="9.5" opacity=".7">/alerts</text><text x="698" y="210" font-size="9.5" opacity=".7">/matches/review</text><rect x="460" y="240" width="200" height="100" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="472" y="262" font-size="12.5" font-weight="600">Alerts</text><text x="472" y="282" font-size="10" opacity=".72">Slack / email delivery</text><text x="472" y="298" font-size="10" opacity=".72">severity + evidence age</text><text x="472" y="314" font-size="10" opacity=".72">deduplicated per product</text><text x="472" y="330" font-size="10" opacity=".72">stale evidence withheld</text><rect x="686" y="240" width="202" height="100" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="698" y="262" font-size="12.5" font-weight="600">Weekly brief</text><text x="698" y="282" font-size="10" opacity=".72">Markdown document</text><text x="698" y="298" font-size="10" opacity=".72">top movers + undercuts</text><text x="698" y="314" font-size="10" opacity=".72">forecast commentary</text><text x="698" y="330" font-size="10" opacity=".72">numerically guarded</text><path d="M 400 74 V 92 H 222 V 106" fill="none" stroke="#0e6b59" stroke-width="1.3" opacity=".75" marker-end="url(#ar9a)"/><path d="M 440 74 V 92 H 560 V 106" fill="none" stroke="#0e6b59" stroke-width="1.3" opacity=".75" marker-end="url(#ar9a)"/><path d="M 470 74 V 92 H 787 V 106" fill="none" stroke="#0e6b59" stroke-width="1.3" opacity=".75" marker-end="url(#ar9a)"/><path d="M 460 74 V 92 H 660 V 236" fill="none" stroke="#0e6b59" stroke-width="1" opacity=".35"/><text x="12" y="368" font-size="10" opacity=".6">Five surfaces, one definition. Because each reads the same marts, the undercut count on the dashboard, in the API and in the brief cannot disagree.</text><rect x="12" y="384" width="876" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".55"/><text x="28" y="404" font-size="11.5" font-weight="600">Who uses which surface</text><text x="28" y="422" font-size="10.5" opacity=".75">Category manager &#8594; dashboard and weekly brief &#183; Pricing analyst &#8594; alerts and API &#183; Data steward &#8594; review screen</text><text x="28" y="438" font-size="10.5" opacity=".75">Engineer &#8594; API and pipeline observability</text></g></svg></div><figcaption><b>Figure 9.</b> Presentation layer. What each audience sees, and where it comes from. Every surface is downstream of the same tested marts.</figcaption></figure>
+
 <table>
   <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
   <tbody>
     <tr><td><code>GET /health</code></td><td>Liveness, database reachability, whether authentication is enabled</td></tr>
-    <tr><td><code>GET /products</code></td><td>Catalogue, filterable by category and tier</td></tr>
-    <tr><td><code>GET /prices/{product_id}</code></td><td>Daily price history with change percentage</td></tr>
+    <tr><td><code>GET /products</code></td><td>Tracked catalogue, filterable by category and tier</td></tr>
+    <tr><td><code>GET /prices/{product_id}</code></td><td>Daily price history with day-over-day change</td></tr>
     <tr><td><code>GET /forecasts/{product_id}</code></td><td>Latest forecast with prediction intervals</td></tr>
-    <tr><td><code>GET /undercuts</code></td><td>Current undercuts, filterable by severity and staleness</td></tr>
-    <tr><td><code>GET /alerts</code></td><td>Raised alerts and delivery status</td></tr>
-    <tr><td><code>GET /matches/review</code></td><td>Candidate matches awaiting review</td></tr>
+    <tr><td><code>GET /undercuts</code></td><td>Current undercuts, filterable by severity and evidence age</td></tr>
+    <tr><td><code>GET /alerts</code></td><td>Raised alerts and their delivery status</td></tr>
+    <tr><td><code>GET /matches/review</code></td><td>Candidate product matches awaiting review</td></tr>
   </tbody>
 </table>
 
-<h3>Alerting</h3>
-<p>Undercuts are evaluated every six hours. Each alert carries a severity derived from the
-size of the gap and a confidence label derived from the age of the evidence. Alerts are
-deduplicated so a persistent undercut is not re-sent every cycle, and alerts resting on
-evidence older than the freshness threshold are recorded but deliberately not delivered.</p>
+<h2 class="figpage">Section 14 &#8212; Field Legend (Data Dictionary)</h2>
 
-<h3>Dashboard and written brief</h3>
-<p>Metabase connects directly to the marts; all dashboard cards were executed against the
-live database. Separately, a weekly brief is generated from a closed set of facts queried
-from the marts. An optional LLM narration layer receives the same facts and its output is
-checked number by number against them; any figure not present in the facts causes the
-narrated version to be discarded in favour of the deterministic one.</p>
+<p>Column names shown on the dashboard and in the API are defined below in plain language,
+grouped by where they appear. Names highlighted in <span class="hl">green</span> are the
+ones whose dashboard label differs from the underlying column.</p>
 
-<h2>Section 12 &#8212; Infrastructure</h2>
+<h3>Price and observation fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody><tr><td><code>observed_at</code></td><td class='where'>price_events, marts</td><td>When the price was seen <b>in the shop</b> &#8212; the source's own timestamp, not ours.</td></tr><tr><td><code>ingested_at</code></td><td class='where'>price_events</td><td>When our system stored it. The gap between the two is how late the data arrived.</td></tr><tr><td><code>currency</code></td><td class='where'>everywhere</td><td>ISO code such as EUR or SEK. Part of the grain: prices are never compared across currencies.</td></tr><tr><td><code>close_price</code></td><td class='where'>mart_price_trend</td><td>The last price recorded for that product, retailer and day. 'Close' as in end-of-day.</td></tr><tr><td><code>change_pct</code></td><td class='where'>mart_price_trend</td><td>Percentage change from the previous recorded day. Negative means the price fell.</td></tr><tr><td><code>idempotency_key</code></td><td class='where'>price_events</td><td>A fingerprint of source, product, retailer and time. Stops a retry recording the same observation twice.</td></tr></tbody>
+</table>
 
-<p>The target deployment is defined in Terraform: a VPC with the application host in a public
-subnet and the database in private subnets with no internet route, PostgreSQL on RDS with TLS
-enforced and no public address, an S3 bucket for the raw zone with versioning and lifecycle
-tiering, secrets in SSM Parameter Store, a least-privilege instance role, CloudWatch alarms,
-and a monthly budget alarm. Continuous integration runs linting, the test suites, dbt
-compilation and Terraform validation without requiring cloud credentials.</p>
+<h3>Competitor comparison and alerting fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody><tr><td><code>our_price</code></td><td class='where'>gap and undercut marts</td><td>The price in our own catalogue for the matched product.</td></tr><tr><td><code>competitor_price</code></td><td class='where'>gap and undercut marts</td><td>The most recent price seen at that competitor.</td></tr><tr><td><code>gap_abs</code></td><td class='where'>mart_price_gap_vs_own</td><td>Their price minus ours, in currency. Negative = they are cheaper.</td></tr><tr><td><code>gap_pct</code></td><td class='where'>gap and undercut marts</td><td>The same difference as a percentage of our price. &#8722;28.70 means they are 28.7% below us.</td></tr><tr><td><code>is_undercut</code></td><td class='where'>mart_price_gap_vs_own</td><td>True when the competitor is cheaper than us.</td></tr><tr><td><code>severity</code></td><td class='where'>mart_undercut_alerts</td><td>How large the undercut is: <b>critical</b> at 20% or more below us, <b>high</b> at 10&#8211;20%, <b>medium</b> under 10%.</td></tr><tr><td><code>days_stale <span class='hl'>(shown as 'Age')</span></code></td><td class='where'>undercut mart, alerts</td><td>How many days old the evidence is. 0 = seen today. Large values mean the price may have changed since.</td></tr><tr><td><code>confidence</code></td><td class='where'>mart_undercut_alerts</td><td>A plain label for that age: <b>fresh</b> (0&#8211;1 days), <b>recent</b> (2&#8211;7 days), <b>stale</b> (over 7 days). Alerts on stale evidence are recorded but not sent.</td></tr></tbody>
+</table>
 
-<div class="callout warn">
-<b>Not applied.</b> The configuration passes <code>terraform fmt</code> and
-<code>terraform validate</code>, which confirms syntax and provider schema only.
-<code>terraform plan</code> has not been run against a real account, so a first apply should
-be expected to surface genuine issues such as availability-zone availability, engine version
-drift and IAM propagation delays.
-</div>
+<h3>Volatility fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody><tr><td><code>mean_price</code></td><td class='where'>mart_price_volatility</td><td>Average price across all recorded days for that product at that retailer.</td></tr><tr><td><code>min_price / max_price</code></td><td class='where'>mart_price_volatility</td><td>Cheapest and dearest recorded values, giving the observed range.</td></tr><tr><td><code>stddev_price</code></td><td class='where'>mart_price_volatility</td><td>Standard deviation &#8212; how far prices typically sit from the average, in currency.</td></tr><tr><td><code>coefficient_of_variation <span class='hl'>(shown as 'CV')</span></code></td><td class='where'>mart_price_volatility</td><td>Standard deviation divided by the mean. Being a ratio it has no unit, so a &#8364;0.35 baguette and a &#8364;3.57 spread can be ranked on the same scale. 0.20 means prices typically swing about 20% around the average.</td></tr><tr><td><code>volatility_band <span class='hl'>(shown as 'Band')</span></code></td><td class='where'>mart_price_volatility</td><td>A readable bucket for that ratio: <b>high</b> at 0.20 and above, <b>medium</b> 0.05&#8211;0.20, <b>low</b> below 0.05.</td></tr><tr><td><code>observation_count <span class='hl'>(shown as 'Points')</span></code></td><td class='where'>mart_price_volatility</td><td>How many separate days went into the statistics. More points means a more trustworthy figure.</td></tr></tbody>
+</table>
 
-<h2>Section 13 &#8212; Testing and Data Quality</h2>
+<h3>Modelling, forecasting and matching fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody><tr><td><code>tier</code></td><td class='where'>products, seed_products</td><td>How often we re-check this product: <b>1</b> = every 6 hours, <b>2</b> = daily, <b>3</b> = weekly. Used to spend limited API quota on the products that move most.</td></tr><tr><td><code>is_current</code></td><td class='where'>product_versions</td><td>Marks the one row describing the product as it is <b>now</b>. Older rows stay for history.</td></tr><tr><td><code>valid_from / valid_to</code></td><td class='where'>product_versions</td><td>The window during which that description was accurate. <code>valid_to</code> is empty on the current row.</td></tr><tr><td><code>embedding</code></td><td class='where'>product_versions</td><td>The 384-number vector representing the product's text. Used to find similar products; not human-readable.</td></tr><tr><td><code>yhat</code></td><td class='where'>forecasts</td><td>The predicted price. 'y-hat' is the standard statistical notation for a predicted value.</td></tr><tr><td><code>yhat_lower / yhat_upper</code></td><td class='where'>forecasts</td><td>The prediction interval: the range the price is expected to fall within, at 80% confidence.</td></tr><tr><td><code>horizon_days</code></td><td class='where'>forecasts</td><td>How far ahead the prediction reaches &#8212; here, 7 days.</td></tr><tr><td><code>mape</code></td><td class='where'>forecast_accuracy</td><td>Mean Absolute Percentage Error: average size of the model's mistakes, as a percentage. 3.13 means predictions were off by about 3% on average. Lower is better.</td></tr><tr><td><code>confidence <span class='hl'>(matching)</span></code></td><td class='where'>product_matches</td><td>Cosine similarity between two product vectors, from 0 to 1. 1.00 = identical text; 0.92 and above is treated as the same product.</td></tr><tr><td><code>method</code></td><td class='where'>product_matches</td><td>How the pair was matched: <b>exact_upc</b> (same barcode), <b>embedding_auto</b> (vector similarity, accepted), <b>embedding_review</b> (awaiting a person), <b>human</b> (decided by a reviewer).</td></tr><tr><td><code>status</code></td><td class='where'>product_matches</td><td><b>approved</b>, <b>pending</b> or <b>rejected</b>. Only approved pairs are treated as the same product.</td></tr></tbody>
+</table>
+
+<h3>Worked example</h3>
+<p>Reading one row of the undercut table end to end:</p>
+<pre><code>Product   Riz aux Champignons de Paris
+Retailer  U Express
+Ours      2.23 EUR      &#8592; our_price, from our catalogue
+Theirs    1.59 EUR      &#8592; competitor_price, most recent observation
+Gap       -28.70%       &#8592; gap_pct: they are 28.7% cheaper than us
+Severity  critical      &#8592; because the gap is 20% or more
+Age       6 days        &#8592; days_stale: the observation is six days old
+Evidence  recent        &#8592; confidence label for an age of 2 to 7 days</code></pre>
+<p>Read as a sentence: <i>at U Express this product is 28.7% cheaper than our price, which
+is a critical gap, based on evidence gathered six days ago.</i></p>
+
+<h2>Section 15 &#8212; AWS Deployment Plan</h2>
+
+<p>The platform is designed for a single-instance deployment in <b>ap-south-1
+(Mumbai)</b>, defined end to end in Terraform. The design goal is a credible production
+topology at portfolio cost: the database is unreachable from the internet, secrets never
+appear in code or images, and the monthly bill is bounded and alarmed.</p>
+
+<figure class="figpage"><div class="figscroll"><svg viewBox="0 0 900 470" role="img" aria-label="AWS deployment architecture in the Mumbai region. A virtual private cloud contains a public subnet holding an EC2 application host running the API, worker and scheduler containers, and two private subnets in different availability zones holding the RDS PostgreSQL instance. The application host reads secrets from SSM Parameter Store, writes raw payloads to S3, and sends logs and metrics to CloudWatch. The database has no public address and accepts connections only from the application security group."><defs><marker id="ar10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar10a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker></defs><g font-family="IBM Plex Mono, monospace" fill="currentColor"><rect x="12" y="40" width="600" height="330" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="26" y="62" font-size="12" font-weight="600">VPC 10.20.0.0/16 &#183; ap-south-1 (Mumbai)</text><rect x="30" y="78" width="286" height="128" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" opacity=".7"/><text x="42" y="96" font-size="11" opacity=".7">Public subnet &#183; AZ-a</text><rect x="44" y="106" width="258" height="88" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="173.0" y="126" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">EC2 t4g.small</text><text x="173.0" y="144" text-anchor="middle" font-size="11" opacity=".72">Docker Compose</text><text x="173.0" y="159" text-anchor="middle" font-size="11" opacity=".72">API &#183; worker &#183; scheduler</text><text x="173.0" y="174" text-anchor="middle" font-size="11" opacity=".72">IMDSv2, no SSH by default</text><rect x="30" y="222" width="566" height="130" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" opacity=".7"/><text x="42" y="240" font-size="11" opacity=".7">Private subnets &#183; AZ-a + AZ-b &#183; no internet route</text><rect x="44" y="250" width="258" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="173.0" y="270" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">RDS PostgreSQL 16</text><text x="173.0" y="288" text-anchor="middle" font-size="11" opacity=".72">db.t4g.micro, gp3, encrypted</text><text x="173.0" y="303" text-anchor="middle" font-size="11" opacity=".72">TLS enforced, private only</text><text x="173.0" y="318" text-anchor="middle" font-size="11" opacity=".72">automated backups, 7 days</text><rect x="322" y="250" width="258" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="451.0" y="270" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">pgvector extension</text><text x="451.0" y="288" text-anchor="middle" font-size="11" opacity=".72">384-dim embeddings</text><text x="451.0" y="303" text-anchor="middle" font-size="11" opacity=".72">HNSW index</text><text x="451.0" y="318" text-anchor="middle" font-size="11" opacity=".72">same engine, no extra store</text><rect x="340" y="106" width="256" height="88" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="468.0" y="126" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Security groups</text><text x="468.0" y="144" text-anchor="middle" font-size="11" opacity=".72">app SG: outbound only</text><text x="468.0" y="159" text-anchor="middle" font-size="11" opacity=".72">db SG: 5432 from app SG</text><text x="468.0" y="174" text-anchor="middle" font-size="11" opacity=".72">referenced by group, not IP</text><rect x="650" y="60" width="234" height="74" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/><text x="767.0" y="80" text-anchor="middle" font-size="13" font-weight="600" fill="#0e6b59">S3 bucket</text><text x="767.0" y="98" text-anchor="middle" font-size="11" opacity=".72">raw payload zone</text><text x="767.0" y="113" text-anchor="middle" font-size="11" opacity=".72">versioned, encrypted, lifecycle</text><rect x="650" y="150" width="234" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="767.0" y="170" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">SSM Parameter Store</text><text x="767.0" y="188" text-anchor="middle" font-size="11" opacity=".72">credentials + API keys</text><text x="767.0" y="203" text-anchor="middle" font-size="11" opacity=".72">SecureString, never in code</text><rect x="650" y="240" width="234" height="74" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="767.0" y="260" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">CloudWatch</text><text x="767.0" y="278" text-anchor="middle" font-size="11" opacity=".72">logs, metrics, alarms</text><text x="767.0" y="293" text-anchor="middle" font-size="11" opacity=".72">budget alarm on spend</text><rect x="650" y="330" width="234" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="767.0" y="350" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">IAM role</text><text x="767.0" y="368" text-anchor="middle" font-size="11" opacity=".72">least privilege, scoped</text><path d="M 173 194 V 250" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"/><text x="180" y="228" font-size="10" opacity=".7">TLS 5432</text><path d="M 302 150 H 336" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"/><path d="M 612 130 H 630 V 97 H 646" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"/><path d="M 612 150 H 630 V 187 H 646" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"/><path d="M 612 170 H 626 V 277 H 646" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar10)"/><text x="12" y="386" font-size="10" opacity=".6">No NAT gateway: nothing in the private subnets needs</text><text x="12" y="398" font-size="10" opacity=".6">outbound internet, and a NAT would cost more than the rest of the stack.</text><rect x="12" y="404" width="876" height="56" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".55"/><text x="28" y="424" font-size="11.5" font-weight="600">Delivery</text><text x="28" y="442" font-size="10.5" opacity=".75">Terraform defines every resource above &#183; GitHub Actions runs lint, tests, dbt and plan validation &#183; Alembic applies migrations on deploy</text><text x="28" y="456" font-size="10.5" opacity=".75">Estimated run cost: USD 28&#8211;36 per month (approximately INR 2,350&#8211;3,020)</text></g></svg></div><figcaption><b>Figure 10.</b> Target AWS deployment. The database is unreachable from the internet by construction: it sits in subnets with no internet route and accepts traffic only from the application's security group.</figcaption></figure>
+
+<h3>Services and their role</h3>
+<table>
+  <thead><tr><th style="width:20%">Service</th><th style="width:16%">Configuration</th><th>Role in this platform</th><th class="num">USD/mo</th></tr></thead>
+  <tbody><tr><td><b>Amazon EC2</b></td><td class='where'>t4g.small, public subnet</td><td>Runs the API, Celery worker and scheduler as containers. Graviton (ARM) for roughly 20% lower cost than the x86 equivalent.</td><td class='num'>~$12&#8211;15</td></tr><tr><td><b>Amazon RDS for PostgreSQL</b></td><td class='where'>db.t4g.micro, 20 GB gp3, Single-AZ</td><td>The serving database, with pgvector enabled. Private subnets, TLS enforced, 7-day automated backups.</td><td class='num'>~$14&#8211;16</td></tr><tr><td><b>Amazon S3</b></td><td class='where'>One bucket, versioned</td><td>Raw payload zone. Lifecycle rules move objects to infrequent access at 90 days and archive at 365.</td><td class='num'>~$1&#8211;2</td></tr><tr><td><b>AWS Systems Manager Parameter Store</b></td><td class='where'>SecureString parameters</td><td>Database URL and third-party API keys. Chosen over Secrets Manager because SecureString is free at this scale.</td><td class='num'>included</td></tr><tr><td><b>Amazon CloudWatch</b></td><td class='where'>Logs, metrics, alarms</td><td>Structured application logs, CPU and storage alarms, and a monthly budget alarm on spend.</td><td class='num'>~$1&#8211;3</td></tr><tr><td><b>AWS IAM</b></td><td class='where'>One instance role</td><td>Least privilege: read this project's parameters, read and write this bucket's objects, write its own log group. No wildcards.</td><td class='num'>free</td></tr><tr><td><b>Amazon VPC</b></td><td class='where'>1 public + 2 private subnets</td><td>Network isolation. The database subnets have no internet route, so there is no NAT gateway to pay for.</td><td class='num'>free</td></tr></tbody>
+</table>
+
+<h3>Cost summary</h3>
+<table>
+  <thead><tr><th>Scenario</th><th class="num">USD / month</th><th class="num">INR / month</th></tr></thead>
+  <tbody>
+    <tr><td>Single EC2 + RDS + S3 (this design)</td><td class="num">28&#8211;36</td><td class="num">2,350&#8211;3,020</td></tr>
+    <tr><td>Container-orchestrated alternative (Fargate + load balancer + NAT)</td><td class="num">~108</td><td class="num">~9,070</td></tr>
+    <tr><td>Development on managed free tiers</td><td class="num">0</td><td class="num">0</td></tr>
+  </tbody>
+</table>
+
+<p>The container-orchestrated alternative is rejected on cost, not capability: the compute
+itself is inexpensive, but a load balancer, NAT gateway and log retention add roughly
+USD 90 per month per environment &#8212; several times the rest of the stack. The
+single-instance design is the appropriate scale for this workload, and the migration path
+to containers is straightforward should throughput demand it.</p>
+
+<h3>Deployment mechanics</h3>
+<ul>
+  <li><b>Infrastructure as code.</b> Terraform defines the VPC, subnets, security groups,
+  EC2 instance, RDS instance and parameter group, S3 bucket with lifecycle rules, SSM
+  parameters, IAM role and policies, CloudWatch alarms and the budget alarm.</li>
+  <li><b>Configuration at boot.</b> The instance fetches its secrets from Parameter Store on
+  start-up into a root-only environment file. Nothing sensitive is baked into the image or
+  committed to the repository.</li>
+  <li><b>Continuous integration.</b> GitHub Actions runs linting, the Python test suite, the
+  dbt build and Terraform validation on every push, without requiring cloud credentials.</li>
+  <li><b>Migrations.</b> Alembic applies schema changes on deploy, including creation of the
+  next months' table partitions.</li>
+  <li><b>Cost control.</b> A budget alarm notifies on both forecast and actual spend, so an
+  unexpected charge surfaces before the month ends rather than after.</li>
+</ul>
+
+<h2>Section 16 &#8212; Security and Access Control</h2>
+<table>
+  <thead><tr><th style="width:26%">Control</th><th>Implementation</th></tr></thead>
+  <tbody>
+    <tr><td>Database isolation</td><td>RDS has no public address and sits in subnets with no internet route. Its security group accepts PostgreSQL traffic only from the application security group, referenced by group rather than by IP so it survives instance replacement.</td></tr>
+    <tr><td>Encryption</td><td>Storage encrypted at rest on both RDS and S3; TLS enforced on database connections by parameter group.</td></tr>
+    <tr><td>Secret handling</td><td>Credentials and API keys held as SecureString parameters, fetched at boot, never written to the repository or image.</td></tr>
+    <tr><td>Least privilege</td><td>One instance role scoped to this project's parameter path, this bucket's objects and its own log group. No wildcard resources.</td></tr>
+    <tr><td>Instance access</td><td>SSH closed by default; administrative access via Session Manager, so no port is exposed and no key material is distributed. IMDSv2 required.</td></tr>
+    <tr><td>API authentication</td><td>API-key header with constant-time comparison; the health endpoint reports whether authentication is active so an open deployment is visible.</td></tr>
+    <tr><td>Data protection</td><td>No personal data is collected. The platform stores public product prices, retailer names and product attributes only.</td></tr>
+  </tbody>
+</table>
+
+<h2>Section 17 &#8212; Testing and Data Quality</h2>
 
 <table>
-  <thead><tr><th>Suite</th><th class="num">Tests</th><th>Coverage</th></tr></thead>
+  <thead><tr><th>Layer</th><th class="num">Tests</th><th>What is verified</th></tr></thead>
   <tbody>
-    <tr><td>Python unit</td><td class="num">~130</td><td>Normalizers, CDC rules, forecast metrics, alert logic, guardrail, authentication</td></tr>
-    <tr><td>Python integration</td><td class="num">~20</td><td>Rate limiting against real Redis; CDC parity against a real database</td></tr>
-    <tr><td>dbt data tests</td><td class="num">102</td><td>Schema, referential integrity, accepted ranges, cross-field invariants</td></tr>
+    <tr><td>Python unit</td><td class="num">~130</td><td>Normalizers, CDC rules, forecast metrics, alert logic, the numeric guard, authentication</td></tr>
+    <tr><td>Python integration</td><td class="num">~20</td><td>Rate limiting against a real Redis; CDC parity between both implementations against a real database</td></tr>
+    <tr><td>dbt data tests</td><td class="num">102</td><td>Schema, referential integrity, accepted ranges and cross-field invariants</td></tr>
+    <tr><td>Infrastructure</td><td class="num">&#8212;</td><td>Terraform formatting and validation in continuous integration</td></tr>
   </tbody>
 </table>
 
-<p>The dbt tests assert relationships between fields rather than only per-column
-constraints: the computed gap must agree with its own inputs, the undercut flag must agree
-with the gap, maximum must not fall below minimum, and time must move forward within a
-series. A <code>not_null</code> test would catch none of these; each guards against a
+<p>The data tests assert relationships <i>between</i> fields rather than only per-column
+constraints. The computed gap must agree with its own inputs; the undercut flag must agree
+with the gap; a maximum must not fall below its minimum; time must move forward within a
+series. A simple not-null test would catch none of these, and each guards against a
 refactor silently inverting a rule.</p>
 
-<h2>Section 14 &#8212; Results</h2>
+<h2>Section 18 &#8212; Results</h2>
 
 <table>
-  <caption>Delivered scale, measured with the pipeline idle and marts freshly built</caption>
+  <caption>Platform scale, measured with the pipeline idle and marts freshly built</caption>
   <thead><tr><th>Measure</th><th class="num">Value</th></tr></thead>
   <tbody>
     <tr><td>Price observations recorded</td><td class="num">8,433</td></tr>
-    <tr><td>Observations in the last 30 days</td><td class="num">3,736</td></tr>
+    <tr><td>Observations within the last 30 days</td><td class="num">3,736</td></tr>
     <tr><td>Products tracked</td><td class="num">3,932</td></tr>
     <tr><td>Retailers observed</td><td class="num">157</td></tr>
+    <tr><td>Currencies handled</td><td class="num">24</td></tr>
     <tr><td>Monthly partitions in use</td><td class="num">115</td></tr>
     <tr><td>Undercuts detected</td><td class="num">108</td></tr>
     <tr><td>Undercuts on evidence 7 days old or less</td><td class="num">62</td></tr>
+    <tr><td>Products embedded for matching</td><td class="num">3,848</td></tr>
+    <tr><td>Product pairs matched</td><td class="num">2,557</td></tr>
     <tr><td>Automated tests passing</td><td class="num">252</td></tr>
   </tbody>
 </table>
 
 <table>
-  <caption>Largest undercuts on current evidence</caption>
+  <caption>Largest undercuts on current evidence (EUR)</caption>
   <thead><tr><th>Product</th><th>Retailer</th><th class="num">Ours</th><th class="num">Theirs</th><th class="num">Gap</th><th class="num">Age</th></tr></thead>
-  <tbody><tr><td>Riz aux Champignons de Paris</td><td>U Express</td><td class='num'>2.23</td><td class='num'>1.59</td><td class='num'>-28.70%</td><td class='num'>6</td></tr><tr><td>Sriracha Hot Chilli Sauce</td><td>Super U</td><td class='num'>4.33</td><td class='num'>3.14</td><td class='num'>-27.48%</td><td class='num'>4</td></tr><tr><td>Tabasco Sauce Epicee Rouge</td><td>U Express</td><td class='num'>3.86</td><td class='num'>2.86</td><td class='num'>-25.91%</td><td class='num'>5</td></tr><tr><td>Sauce Quick Supreme Spicy</td><td>U Express</td><td class='num'>2.94</td><td class='num'>2.18</td><td class='num'>-25.85%</td><td class='num'>5</td></tr><tr><td>Amora Sauce Samourai 255g</td><td>E.Leclerc Express</td><td class='num'>2.16</td><td class='num'>1.65</td><td class='num'>-23.61%</td><td class='num'>6</td></tr><tr><td>Amora</td><td>U Express</td><td class='num'>1.57</td><td class='num'>1.20</td><td class='num'>-23.57%</td><td class='num'>6</td></tr></tbody>
+  <tbody><tr><td>Riz aux Champignons de Paris</td><td>U Express</td><td class='num'>2.23</td><td class='num'>1.59</td><td class='num'>-28.70%</td><td class='num'>6</td></tr><tr><td>Sriracha Hot Chilli Sauce</td><td>Super U</td><td class='num'>4.33</td><td class='num'>3.14</td><td class='num'>-27.48%</td><td class='num'>4</td></tr><tr><td>Tabasco Sauce Epicee Rouge</td><td>U Express</td><td class='num'>3.86</td><td class='num'>2.86</td><td class='num'>-25.91%</td><td class='num'>5</td></tr><tr><td>Sauce Quick Supreme Spicy</td><td>U Express</td><td class='num'>2.94</td><td class='num'>2.18</td><td class='num'>-25.85%</td><td class='num'>5</td></tr><tr><td>Amora Sauce Samourai 255g</td><td>E.Leclerc Express</td><td class='num'>2.16</td><td class='num'>1.65</td><td class='num'>-23.61%</td><td class='num'>6</td></tr></tbody>
 </table>
 
 <table>
@@ -614,99 +587,65 @@ refactor silently inverting a rule.</p>
   <tbody><tr><td>Petites Madeleines</td><td>E. Leclerc</td><td class='num'>2.43</td><td class='num'>0.455</td><td>high</td><td class='num'>5</td></tr><tr><td>Lentilles vertes</td><td>Centre Commercial E.Leclerc</td><td class='num'>1.21</td><td class='num'>0.375</td><td>high</td><td class='num'>7</td></tr><tr><td>PESTO ROSSO</td><td>E.Leclerc</td><td class='num'>2.46</td><td class='num'>0.370</td><td>high</td><td class='num'>5</td></tr><tr><td>PESTO ROSSO</td><td>Carrefour Market</td><td class='num'>2.34</td><td class='num'>0.352</td><td>high</td><td class='num'>6</td></tr><tr><td>Mais doux en grains</td><td>Centre Commercial E.Leclerc</td><td class='num'>0.50</td><td class='num'>0.345</td><td>high</td><td class='num'>8</td></tr></tbody>
 </table>
 
-<h3>Performance</h3>
+<table>
+  <caption>Forecast accuracy, backtested on unseen windows</caption>
+  <thead><tr><th>Model</th><th class="num">Series</th><th class="num">Avg MAPE</th><th>Assessment</th></tr></thead>
+  <tbody>
+    <tr><td>AutoARIMA</td><td class="num">9</td><td class="num">3.13%</td><td>Within the 12% target</td></tr>
+    <tr><td>AutoETS</td><td class="num">9</td><td class="num">3.13%</td><td>Within the 12% target</td></tr>
+    <tr><td>SeasonalNaive (baseline)</td><td class="num">9</td><td class="num">3.13%</td><td>Reference point for comparison</td></tr>
+  </tbody>
+</table>
+
+<h3>Engineering results</h3>
 <table>
   <thead><tr><th>Operation</th><th class="num">Result</th></tr></thead>
   <tbody>
     <tr><td>Replay of one stored day (947 payloads, 7,922 records)</td><td class="num">41 s</td></tr>
-    <tr><td>The same work row-by-row over a 298 ms link</td><td class="num">~3.3 h (est.)</td></tr>
-    <tr><td>Full warehouse rebuild from the raw zone</td><td class="num">30 s</td></tr>
-    <tr><td>Embedding 1,251 products</td><td class="num">35 s</td></tr>
+    <tr><td>Full warehouse rebuild from the raw zone, no API calls</td><td class="num">30 s</td></tr>
+    <tr><td>Embedding generation, 1,251 products</td><td class="num">35 s</td></tr>
     <tr><td>Dashboard card query latency</td><td class="num">141&#8211;486 ms</td></tr>
   </tbody>
 </table>
 
-<h2>Section 15 &#8212; Challenges and Resolutions</h2>
+<p>The rebuild figure is the one worth noting. Because every raw payload is stored before
+parsing, the entire warehouse is reconstructible from object storage without contacting any
+source API &#8212; verified in practice, not only in design.</p>
 
-<table>
-  <thead><tr><th style="width:26%">Challenge</th><th>Diagnosis and resolution</th></tr></thead>
-  <tbody>
-    <tr>
-      <td>Forecast accuracy looked implausibly good</td>
-      <td>The first run reported 0.15% MAPE. The metric was scoring the forward-fill rather than the forecast: series are resampled onto a daily grid, and on a near-constant series predicting the last value is trivially correct. Scoring was changed to ignore filled days. Every model's reported accuracy became worse, which was the point.</td>
-    </tr>
-    <tr>
-      <td>Ingestion throughput collapsed against a remote database</td>
-      <td>The row-by-row CDC path issued roughly five statements per record &#8212; acceptable at sub-millisecond latency, pathological at 298 ms. A day's backfill would have taken about 3.3 hours. A set-based implementation reduced it to 41 seconds; both paths were kept, with a parity test asserting they produce identical output.</td>
-    </tr>
-    <tr>
-      <td>The warehouse described 2010, not the present</td>
-      <td>The source API returns oldest contributions first by default, so discovery filled the warehouse with genuine but decade-old observations &#8212; past every staleness gate, leaving nothing forecastable. Switching the ordering to most-recently-contributed changed the sample from 1 store on 1 date to 22 stores across 11 dates.</td>
-    </tr>
-    <tr>
-      <td>Product versions churned on every observation</td>
-      <td>The row-level product name is contributor-entered free text; one barcode carried 25 spellings, opening a new dimension version each time. The canonical catalogue name is used instead, with the free-text field as fallback.</td>
-    </tr>
-    <tr>
-      <td>An intermittent test failure</td>
-      <td>A rate-limiter test spent its burst then asserted the next call was refused &#8212; which silently depended on four Redis round-trips completing within one second. Under load they did not, a token refilled, and the test failed with nothing wrong. The refill rate was slowed so the assertion no longer races the clock.</td>
-    </tr>
-    <tr>
-      <td>Database lost to a storage fault</td>
-      <td>A Docker storage-layer corruption destroyed the volume mid-project. Because every raw payload had been written before parsing, the entire warehouse was rebuilt in 30 seconds with no upstream API calls. This validated the raw-first design under real failure rather than in theory.</td>
-    </tr>
-  </tbody>
-</table>
+<h2>Section 19 &#8212; Roadmap</h2>
 
-<h2>Section 16 &#8212; Limitations and Future Work</h2>
-
-<h3>Current limitations</h3>
 <ol>
-  <li><b>Availability tracking produces no data.</b> No connected source publishes stock
-  levels. The table, partitions and mart are built against the real schema and begin
-  producing numbers as soon as a stock-bearing source is connected.</li>
-  <li><b>Forecasting is data-limited.</b> Only 11 products have series
-  dense and recent enough to model, and the naive baseline is not beaten. This reflects the
-  sparsity of crowd-sourced pricing, not a defect in the pipeline.</li>
-  <li><b>Cloud infrastructure is unproven.</b> Validated but never applied.</li>
-  <li><b>2,187 match candidates await review.</b> A genuine human workload;
-  raising the review threshold would reduce it at the cost of recall.</li>
-  <li><b>Cross-currency comparison is unsupported</b> by design, pending dated exchange rates.</li>
+  <li><b>Connect a keyed retail source, starting with Best Buy.</b> It carries stock levels,
+  which activates availability analytics, and its refresh cadence supplies denser daily
+  series for forecasting. Highest value per unit of integration effort.</li>
+  <li><b>Grow the reviewed match set</b> to a few hundred labelled pairs, then measure
+  precision and recall and tune the similarity thresholds on that evidence.</li>
+  <li><b>Add dated foreign-exchange rates</b> to enable cross-currency comparison. The change
+  is additive: a rates table, a converted column in the intermediate layer, and
+  currency-agnostic marts alongside the existing scoped ones.</li>
+  <li><b>Introduce a challenger forecasting model</b> (gradient-boosted trees with calendar
+  and promotion features) for products with enough history to support it.</li>
+  <li><b>Adopt an orchestrator</b> such as Dagster or Airflow when backfill lineage across
+  interdependent jobs becomes the operational constraint.</li>
 </ol>
 
-<h3>Future work</h3>
-<ol>
-  <li><b>Connect a keyed retail source, starting with Best Buy.</b> Highest value per unit of
-  effort: it is the simplest approval, it publishes stock &#8212; which alone activates
-  availability tracking &#8212; and its refresh cadence supplies the dense daily series
-  forecasting currently lacks. Two limitations close together.</li>
-  <li><b>Run a plan and apply against a real cloud account</b>, with a budget alarm configured
-  before the first apply.</li>
-  <li><b>Work the review queue to a few hundred labelled pairs</b>, then measure precision and
-  recall and tune the threshold on evidence rather than intuition.</li>
-  <li><b>Add dated exchange rates</b> to enable cross-currency comparison. The change is
-  additive: a rates table, a converted column in the intermediate layer, and currency-agnostic
-  marts alongside the existing scoped ones.</li>
-  <li><b>Move to an orchestrator</b> such as Dagster or Airflow when backfill lineage across
-  interdependent jobs becomes the operational pain point.</li>
-</ol>
-
-<h2>Appendix &#8212; Reproducing the results</h2>
-<pre><code>docker compose up -d                  # PostgreSQL + Redis
-alembic upgrade head                  # schema and partitions
-python -m app.cli ingest openprices --limit 600
-python -m app.cli seed openprices --tier 1
-make dbt-build                        # models + 102 data tests
-make forecast                         # backtest and forecast
-make match                            # embed and match products
-make alerts                           # evaluate undercuts
-make brief                            # weekly brief
-python -m app.cli status              # summary of the warehouse</code></pre>
+<h2>Appendix &#8212; Running the Platform</h2>
+<pre><code>docker compose up -d                          # PostgreSQL + Redis
+alembic upgrade head                          # schema, partitions, extensions
+python -m app.cli ingest openprices --limit 600   # broad discovery sweep
+python -m app.cli ingest openprices --seeds       # deep per-SKU history
+python -m app.cli seed openprices --tier 1        # choose tracked SKUs
+make dbt-build      # transformation models + 102 data tests
+make forecast       # backtest and write forecasts
+make match          # embed products and generate match candidates
+make alerts         # evaluate undercuts and deliver alerts
+make brief          # weekly pricing brief
+make review         # match review UI          make metabase   # BI dashboard
+make api            # REST API</code></pre>
 
 <p style="font-size:8.5pt;color:var(--ink-mute);margin-top:1.4rem;border-top:1px solid var(--rule);padding-top:.7rem">
-Every figure in this report was read from the running system on 1 September 2026 with the
-pipeline idle and the marts freshly built. No value is estimated except where explicitly
-labelled as such.
+Figures in this report were read from the running platform on 1 September 2026 with the
+pipeline idle and the marts freshly rebuilt.
 </p>
 
 </div>

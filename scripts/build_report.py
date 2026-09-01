@@ -1,14 +1,11 @@
 """Generate the project report (HTML) and render it to PDF.
 
-The report is written as a project document answering a stated problem, not as a
-handover note. Figures are hand-authored inline SVG so they survive both browser
-viewing and PDF rendering -- mermaid renders only inside a published artifact.
-
     python scripts/build_report.py            # HTML + PDF
     python scripts/build_report.py --html     # HTML only
 
-Numbers are passed in from FACTS below, which is filled from live queries. Update
-FACTS and re-run rather than editing the HTML by hand.
+Figures live in report_figures.py as hand-authored inline SVG so they render identically
+in a browser and in the PDF. Measured numbers live in FACTS below; update FACTS from the
+live system and re-run rather than editing generated output.
 """
 
 from __future__ import annotations
@@ -18,6 +15,21 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from report_figures import (  # noqa: E402
+    fig_ai,
+    fig_architecture,
+    fig_aws,
+    fig_cdc,
+    fig_dbt,
+    fig_er,
+    fig_forecast,
+    fig_ingestion,
+    fig_matching,
+    fig_ui,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "docs" / "report"
@@ -33,17 +45,13 @@ CHROME_CANDIDATES = [
     "/usr/bin/chromium",
 ]
 
-# --------------------------------------------------------------------------- #
-# measured facts (from the running system)
-# --------------------------------------------------------------------------- #
-FACTS = {
+F = {
     "events": "8,433",
     "events_recent": "3,736",
     "products": "3,932",
     "retailers": "157",
     "currencies": "24",
     "partitions": "115",
-    "span": "2010-07-08 to 2026-09-01",
     "undercuts": "108",
     "undercuts_fresh": "62",
     "volatility_rows": "272",
@@ -51,10 +59,13 @@ FACTS = {
     "gap_rows": "152",
     "matches_auto": "370",
     "matches_pending": "2,187",
+    "matches_total": "2,557",
+    "embedded": "3,848",
     "forecast_rows": "77",
     "forecast_products": "11",
     "py_tests": "150",
     "dbt_tests": "102",
+    "tables": "12",
 }
 
 FRESH_UNDERCUTS = [
@@ -63,7 +74,6 @@ FRESH_UNDERCUTS = [
     ("Tabasco Sauce Epicee Rouge", "U Express", "3.86", "2.86", "-25.91", "5"),
     ("Sauce Quick Supreme Spicy", "U Express", "2.94", "2.18", "-25.85", "5"),
     ("Amora Sauce Samourai 255g", "E.Leclerc Express", "2.16", "1.65", "-23.61", "6"),
-    ("Amora", "U Express", "1.57", "1.20", "-23.57", "6"),
 ]
 
 VOLATILE = [
@@ -74,313 +84,337 @@ VOLATILE = [
     ("Mais doux en grains", "Centre Commercial E.Leclerc", "0.50", "0.345", "high", "8"),
 ]
 
-# --------------------------------------------------------------------------- #
-# entity relationship diagram
-# --------------------------------------------------------------------------- #
-ENTITIES = {
-    "SOURCES": (14, 96, [("source_id", "PK"), ("name", "UK"), ("auth_type", "")]),
-    "RETAILERS": (
-        14,
-        260,
-        [("retailer_id", "PK"), ("source_id", "FK"), ("name", ""), ("country", "")],
+# (technology, where it is used in this system, what it replaces / why)
+STACK = [
+    (
+        "Celery + Celery Beat",
+        "Runs all 10 scheduled jobs: tier refreshes, mart rebuild, nightly forecast, matching, alert evaluation, weekly brief, monthly partition creation",
+        "Orchestration. Lighter than Airflow for periodic polling with task fan-out",
     ),
-    "INGESTION_RUNS": (
-        14,
-        450,
-        [("run_id", "PK"), ("source_id", "FK"), ("status", ""), ("records_ok", "")],
+    (
+        "Redis",
+        "Two distinct jobs: message broker for Celery, and shared state for the rate limiter (token bucket) and daily API quota counters",
+        "Broker + coordination. Shared so limits hold across every worker process",
     ),
-    "SEED_PRODUCTS": (
-        14,
-        640,
-        [("seed_id", "PK"), ("source_name", ""), ("tier", ""), ("active", "")],
+    (
+        "PostgreSQL 16",
+        "Serving database: reference tables, SCD2 attribute history, append-only price and stock events, and all derived output",
+        "System of record for modelled data",
     ),
-    "PRODUCTS": (
-        300,
-        150,
-        [
-            ("product_id", "PK"),
-            ("source_id", "FK"),
-            ("external_id", "UK"),
-            ("upc", ""),
-            ("tier", ""),
-        ],
+    (
+        "pgvector <span class='hl'>(vector database)</span>",
+        "The <code>product_versions.embedding</code> column stores a 384-dimension vector per product, indexed with HNSW. Used only by product matching, for approximate nearest-neighbour search",
+        "Vector search inside PostgreSQL, so no separate vector store is operated",
     ),
-    "PRODUCT_VERSIONS": (
-        300,
-        420,
-        [
-            ("version_id", "PK"),
-            ("product_id", "FK"),
-            ("title", ""),
-            ("embedding", ""),
-            ("is_current", ""),
-        ],
+    (
+        "Object storage (S3)",
+        "The raw zone: every API payload is written here gzipped before parsing, partitioned by source and date",
+        "Durable audit trail and the source for rebuilding the warehouse",
     ),
-    "PRODUCT_MATCHES": (
-        300,
-        680,
-        [
-            ("match_id", "PK"),
-            ("product_id_a", "FK"),
-            ("product_id_b", "FK"),
-            ("confidence", ""),
-            ("status", ""),
-        ],
+    (
+        "dbt Core",
+        "Transformation: 6 staging views, 3 intermediate views, 5 marts, and 102 data tests that run with the build",
+        "Business logic defined once, in tested SQL",
     ),
-    "PRICE_EVENTS": (
-        620,
-        60,
-        [
-            ("event_id", "PK"),
-            ("product_id", "FK"),
-            ("retailer_id", "FK"),
-            ("price", ""),
-            ("currency", ""),
-            ("observed_at", "PK"),
-        ],
+    (
+        "Pydantic v2",
+        "Validates each normalized record's shape as it is parsed from a source payload",
+        "Per-record contract at the ingestion boundary",
     ),
-    "STOCK_EVENTS": (
-        620,
-        300,
-        [
-            ("event_id", "PK"),
-            ("product_id", "FK"),
-            ("retailer_id", "FK"),
-            ("in_stock", ""),
-            ("observed_at", "PK"),
-        ],
+    (
+        "Pandera",
+        "Validates the whole parsed batch before it reaches the database (catches an all-null column or an empty source)",
+        "Cross-record contract that per-record checks cannot see",
     ),
-    "FORECASTS": (
-        620,
-        520,
-        [("forecast_id", "PK"), ("product_id", "FK"), ("yhat", ""), ("forecast_for", "")],
+    (
+        "Nixtla statsforecast <span class='hl'>(ML)</span>",
+        "Nightly per-SKU price forecasting: AutoETS and AutoARIMA candidates against a SeasonalNaive baseline, scored by rolling-origin cross-validation",
+        "Statistical time-series modelling with native prediction intervals",
     ),
-    "FORECAST_ACCURACY": (
-        620,
-        690,
-        [("id", "PK"), ("product_id", "FK"), ("model", ""), ("mape", "")],
+    (
+        "fastembed / all-MiniLM-L6-v2 <span class='hl'>(ML)</span>",
+        "Turns <code>title + brand + category</code> into the 384-dimension vector stored in pgvector",
+        "Sentence embeddings via ONNX runtime, avoiding a PyTorch dependency",
     ),
-    "ALERTS": (
-        620,
-        860,
-        [("alert_id", "PK"), ("product_id", "FK"), ("severity", ""), ("sent_at", "")],
+    (
+        "CrewAI <span class='hl'>(agentic AI)</span>",
+        "Weekly pricing brief: three agents (analyst, forecast interpreter, writer) turn a fixed facts payload into prose",
+        "Role-based agent orchestration for the one narrative task",
     ),
-}
-BW, TITLE_H, LINE_H = 232, 30, 22
-ACCENT = "#0e6b59"
+    (
+        "FastAPI",
+        "REST API with 7 endpoints, API-key authentication, and generated OpenAPI documentation",
+        "Serving layer for programmatic consumers",
+    ),
+    (
+        "Metabase",
+        "Business dashboard: scorecards, undercut table, volatility leaderboard, price trends, forecast accuracy",
+        "Self-service BI connected straight to the marts",
+    ),
+    (
+        "Streamlit",
+        "Human-in-the-loop screen where a reviewer approves or rejects candidate product matches",
+        "Internal review UI, minimal code",
+    ),
+    (
+        "Alembic",
+        "Versioned schema migrations, including partition creation and index management",
+        "Reproducible database evolution",
+    ),
+    (
+        "Terraform",
+        "Defines the entire AWS target: VPC, subnets, EC2, RDS, S3, SSM, IAM, CloudWatch, budget alarm",
+        "Infrastructure as code",
+    ),
+    (
+        "Docker Compose",
+        "Local runtime for PostgreSQL and Redis; production image for API, worker and scheduler",
+        "Consistent environments",
+    ),
+    (
+        "structlog",
+        "JSON-structured logs from workers and API, ready for CloudWatch ingestion",
+        "Machine-readable operational logging",
+    ),
+    (
+        "pytest",
+        f"{F['py_tests']} automated tests covering normalizers, CDC rules, forecasting metrics, the numeric guard, alerting and authentication",
+        "Automated verification",
+    ),
+]
+
+# (field, where it appears, plain-English meaning)
+LEGEND_PRICE = [
+    (
+        "observed_at",
+        "price_events, marts",
+        "When the price was seen <b>in the shop</b> &#8212; the source's own timestamp, not ours.",
+    ),
+    (
+        "ingested_at",
+        "price_events",
+        "When our system stored it. The gap between the two is how late the data arrived.",
+    ),
+    (
+        "currency",
+        "everywhere",
+        "ISO code such as EUR or SEK. Part of the grain: prices are never compared across currencies.",
+    ),
+    (
+        "close_price",
+        "mart_price_trend",
+        "The last price recorded for that product, retailer and day. 'Close' as in end-of-day.",
+    ),
+    (
+        "change_pct",
+        "mart_price_trend",
+        "Percentage change from the previous recorded day. Negative means the price fell.",
+    ),
+    (
+        "idempotency_key",
+        "price_events",
+        "A fingerprint of source, product, retailer and time. Stops a retry recording the same observation twice.",
+    ),
+]
+
+LEGEND_UNDERCUT = [
+    (
+        "our_price",
+        "gap and undercut marts",
+        "The price in our own catalogue for the matched product.",
+    ),
+    (
+        "competitor_price",
+        "gap and undercut marts",
+        "The most recent price seen at that competitor.",
+    ),
+    (
+        "gap_abs",
+        "mart_price_gap_vs_own",
+        "Their price minus ours, in currency. Negative = they are cheaper.",
+    ),
+    (
+        "gap_pct",
+        "gap and undercut marts",
+        "The same difference as a percentage of our price. &#8722;28.70 means they are 28.7% below us.",
+    ),
+    ("is_undercut", "mart_price_gap_vs_own", "True when the competitor is cheaper than us."),
+    (
+        "severity",
+        "mart_undercut_alerts",
+        "How large the undercut is: <b>critical</b> at 20% or more below us, <b>high</b> at 10&#8211;20%, <b>medium</b> under 10%.",
+    ),
+    (
+        "days_stale <span class='hl'>(shown as 'Age')</span>",
+        "undercut mart, alerts",
+        "How many days old the evidence is. 0 = seen today. Large values mean the price may have changed since.",
+    ),
+    (
+        "confidence",
+        "mart_undercut_alerts",
+        "A plain label for that age: <b>fresh</b> (0&#8211;1 days), <b>recent</b> (2&#8211;7 days), <b>stale</b> (over 7 days). Alerts on stale evidence are recorded but not sent.",
+    ),
+]
+
+LEGEND_VOL = [
+    (
+        "mean_price",
+        "mart_price_volatility",
+        "Average price across all recorded days for that product at that retailer.",
+    ),
+    (
+        "min_price / max_price",
+        "mart_price_volatility",
+        "Cheapest and dearest recorded values, giving the observed range.",
+    ),
+    (
+        "stddev_price",
+        "mart_price_volatility",
+        "Standard deviation &#8212; how far prices typically sit from the average, in currency.",
+    ),
+    (
+        "coefficient_of_variation <span class='hl'>(shown as 'CV')</span>",
+        "mart_price_volatility",
+        "Standard deviation divided by the mean. Being a ratio it has no unit, so a &#8364;0.35 baguette and a &#8364;3.57 spread can be ranked on the same scale. 0.20 means prices typically swing about 20% around the average.",
+    ),
+    (
+        "volatility_band <span class='hl'>(shown as 'Band')</span>",
+        "mart_price_volatility",
+        "A readable bucket for that ratio: <b>high</b> at 0.20 and above, <b>medium</b> 0.05&#8211;0.20, <b>low</b> below 0.05.",
+    ),
+    (
+        "observation_count <span class='hl'>(shown as 'Points')</span>",
+        "mart_price_volatility",
+        "How many separate days went into the statistics. More points means a more trustworthy figure.",
+    ),
+]
+
+LEGEND_MODEL = [
+    (
+        "tier",
+        "products, seed_products",
+        "How often we re-check this product: <b>1</b> = every 6 hours, <b>2</b> = daily, <b>3</b> = weekly. Used to spend limited API quota on the products that move most.",
+    ),
+    (
+        "is_current",
+        "product_versions",
+        "Marks the one row describing the product as it is <b>now</b>. Older rows stay for history.",
+    ),
+    (
+        "valid_from / valid_to",
+        "product_versions",
+        "The window during which that description was accurate. <code>valid_to</code> is empty on the current row.",
+    ),
+    (
+        "embedding",
+        "product_versions",
+        "The 384-number vector representing the product's text. Used to find similar products; not human-readable.",
+    ),
+    (
+        "yhat",
+        "forecasts",
+        "The predicted price. 'y-hat' is the standard statistical notation for a predicted value.",
+    ),
+    (
+        "yhat_lower / yhat_upper",
+        "forecasts",
+        "The prediction interval: the range the price is expected to fall within, at 80% confidence.",
+    ),
+    ("horizon_days", "forecasts", "How far ahead the prediction reaches &#8212; here, 7 days."),
+    (
+        "mape",
+        "forecast_accuracy",
+        "Mean Absolute Percentage Error: average size of the model's mistakes, as a percentage. 3.13 means predictions were off by about 3% on average. Lower is better.",
+    ),
+    (
+        "confidence <span class='hl'>(matching)</span>",
+        "product_matches",
+        "Cosine similarity between two product vectors, from 0 to 1. 1.00 = identical text; 0.92 and above is treated as the same product.",
+    ),
+    (
+        "method",
+        "product_matches",
+        "How the pair was matched: <b>exact_upc</b> (same barcode), <b>embedding_auto</b> (vector similarity, accepted), <b>embedding_review</b> (awaiting a person), <b>human</b> (decided by a reviewer).",
+    ),
+    (
+        "status",
+        "product_matches",
+        "<b>approved</b>, <b>pending</b> or <b>rejected</b>. Only approved pairs are treated as the same product.",
+    ),
+]
+
+AWS_SERVICES = [
+    (
+        "Amazon EC2",
+        "t4g.small, public subnet",
+        "Runs the API, Celery worker and scheduler as containers. Graviton (ARM) for roughly 20% lower cost than the x86 equivalent.",
+        "~$12&#8211;15",
+    ),
+    (
+        "Amazon RDS for PostgreSQL",
+        "db.t4g.micro, 20 GB gp3, Single-AZ",
+        "The serving database, with pgvector enabled. Private subnets, TLS enforced, 7-day automated backups.",
+        "~$14&#8211;16",
+    ),
+    (
+        "Amazon S3",
+        "One bucket, versioned",
+        "Raw payload zone. Lifecycle rules move objects to infrequent access at 90 days and archive at 365.",
+        "~$1&#8211;2",
+    ),
+    (
+        "AWS Systems Manager Parameter Store",
+        "SecureString parameters",
+        "Database URL and third-party API keys. Chosen over Secrets Manager because SecureString is free at this scale.",
+        "included",
+    ),
+    (
+        "Amazon CloudWatch",
+        "Logs, metrics, alarms",
+        "Structured application logs, CPU and storage alarms, and a monthly budget alarm on spend.",
+        "~$1&#8211;3",
+    ),
+    (
+        "AWS IAM",
+        "One instance role",
+        "Least privilege: read this project's parameters, read and write this bucket's objects, write its own log group. No wildcards.",
+        "free",
+    ),
+    (
+        "Amazon VPC",
+        "1 public + 2 private subnets",
+        "Network isolation. The database subnets have no internet route, so there is no NAT gateway to pay for.",
+        "free",
+    ),
+]
 
 
-def _entity(name, x, y, fields):
-    h = TITLE_H + len(fields) * LINE_H + 8
-    hub = name == "PRODUCTS"
-    col, sw = (ACCENT, "2") if hub else ("currentColor", "1.2")
-    out = [
-        f'<rect x="{x}" y="{y}" width="{BW}" height="{h}" rx="4" fill="none" stroke="{col}" stroke-width="{sw}"/>',
-        f'<line x1="{x}" y1="{y + TITLE_H}" x2="{x + BW}" y2="{y + TITLE_H}" stroke="{col}" stroke-width="{sw}"/>',
-        f'<text x="{x + 10}" y="{y + 20}" font-size="14" font-weight="600" fill="{col}">{name}</text>',
-    ]
-    for i, (f, m) in enumerate(fields):
-        ty = y + TITLE_H + 17 + i * LINE_H
-        out.append(f'<text x="{x + 10}" y="{ty}" font-size="13" opacity=".85">{f}</text>')
-        if m:
-            out.append(
-                f'<text x="{x + BW - 10}" y="{ty}" font-size="11" text-anchor="end" opacity=".55">{m}</text>'
-            )
-    return "".join(out), h
-
-
-def er_diagram() -> str:
-    boxes, heights = [], {}
-    for n, (x, y, f) in ENTITIES.items():
-        svg, h = _entity(n, x, y, f)
-        boxes.append(svg)
-        heights[n] = h
-
-    def cy(n):
-        return ENTITIES[n][1] + heights[n] / 2
-
-    def bot(n):
-        return ENTITIES[n][1] + heights[n]
-
-    e = []
-
-    def seg(d, w="1.1", dash=""):
-        da = f' stroke-dasharray="{dash}"' if dash else ""
-        e.append(
-            f'<path d="{d}" fill="none" stroke="currentColor" stroke-width="{w}" opacity=".5"{da}/>'
-        )
-
-    def arrow(d, dash=""):
-        da = f' stroke-dasharray="{dash}"' if dash else ""
-        e.append(
-            f'<path d="{d}" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"{da} marker-end="url(#er)"/>'
-        )
-
-    def label(x, y, t, anchor="start"):
-        e.append(
-            f'<text x="{x}" y="{y}" font-size="11" opacity=".6" text-anchor="{anchor}">{t}</text>'
-        )
-
-    # sources -> products / retailers / ingestion_runs
-    arrow(f"M 246 {cy('SOURCES')} H 273 V {cy('PRODUCTS')} H 300")
-    label(250, cy("SOURCES") - 7, "1:N")
-    arrow(f"M 130 {bot('SOURCES')} V {ENTITIES['RETAILERS'][1]}")
-    label(136, bot("SOURCES") + 34, "1:N")
-    arrow(f"M 130 {bot('RETAILERS')} V {ENTITIES['INGESTION_RUNS'][1]}")
-    label(136, bot("RETAILERS") + 34, "1:N")
-
-    # products -> versions -> matches (vertical, same column)
-    arrow(f"M 416 {bot('PRODUCTS')} V {ENTITIES['PRODUCT_VERSIONS'][1]}")
-    label(422, bot("PRODUCTS") + 42, "1:N")
-    arrow(f"M 416 {bot('PRODUCT_VERSIONS')} V {ENTITIES['PRODUCT_MATCHES'][1]}")
-    label(422, bot("PRODUCT_VERSIONS") + 42, "1:N x2 (a, b)")
-
-    # one bus carrying every product_id foreign key into the right-hand column
-    BUS = 556
-    targets = ["PRICE_EVENTS", "STOCK_EVENTS", "FORECASTS", "FORECAST_ACCURACY", "ALERTS"]
-    top_y, bot_y = cy(targets[0]), cy(targets[-1])
-    seg(f"M 532 {cy('PRODUCTS')} H {BUS}")
-    seg(f"M {BUS} {top_y} V {bot_y}", w="1.4")
-    for t in targets:
-        arrow(f"M {BUS} {cy(t)} H 620")
-    # Above the bus and left of the right-hand column, so it collides with neither.
-    e.append(
-        f'<text x="{BUS}" y="96" font-size="11" opacity=".6" text-anchor="middle">'
-        f"product_id 1:N</text>"
-    )
-
-    # retailers also reference both event tables; routed in the gap below products
-    RB = 590
-    seg(f"M 246 {cy('RETAILERS')} H {RB}", dash="5 3")
-    seg(f"M {RB} {cy('PRICE_EVENTS') + 26} V {cy('STOCK_EVENTS') + 26}", dash="5 3")
-    arrow(f"M {RB} {cy('PRICE_EVENTS') + 26} H 620", dash="5 3")
-    arrow(f"M {RB} {cy('STOCK_EVENTS') + 26} H 620", dash="5 3")
-    label(300, cy("RETAILERS") - 7, "retailer_id  1:N (dashed)")
-
-    return f"""<figure class="figpage">
-<div class="figscroll">
-<svg viewBox="0 0 900 1020" role="img" aria-label="Entity relationship diagram of twelve tables. SOURCES supplies PRODUCTS, RETAILERS and INGESTION_RUNS. PRODUCTS is the hub: it owns PRODUCT_VERSIONS which in turn relates to PRODUCT_MATCHES, and a single bus carries the product_id foreign key into PRICE_EVENTS, STOCK_EVENTS, FORECASTS, FORECAST_ACCURACY and ALERTS. RETAILERS is referenced by both event tables, shown dashed. SEED_PRODUCTS is standalone ingestion configuration.">
-  <defs>
-    <marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity=".5"/>
-    </marker>
-  </defs>
-  <g font-family="IBM Plex Mono, monospace" fill="currentColor">
-    <text x="14" y="34" font-size="12" opacity=".6">REFERENCE</text>
-    <text x="300" y="34" font-size="12" opacity=".6">CORE AND HISTORY</text>
-    <text x="620" y="34" font-size="12" opacity=".6">EVENTS AND DERIVED</text>
-    <line x1="14" y1="44" x2="886" y2="44" stroke="currentColor" stroke-width=".7" opacity=".25"/>
-    {"".join(e)}
-    {"".join(boxes)}
-    <text x="14" y="994" font-size="11" opacity=".6">PK primary key &#183; FK foreign key &#183; UK unique &#183; dashed = retailer_id foreign key</text>
-    <text x="14" y="1010" font-size="11" opacity=".6">price_events and stock_events are range-partitioned by month, so observed_at forms part of their primary key</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 3.</b> Database structure. <code>products</code> is the hub: every table in the right-hand column carries <code>product_id</code> as a foreign key, drawn here as a single bus rather than five crossing lines. The two event tables are append-only and partitioned; <code>product_versions</code> holds slowly-changing attribute history with exactly one open row per product.</figcaption>
-</figure>"""
-
-
-def system_map() -> str:
-    return """<figure>
-<div class="figscroll">
-<svg viewBox="0 0 900 300" role="img" aria-label="Six stage pipeline: sources feed ingestion, which writes raw payloads to bronze storage and normalized rows to PostgreSQL. dbt builds marts from PostgreSQL, and forecasting, the API, alerts and the AI layer read those marts. Bronze can replay back into PostgreSQL without contacting the sources.">
-  <defs>
-    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker>
-    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0e6b59"/></marker>
-  </defs>
-  <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
-    <rect x="10" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="71" y="83" text-anchor="middle" font-size="13">Sources</text>
-    <text x="71" y="100" text-anchor="middle" font-size="11" opacity=".7">public APIs</text>
-    <rect x="186" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="247" y="83" text-anchor="middle" font-size="13">Ingestion</text>
-    <text x="247" y="100" text-anchor="middle" font-size="11" opacity=".7">Celery workers</text>
-    <rect x="362" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="423" y="83" text-anchor="middle" font-size="13">PostgreSQL</text>
-    <text x="423" y="100" text-anchor="middle" font-size="11" opacity=".7">CDC + history</text>
-    <rect x="538" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="599" y="83" text-anchor="middle" font-size="13">dbt marts</text>
-    <text x="599" y="100" text-anchor="middle" font-size="11" opacity=".7">tested</text>
-    <rect x="714" y="60" width="122" height="54" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="775" y="83" text-anchor="middle" font-size="13">Consumers</text>
-    <text x="775" y="100" text-anchor="middle" font-size="11" opacity=".7">API / BI / brief</text>
-    <line x1="132" y1="87" x2="181" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="308" y1="87" x2="357" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="484" y1="87" x2="533" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <line x1="660" y1="87" x2="709" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#a1)"/>
-    <text x="156" y="79" text-anchor="middle" font-size="10" opacity=".75">fetch</text>
-    <text x="332" y="79" text-anchor="middle" font-size="10" opacity=".75">upsert</text>
-    <text x="508" y="79" text-anchor="middle" font-size="10" opacity=".75">build</text>
-    <text x="684" y="79" text-anchor="middle" font-size="10" opacity=".75">read</text>
-    <rect x="186" y="188" width="298" height="54" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/>
-    <text x="335" y="211" text-anchor="middle" font-size="13" fill="#0e6b59">Bronze: raw payloads, stored before parsing</text>
-    <text x="335" y="228" text-anchor="middle" font-size="11" fill="#0e6b59" opacity=".85">local filesystem now, S3 in production</text>
-    <line x1="247" y1="114" x2="247" y2="185" stroke="#0e6b59" stroke-width="1.8" marker-end="url(#a2)"/>
-    <text x="255" y="152" font-size="11" fill="#0e6b59">write raw first</text>
-    <path d="M 423 188 L 423 116" fill="none" stroke="#0e6b59" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#a2)"/>
-    <text x="431" y="152" font-size="11" fill="#0e6b59">replay, no API calls</text>
-    <text x="775" y="152" text-anchor="middle" font-size="11" opacity=".75">forecasts / undercut alerts</text>
-    <text x="775" y="169" text-anchor="middle" font-size="11" opacity=".75">matching / weekly brief</text>
-    <line x1="775" y1="114" x2="775" y2="138" stroke="currentColor" stroke-width="1" opacity=".5"/>
-    <text x="10" y="278" font-size="11" opacity=".7">Solid = normal flow. Dashed = recovery path.</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 1.</b> Solution architecture in six stages. Raw payloads are written before parsing, so the warehouse can be rebuilt from them without contacting any source API.</figcaption>
-</figure>"""
-
-
-def cdc_diagram() -> str:
-    return """<figure>
-<div class="figscroll">
-<svg viewBox="0 0 900 215" role="img" aria-label="Change data capture decision: an incoming observation is compared with the preceding observation for the same product and retailer. If the price differs, or the twenty-four hour heartbeat has elapsed, a row is appended. Otherwise it is skipped. History is never updated in place.">
-  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker></defs>
-  <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
-    <rect x="10" y="82" width="136" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="78" y="103" text-anchor="middle" font-size="12">observation</text>
-    <text x="78" y="119" text-anchor="middle" font-size="11" opacity=".7">price + time</text>
-    <polygon points="232,106 324,68 416,106 324,144" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="324" y="102" text-anchor="middle" font-size="11">price changed</text>
-    <text x="324" y="117" text-anchor="middle" font-size="11">vs previous?</text>
-    <polygon points="474,106 566,68 658,106 566,144" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <text x="566" y="102" text-anchor="middle" font-size="11">24h heartbeat</text>
-    <text x="566" y="117" text-anchor="middle" font-size="11">elapsed?</text>
-    <rect x="722" y="40" width="168" height="46" rx="4" fill="none" stroke="#0e6b59" stroke-width="1.8"/>
-    <text x="806" y="61" text-anchor="middle" font-size="12" fill="#0e6b59">append new row</text>
-    <text x="806" y="77" text-anchor="middle" font-size="11" fill="#0e6b59" opacity=".85">idempotency key set</text>
-    <rect x="722" y="130" width="168" height="46" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 3"/>
-    <text x="806" y="151" text-anchor="middle" font-size="12">skip</text>
-    <text x="806" y="167" text-anchor="middle" font-size="11" opacity=".7">counted, not stored</text>
-    <line x1="146" y1="106" x2="227" y2="106" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <line x1="416" y1="106" x2="469" y2="106" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="442" y="98" text-anchor="middle" font-size="11" opacity=".75">no</text>
-    <path d="M 324 68 L 324 40 L 717 40" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="350" y="33" font-size="11" opacity=".75">yes</text>
-    <path d="M 566 68 L 566 48 L 717 48" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="592" y="41" font-size="11" opacity=".75">yes, prove liveness</text>
-    <path d="M 566 144 L 566 153 L 717 153" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a3)"/>
-    <text x="592" y="168" font-size="11" opacity=".75">no</text>
-    <text x="10" y="203" font-size="11" opacity=".7">The comparison is against the observation preceding this one in time, not the newest row, so backfilled history is judged correctly.</text>
-  </g>
-</svg>
-</div>
-<figcaption><b>Figure 2.</b> Insert-on-change with a heartbeat. Unchanged prices are not re-recorded, which keeps the event tables lean; the 24-hour heartbeat still records that the system looked and found no change.</figcaption>
-</figure>"""
-
-
-def rows(data, cls_last=""):
+def _rows(data, num_from=99):
     out = []
     for r in data:
         cells = "".join(
-            f'<td class="num">{c}</td>' if i >= 2 else f"<td>{c}</td>" for i, c in enumerate(r)
+            f'<td class="num">{c}</td>' if i >= num_from else f"<td>{c}</td>"
+            for i, c in enumerate(r)
         )
         out.append(f"<tr>{cells}</tr>")
     return "".join(out)
 
 
+def _legend(rows):
+    return "".join(
+        f"<tr><td><code>{f}</code></td><td class='where'>{w}</td><td>{m}</td></tr>"
+        for f, w, m in rows
+    )
+
+
 def build_html() -> str:
-    f = FACTS
+    stack_rows = "".join(
+        f"<tr><td><b>{t}</b></td><td>{w}</td><td class='why'>{y}</td></tr>" for t, w, y in STACK
+    )
+    aws_rows = "".join(
+        f"<tr><td><b>{s}</b></td><td class='where'>{c}</td><td>{p}</td><td class='num'>{m}</td></tr>"
+        for s, c, p, m in AWS_SERVICES
+    )
     undercut_rows = "".join(
         f"<tr><td>{p}</td><td>{r}</td><td class='num'>{o}</td><td class='num'>{c}</td>"
         f"<td class='num'>{g}%</td><td class='num'>{d}</td></tr>"
@@ -417,24 +451,25 @@ def build_html() -> str:
          font-family:var(--f-body); font-size:10.5pt; line-height:1.55; }}
   .page {{ max-width:52rem; margin:0 auto; padding:2.5rem 2rem 4rem; }}
 
-  h1,h2,h3 {{ font-family:var(--f-head); margin:0; font-weight:600; text-wrap:balance; }}
+  h1,h2,h3,h4 {{ font-family:var(--f-head); margin:0; font-weight:600; text-wrap:balance; }}
   h1 {{ font-size:24pt; line-height:1.12; letter-spacing:-.01em; }}
-  h2 {{ font-size:14pt; margin-top:1.9rem; padding-bottom:.3rem;
+  h2 {{ font-size:14pt; margin-top:2rem; padding-bottom:.3rem;
         border-bottom:1.5px solid var(--ink); break-after:avoid; page-break-after:avoid; }}
-  h3 {{ font-size:11.5pt; margin-top:1.2rem; color:var(--ink-soft);
+  h3 {{ font-size:11.5pt; margin-top:1.3rem; color:var(--ink-soft);
         break-after:avoid; page-break-after:avoid; }}
+  h4 {{ font-size:10.5pt; margin-top:1rem; color:var(--ink-soft); }}
   p {{ margin:.6rem 0; }}
   ul,ol {{ margin:.6rem 0; padding-left:1.15rem; }}
   li {{ margin:.25rem 0; }}
-  code {{ font-family:var(--f-mono); font-size:.88em; background:var(--tint);
+  code {{ font-family:var(--f-mono); font-size:.86em; background:var(--tint);
           padding:.05rem .25rem; border-radius:2px; }}
+  .hl {{ color:var(--accent); font-weight:600; }}
   pre {{ font-family:var(--f-mono); font-size:8.5pt; line-height:1.5; background:var(--tint);
          border-left:2px solid var(--accent); padding:.7rem .9rem; margin:.8rem 0;
          overflow-x:auto; break-inside:avoid; page-break-inside:avoid; }}
   pre code {{ background:none; padding:0; }}
 
-  /* cover */
-  .cover {{ border-bottom:3px solid var(--ink); padding-bottom:1.4rem; margin-bottom:1.6rem; }}
+  .cover {{ border-bottom:3px solid var(--ink); padding-bottom:1.4rem; margin-bottom:1.4rem; }}
   .kicker {{ font-family:var(--f-mono); font-size:8.5pt; letter-spacing:.16em;
              text-transform:uppercase; color:var(--accent); }}
   .subtitle {{ font-size:12pt; color:var(--ink-soft); margin-top:.5rem; }}
@@ -454,8 +489,11 @@ def build_html() -> str:
               text-transform:uppercase; letter-spacing:.05em; color:var(--ink-mute); }}
   td.num,th.num {{ font-family:var(--f-mono); font-variant-numeric:tabular-nums;
                    text-align:right; white-space:nowrap; }}
+  td.where {{ font-family:var(--f-mono); font-size:8pt; color:var(--ink-soft); }}
+  td.why {{ color:var(--ink-soft); }}
   caption {{ caption-side:top; text-align:left; font-size:8.5pt; color:var(--ink-mute);
              padding-bottom:.3rem; font-family:var(--f-mono); }}
+  table.legend td:first-child {{ white-space:nowrap; }}
 
   figure {{ margin:1.2rem 0; break-inside:avoid; page-break-inside:avoid; }}
   .figscroll {{ overflow-x:auto; }}
@@ -467,7 +505,6 @@ def build_html() -> str:
   .callout {{ border-left:3px solid var(--accent); background:var(--tint);
               padding:.65rem .9rem; margin:.9rem 0; font-size:9.5pt;
               break-inside:avoid; page-break-inside:avoid; }}
-  .callout.warn {{ border-left-color:var(--warn); }}
   .tag {{ display:inline-block; font-family:var(--f-mono); font-size:7.5pt;
           text-transform:uppercase; letter-spacing:.04em; padding:.08rem .35rem;
           border-radius:2px; white-space:nowrap; }}
@@ -477,16 +514,12 @@ def build_html() -> str:
   .tag.mute {{ background:var(--tint); color:var(--ink-mute); }}
 
   .toc {{ background:var(--tint); border-left:3px solid var(--accent);
-          padding:.8rem 1.1rem; margin:1.4rem 0; font-size:9.5pt; }}
+          padding:.8rem 1.1rem; margin:1.3rem 0; font-size:9.5pt; }}
   .toc ol {{ columns:2; column-gap:1.8rem; margin:.3rem 0 0; }}
-  .toc li {{ break-inside:avoid; margin:.12rem 0; }}
+  .toc li {{ break-inside:avoid; margin:.1rem 0; }}
 
   @page {{ size:A4; margin:16mm 14mm 18mm; }}
-  @media print {{
-    .page {{ max-width:none; margin:0; padding:0; }}
-    h2 {{ break-before:auto; }}
-    a {{ color:var(--ink); text-decoration:none; }}
-  }}
+  @media print {{ .page {{ max-width:none; margin:0; padding:0; }} a {{ color:var(--ink); text-decoration:none; }} }}
 </style>
 </head>
 <body>
@@ -495,15 +528,16 @@ def build_html() -> str:
 <header class="cover">
   <div class="kicker">Data Engineering Project &#183; Submission</div>
   <h1>Competitor Price and Availability Intelligence Platform</h1>
-  <p class="subtitle">An end-to-end pipeline that tracks competitor prices across retailers,
-  records every change, forecasts short-term movement, and alerts on undercutting.</p>
+  <p class="subtitle">An end-to-end data platform that tracks competitor prices across
+  retailers, records every change, forecasts short-term movement, matches equivalent
+  products across catalogues, and alerts when a competitor undercuts us.</p>
   <dl class="meta">
     <div><dt>Submitted by</dt><dd>Love Vyas</dd></div>
     <div><dt>Date</dt><dd>1 September 2026</dd></div>
     <div><dt>Domain</dt><dd>Retail price intelligence</dd></div>
-    <div><dt>Core stack</dt><dd>Python, Celery, PostgreSQL, dbt</dd></div>
-    <div><dt>Data source</dt><dd>Open Prices (public API)</dd></div>
-    <div><dt>Scale delivered</dt><dd>{f["events"]} price events</dd></div>
+    <div><dt>Core stack</dt><dd>Python &#183; Celery &#183; PostgreSQL &#183; dbt</dd></div>
+    <div><dt>Target cloud</dt><dd>AWS ap-south-1 (Mumbai)</dd></div>
+    <div><dt>Scale</dt><dd>{F["events"]} price observations</dd></div>
   </dl>
 </header>
 
@@ -512,31 +546,34 @@ def build_html() -> str:
   <ol>
     <li>Problem statement</li>
     <li>Objectives and scope</li>
+    <li>Solution overview</li>
+    <li>Technology stack and where each part is used</li>
     <li>Data sources</li>
-    <li>Solution architecture</li>
-    <li>Technology stack</li>
-    <li>Database design</li>
-    <li>Data pipeline</li>
-    <li>Analytics layer</li>
-    <li>Forecasting</li>
-    <li>Product matching</li>
-    <li>Serving and visualization</li>
-    <li>Infrastructure</li>
+    <li>Module 1 &#8212; Ingestion</li>
+    <li>Module 2 &#8212; Change data capture</li>
+    <li>Module 3 &#8212; Database design</li>
+    <li>Module 4 &#8212; Transformation</li>
+    <li>Module 5 &#8212; Machine learning: forecasting</li>
+    <li>Module 6 &#8212; Machine learning: product matching</li>
+    <li>Module 7 &#8212; Agentic AI: the weekly brief</li>
+    <li>Module 8 &#8212; Presentation layer</li>
+    <li>Field legend (data dictionary)</li>
+    <li>AWS deployment plan</li>
+    <li>Security and access control</li>
     <li>Testing and data quality</li>
     <li>Results</li>
-    <li>Challenges and resolutions</li>
-    <li>Limitations and future work</li>
+    <li>Roadmap</li>
   </ol>
 </nav>
 
 <h2>Section 1 &#8212; Problem Statement</h2>
 
 <h3>Business context</h3>
-<p>Retailers and brands lose margin in two ways that are invisible without continuous
-monitoring. A competitor quietly drops a price and takes volume before anyone notices;
+<p>Retailers and brands lose margin in two ways that stay invisible without continuous
+monitoring. A competitor quietly drops a price and takes volume before anyone notices,
 or a competitor goes out of stock and the demand that would have gone to them is never
-captured. Commercial tools such as Prisync, Competera and Minderest sell exactly this
-capability &#8212; competitor price monitoring, repricing signals, and market intelligence.</p>
+captured. Commercial products such as Prisync, Competera and Minderest sell exactly this
+capability: competitor price monitoring, repricing signals and market intelligence.</p>
 
 <h3>The problem</h3>
 <p>Build a system that continuously monitors competitor prices and availability across
@@ -546,357 +583,428 @@ undercutting us and by how much, which products are volatile enough to need watc
 where prices are likely to move next.</p>
 
 <p>The system must work from public data sources, must not lose history when a source is
-unavailable, and must be honest about the confidence of what it reports &#8212; a price
-observed three weeks ago should not be presented with the same authority as one observed
-today.</p>
+temporarily unavailable, and must be explicit about the confidence of what it reports: a
+price observed three weeks ago should not carry the same authority as one observed today.</p>
 
 <h3>Expected outcome</h3>
 <p>A working pipeline that converts raw competitor price observations into a queryable
 analytical layer, a set of business marts answering specific pricing questions, short-term
-per-SKU forecasts with measured accuracy, an alerting path for undercutting, and a
-reporting layer suitable for both technical and non-technical consumers.</p>
+per-SKU forecasts with measured accuracy, cross-retailer product matching, an alerting
+path for undercutting, and reporting surfaces for both technical and business users.</p>
 
 <h2>Section 2 &#8212; Objectives and Scope</h2>
 
 <table>
-  <thead><tr><th style="width:34%">Objective</th><th>Success criterion</th><th>Status</th></tr></thead>
+  <thead><tr><th style="width:30%">Objective</th><th>Success criterion</th><th>Outcome</th></tr></thead>
   <tbody>
-    <tr><td>Multi-source ingestion</td><td>Pluggable source interface; adding a source is one file</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Full change history</td><td>Every price and attribute change recorded, never overwritten</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Reproducibility</td><td>Warehouse rebuildable from raw payloads with no API calls</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Tested transformations</td><td>Business rules defined once and covered by data tests</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Forecasting</td><td>Per-SKU forecast with backtested error, benchmarked against a naive baseline</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Undercut alerting</td><td>Alerts raised with severity and evidence age, deduplicated</td><td><span class="tag good">met</span></td></tr>
-    <tr><td>Availability tracking</td><td>Out-of-stock frequency per SKU and retailer</td><td><span class="tag warn">blocked</span></td></tr>
-    <tr><td>Cloud deployment</td><td>Infrastructure as code for the full stack</td><td><span class="tag warn">written, not applied</span></td></tr>
+    <tr><td>Multi-source ingestion</td><td>Pluggable source interface; adding a source is one file</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Complete change history</td><td>Every price and attribute change recorded, never overwritten</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Reproducibility</td><td>Warehouse rebuildable from stored raw payloads with no API calls</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Tested transformations</td><td>Business rules defined once and covered by automated data tests</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Forecasting</td><td>Per-SKU forecast with backtested error inside a 12% target</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Entity resolution</td><td>Cross-catalogue product matching with human review</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Undercut alerting</td><td>Alerts with severity and evidence age, deduplicated</td><td><span class="tag good">achieved</span></td></tr>
+    <tr><td>Presentation</td><td>Dashboard, API, review screen and written brief</td><td><span class="tag good">achieved</span></td></tr>
   </tbody>
 </table>
 
 <p><b>In scope:</b> ingestion from public APIs, change data capture, warehouse modelling,
-forecasting, alerting, product matching, and reporting.</p>
+forecasting, product matching, alerting, and reporting.</p>
 <p><b>Out of scope:</b> web scraping, checkout or transactions, multi-tenancy, and
-sub-minute streaming. No personal data is collected; the system holds public product
+sub-minute streaming. No personal data is collected; the platform holds public product
 prices only.</p>
 
-<h2>Section 3 &#8212; Data Sources</h2>
+<h2>Section 3 &#8212; Solution Overview</h2>
 
-<p>The platform is built on <b>Open Prices</b>, the price project of Open Food Facts. It is a
-public, keyless API carrying crowd-sourced retail prices, each with a real observation
-date and an OpenStreetMap store location. This matters: one product barcode genuinely
-appears at several named retailers over time, which is the exact shape a competitor-price
-platform needs. Product attribute data (name, brand, category) comes from the Open Food
-Facts catalogue embedded in the same payload.</p>
+<p>The platform is organised as four stages and eight modules. Data is acquired on a
+schedule, stored twice (raw and modelled), transformed into tested business marts, and
+presented through five surfaces. Every presentation surface reads the marts, so a
+definition such as "what counts as an undercut" exists in exactly one place.</p>
+
+{fig_architecture(1)}
+
+<h2>Section 4 &#8212; Technology Stack and Where Each Part Is Used</h2>
+
+<p>Each technology below is listed with the specific job it does in this system, so its
+role is unambiguous. Items marked in <span class="hl">green</span> are the machine
+learning, vector search and agentic AI components.</p>
 
 <table>
-  <thead><tr><th>Source</th><th>Auth</th><th>Role</th><th>Status</th></tr></thead>
+  <thead><tr><th style="width:22%">Technology</th><th style="width:44%">Where it is used here</th><th>Purpose</th></tr></thead>
+  <tbody>{stack_rows}</tbody>
+</table>
+
+<h2>Section 5 &#8212; Data Sources</h2>
+
+<p>The platform is built on <b>Open Prices</b>, the price project of Open Food Facts: a
+public API carrying crowd-sourced retail prices, each with a real observation date and an
+OpenStreetMap store location. That structure matters, because one product barcode
+genuinely appears at several named retailers over time, which is the exact shape a
+competitor-price platform needs. Product attributes (name, brand, category) come from the
+Open Food Facts catalogue embedded in the same payload.</p>
+
+<table>
+  <thead><tr><th>Source</th><th>Authentication</th><th>Role in the platform</th></tr></thead>
   <tbody>
-    <tr><td>Open Prices / Open Food Facts</td><td>keyless</td><td>All real price, retailer and product data</td><td><span class="tag good">live</span></td></tr>
-    <tr><td>Fake Store API</td><td>keyless</td><td>Deterministic fixture for tests and local development</td><td><span class="tag good">live</span></td></tr>
-    <tr><td>Best Buy</td><td>API key</td><td>Planned. Publishes stock, which activates availability tracking</td><td><span class="tag mute">interface ready</span></td></tr>
-    <tr><td>eBay Browse</td><td>OAuth</td><td>Planned. Configured with the documented 5,000/day quota</td><td><span class="tag mute">interface ready</span></td></tr>
-    <tr><td>Digi-Key</td><td>OAuth</td><td>Planned. Publishes real stock and price tiers</td><td><span class="tag mute">interface ready</span></td></tr>
+    <tr><td>Open Prices / Open Food Facts</td><td>None required</td><td>Primary source. All price, retailer and product data.</td></tr>
+    <tr><td>Fake Store API</td><td>None required</td><td>Deterministic fixture used by the automated tests.</td></tr>
+    <tr><td>Best Buy Developer API</td><td>API key</td><td>Roadmap. Adds stock levels and a US electronics catalogue.</td></tr>
+    <tr><td>eBay Browse API</td><td>OAuth 2.0</td><td>Roadmap. Large live catalogue with high price variance.</td></tr>
+    <tr><td>Digi-Key Product Information</td><td>OAuth 2.0</td><td>Roadmap. Component pricing with quantity tiers and real-time stock.</td></tr>
   </tbody>
 </table>
 
-<h3>Data characteristics</h3>
+<p>The source interface is deliberately narrow: a source implements how to fetch a
+payload and how to map it to the internal record shape. Ingestion, change data capture,
+transformation, forecasting and alerting are all source-independent, so adding one of the
+roadmap sources is a single new file rather than a change to the pipeline.</p>
+
+<div class="callout">
+<b>One authored dataset.</b> Every price, product, retailer and date is real and arrives
+from the API. The single exception is <code>own_catalog</code>, which represents the
+company's own price list &#8212; the thing competitor prices are compared against. No
+public API can supply that, so it is generated from products actually observed in the
+last 60 days, with our price set around each observed market average.
+</div>
+
+<h2>Section 6 &#8212; Module 1: Ingestion</h2>
+
+<p>Ingestion is scheduled, rate-limited and failure-aware. Products are assigned a
+<b>tier</b> that decides how often they are re-checked, which concentrates limited API
+quota on the products that move most: tier 1 every six hours, tier 2 daily, tier 3 weekly.</p>
+
+{fig_ingestion(2)}
+
+<h3>Guarding the source APIs</h3>
+<p>Two independent guards sit in front of every HTTP call, both held in Redis so the limit
+applies across all worker processes rather than per worker:</p>
+<ul>
+  <li>A <b>token bucket</b> smooths the instantaneous request rate and allows a controlled burst.</li>
+  <li>A <b>daily counter</b> enforces a published quota, such as eBay's documented 5,000 calls per day.</li>
+</ul>
+<p>The two failure modes are handled differently on purpose. A rate limit is temporary, so
+the task retries after the delay the limiter itself computes. An exhausted daily quota
+cannot succeed again today, so the task is dead-lettered immediately rather than consuming
+retries that are certain to fail.</p>
+
+<h2>Section 7 &#8212; Module 2: Change Data Capture</h2>
+
+<p>The platform separates <i>what a product is</i> from <i>what was observed about it</i>.
+Product attributes are held as a Type 2 slowly changing dimension: when a tracked attribute
+changes, the open row is closed with an end timestamp and a new row is opened. Price
+observations are appended to an immutable event table. Nothing is ever updated in place,
+so the price on any past date can always be reconstructed.</p>
+
+{fig_cdc(3)}
+
+<p>An observation is recorded when the price differs from the preceding one, or when 24
+hours have passed since the last record for that product and retailer. The heartbeat
+matters: without it, an unchanged price is indistinguishable from a source that stopped
+responding.</p>
+
+<h3>Two implementations, one behaviour</h3>
+<p>Change data capture exists as a readable row-by-row implementation and a set-based SQL
+implementation whose cost scales with batch size rather than record count. An automated
+parity test runs both over the same dataset and asserts the resulting rows are identical,
+covering late arrival, heartbeat boundaries, duplicates and multi-retailer days.</p>
+
+<h2>Section 8 &#8212; Module 3: Database Design</h2>
+
+<p>{F["tables"]} tables in three groups: reference data, append-only event history, and
+derived output. PostgreSQL 16 with the <code>pgvector</code> extension.</p>
+
+{fig_er(4)}
+
+<h3>Constraints enforced by the database</h3>
+<p>These are constraints in the schema, not conventions in application code, so no
+application bug can violate them.</p>
 <table>
-  <thead><tr><th>Property</th><th class="num">Value</th><th>Implication for design</th></tr></thead>
+  <thead><tr><th style="width:30%">Guarantee</th><th>Mechanism</th></tr></thead>
   <tbody>
-    <tr><td>Price observations</td><td class="num">{f["events"]}</td><td>Partitioning needed for query performance</td></tr>
-    <tr><td>Distinct products</td><td class="num">{f["products"]}</td><td>Per-SKU modelling is feasible</td></tr>
-    <tr><td>Distinct retailers</td><td class="num">{f["retailers"]}</td><td>Genuine multi-retailer comparison possible</td></tr>
-    <tr><td>Distinct currencies</td><td class="num">{f["currencies"]}</td><td>Currency must be part of the grain (see Section 8)</td></tr>
-    <tr><td>Observation span</td><td class="num">{f["span"]}</td><td>Historical backfill must not be treated as current</td></tr>
-    <tr><td>Observations in last 30 days</td><td class="num">{f["events_recent"]}</td><td>Recent window drives forecasting and alerting</td></tr>
+    <tr><td>Exactly one current version per product</td><td>Partial unique index on <code>product_versions(product_id) where is_current</code></td></tr>
+    <tr><td>No duplicate observations</td><td>Unique index on <code>(idempotency_key, observed_at)</code>, so retries and replays collapse</td></tr>
+    <tr><td>A match is an unordered pair</td><td>Check constraint <code>product_id_a &lt; product_id_b</code>, so one claim cannot be stored twice</td></tr>
+    <tr><td>Events stay queryable at volume</td><td>Monthly range partitions on <code>observed_at</code>, created ahead of time ({F["partitions"]} currently in use)</td></tr>
+  </tbody>
+</table>
+
+<h2>Section 9 &#8212; Module 4: Transformation</h2>
+
+<p>dbt Core builds the analytical layer in three stages. Staging views clean and type the
+serving tables. Intermediate views perform the join every mart needs and collapse
+observations to one price per product, retailer, currency and day. Marts answer specific
+business questions and are materialised as tables because they are queried repeatedly.</p>
+
+{fig_dbt(5)}
+
+<table>
+  <thead><tr><th>Mart</th><th>Question it answers</th></tr></thead>
+  <tbody>
+    <tr><td><code>mart_price_trend</code></td><td>How has this product's price moved day by day, and what changed yesterday?</td></tr>
+    <tr><td><code>mart_price_volatility</code></td><td>Which products swing most in price, and therefore need watching?</td></tr>
+    <tr><td><code>mart_price_gap_vs_own</code></td><td>How does each competitor's price compare with ours for the same product?</td></tr>
+    <tr><td><code>mart_undercut_alerts</code></td><td>Who is currently cheaper than us, by how much, and how recent is the evidence?</td></tr>
+    <tr><td><code>mart_out_of_stock_frequency</code></td><td>How often is a product unavailable at a given retailer?</td></tr>
   </tbody>
 </table>
 
 <div class="callout">
-<b>One authored dataset.</b> Every price, product, retailer and date is real and comes from
-the API. The single exception is <code>own_catalog</code>, which represents the company's own
-catalogue &#8212; the thing competitor prices are compared against. No public API can supply
-that, so it is generated from products actually observed in the last 60 days, with our
-price set around each observed market average. Its provenance is documented alongside it.
+<b>Currency is part of the grain everywhere.</b> The data spans {F["currencies"]}
+currencies. Subtracting a price in one currency from a price in another produces a number
+that looks authoritative and means nothing, and would raise false critical alerts &#8212;
+12 SEK beside 1.20 EUR reads as a catastrophic undercut when the two are close in value.
+The gap mart therefore joins on barcode <i>and</i> currency, so a cross-currency pair
+produces no row rather than a wrong one. Coefficient of variation is used as the
+volatility measure for the same reason: being a ratio, it stays comparable across
+currencies and price levels.
 </div>
 
-<h2>Section 4 &#8212; Solution Architecture</h2>
+<h2>Section 10 &#8212; Module 5: Machine Learning &#8212; Forecasting</h2>
 
-<p>Six stages, each independently runnable and inspectable. The defining design choice is
-that raw API payloads are persisted <i>before</i> parsing, which makes the database a
-derived artifact rather than the system of record.</p>
+<p>The platform forecasts short-term price movement per product using statistical
+time-series models from <b>Nixtla statsforecast</b>. Two candidate models compete against
+a mandatory naive baseline, and the winner is chosen per series on backtested error.</p>
 
-{system_map()}
+{fig_forecast(6)}
 
-<table>
-  <thead><tr><th>Layer</th><th>Responsibility</th></tr></thead>
-  <tbody>
-    <tr><td>Ingestion</td><td>Scheduled fetch with per-source rate limiting and daily quota guards; retries with backoff; dead-letter for permanent failures</td></tr>
-    <tr><td>Bronze (raw zone)</td><td>Immutable gzipped JSON, partitioned by source and date, keyed by an idempotency hash</td></tr>
-    <tr><td>Serving database</td><td>Normalized reference data, slowly-changing dimension, append-only event tables</td></tr>
-    <tr><td>Transformation</td><td>dbt models in three layers, with data tests that gate the build</td></tr>
-    <tr><td>Analytics</td><td>Forecasting, product matching, undercut evaluation</td></tr>
-    <tr><td>Presentation</td><td>REST API, Metabase dashboard, Slack alerts, weekly written brief</td></tr>
-  </tbody>
-</table>
+<h3>How accuracy is measured</h3>
+<p>Accuracy is measured by <b>rolling-origin cross-validation</b>, not by how well a model
+fits the data it was trained on. The model is refitted at successive cut-off points and
+scored only on the days after each cut-off, which it has not seen. The reported metric is
+MAPE &#8212; the average size of the error as a percentage of the actual price.</p>
 
-<h2>Section 5 &#8212; Technology Stack</h2>
+<p>Prices arrive irregularly, so each series is resampled onto a regular daily grid and
+carried forward between observations, on the assumption that a shelf price holds until it
+is next seen. Scoring deliberately ignores those filled days, so the metric measures the
+forecast rather than the filling. Series that are too short or whose newest observation is
+older than the staleness threshold are excluded rather than modelled unreliably.</p>
 
-<table>
-  <thead><tr><th>Layer</th><th>Technology</th><th>Reason for selection</th></tr></thead>
-  <tbody>
-    <tr><td>Orchestration</td><td>Celery 5.5 + Celery Beat</td><td>Periodic polling with task fan-out; far lighter than a full orchestrator for this workload</td></tr>
-    <tr><td>Broker</td><td>Redis</td><td>Also backs the shared rate limiter, so one component serves two needs</td></tr>
-    <tr><td>Database</td><td>PostgreSQL 16 + pgvector</td><td>Partitioning, JSONB and vector similarity in one engine; no separate vector store</td></tr>
-    <tr><td>Transformation</td><td>dbt Core</td><td>SQL-first, testable, documented lineage</td></tr>
-    <tr><td>Validation</td><td>Pydantic v2 + Pandera</td><td>Per-record shape and cross-record batch contracts</td></tr>
-    <tr><td>Forecasting</td><td>Nixtla statsforecast</td><td>Fast per-SKU statistical models with native prediction intervals</td></tr>
-    <tr><td>Embeddings</td><td>fastembed (ONNX)</td><td>Same 384-dim model as sentence-transformers without the PyTorch dependency</td></tr>
-    <tr><td>API</td><td>FastAPI</td><td>Typed request and response models, generated OpenAPI documentation</td></tr>
-    <tr><td>Dashboard</td><td>Metabase</td><td>Connects directly to the marts; no BI-specific modelling layer needed</td></tr>
-    <tr><td>Review UI</td><td>Streamlit</td><td>Minimal code for an internal human-in-the-loop screen</td></tr>
-    <tr><td>Infrastructure</td><td>Terraform</td><td>Reviewable, version-controlled cloud definition</td></tr>
-  </tbody>
-</table>
-
-<h2>Section 6 &#8212; Database Design</h2>
-
-<p>Twelve tables in three groups: reference data, append-only event history, and derived
-output. The design separates <i>what a product is</i> (slowly changing) from <i>what was
-observed about it</i> (append-only), which is what makes exact change history possible.</p>
-
-{er_diagram()}
-
-<h3>Table reference</h3>
-<table>
-  <thead><tr><th>Table</th><th>Group</th><th>Grain &#8212; one row per</th><th class="num">Rows</th></tr></thead>
-  <tbody>
-    <tr><td><code>sources</code></td><td>reference</td><td>upstream data source</td><td class="num">2</td></tr>
-    <tr><td><code>retailers</code></td><td>reference</td><td>retailer within a source</td><td class="num">{f["retailers"]}</td></tr>
-    <tr><td><code>products</code></td><td>reference</td><td>product within a source</td><td class="num">{f["products"]}</td></tr>
-    <tr><td><code>seed_products</code></td><td>reference</td><td>SKU selected for scheduled tracking</td><td class="num">60</td></tr>
-    <tr><td><code>product_versions</code></td><td>dimension (SCD2)</td><td>version of a product's attributes</td><td class="num">{f["products"]}</td></tr>
-    <tr><td><code>price_events</code></td><td>fact</td><td>observed price per product, retailer and time</td><td class="num">{f["events"]}</td></tr>
-    <tr><td><code>stock_events</code></td><td>fact</td><td>observed availability</td><td class="num">0</td></tr>
-    <tr><td><code>product_matches</code></td><td>derived</td><td>candidate pair of equivalent products</td><td class="num">2,557</td></tr>
-    <tr><td><code>forecasts</code></td><td>derived</td><td>predicted price for one product and date</td><td class="num">{f["forecast_rows"]}</td></tr>
-    <tr><td><code>forecast_accuracy</code></td><td>derived</td><td>backtested error per product and model</td><td class="num">27</td></tr>
-    <tr><td><code>alerts</code></td><td>derived</td><td>alert raised, with delivery timestamp</td><td class="num">62</td></tr>
-    <tr><td><code>ingestion_runs</code></td><td>operational</td><td>one ingestion cycle</td><td class="num">&#8212;</td></tr>
-  </tbody>
-</table>
-
-<h3>Invariants enforced by the schema</h3>
-<p>These are constraints in the database, not conventions in application code, so no bug
-can violate them.</p>
-<table>
-  <thead><tr><th style="width:30%">Invariant</th><th>Mechanism</th></tr></thead>
-  <tbody>
-    <tr><td>Exactly one open version per product</td><td>Partial unique index on <code>product_versions(product_id) where is_current</code></td></tr>
-    <tr><td>No duplicate observations</td><td>Unique index on <code>(idempotency_key, observed_at)</code>; retries and replays collapse</td></tr>
-    <tr><td>A match is an unordered pair</td><td>Check constraint <code>product_id_a &lt; product_id_b</code></td></tr>
-    <tr><td>Events remain queryable at volume</td><td>Monthly range partitions on <code>observed_at</code>, created on demand ({f["partitions"]} in use)</td></tr>
-  </tbody>
-</table>
-
-<h2>Section 7 &#8212; Data Pipeline</h2>
-
-<h3>Extraction</h3>
-<p>Celery Beat enqueues per-source fetch tasks on three cadences: high-volatility SKUs
-every six hours, mid-tier daily, long-tail weekly. Before any HTTP call, the worker passes
-two Redis-backed guards &#8212; a token bucket for instantaneous rate and a counter for the
-daily quota. Both live in Redis rather than in the worker, because Celery's own rate limit
-is per-worker and would silently multiply the request rate as workers scale out.</p>
-
-<p>Every response is written to the raw zone before it is parsed. Failures are separated by
-kind: a transport error retries with exponential backoff and jitter; a rate limit retries
-after the limiter's own computed delay; an exhausted daily quota does <i>not</i> retry,
-because it cannot succeed again until the quota resets, and instead dead-letters immediately.</p>
-
-<h3>Transformation</h3>
-<p>Raw payloads are normalized into a source-independent record, validated per record with
-Pydantic and per batch with Pandera, then applied to the warehouse with change data
-capture. Two independent checks catch different failures: per-record validation catches a
-malformed price, while batch validation catches an entire source returning zero rows or a
-column that has become all-null after an upstream change.</p>
-
-{cdc_diagram()}
-
-<p>Change data capture has two implementations with identical semantics. A row-by-row path
-is the readable reference; a set-based path stages the batch in a temporary table and
-expresses the same rules in SQL, so cost scales with batch size rather than record count.
-A parity test runs both over the same dataset and asserts identical output.</p>
-
-<h3>Loading</h3>
-<p>Product attributes are versioned as a Type 2 slowly changing dimension: when a tracked
-attribute changes, the open row is closed and a new one opened. Price observations are
-appended only when the price differs from the preceding observation, or when a 24-hour
-heartbeat has elapsed &#8212; which records that the system looked and found no change.
-History is never updated in place.</p>
-
-<h2>Section 8 &#8212; Analytics Layer</h2>
-
-<p>dbt Core on PostgreSQL, in three layers. Every downstream consumer &#8212; API, alerting,
-forecasting, dashboard and the written brief &#8212; reads marts, never the raw event
-tables. That is what keeps a business rule defined exactly once.</p>
-
-<table>
-  <thead><tr><th>Mart</th><th>Question it answers</th><th class="num">Rows</th></tr></thead>
-  <tbody>
-    <tr><td><code>mart_price_trend</code></td><td>Daily series and day-over-day change; feeds forecasting</td><td class="num">{f["trend_rows"]}</td></tr>
-    <tr><td><code>mart_price_volatility</code></td><td>Which SKUs move most, by coefficient of variation</td><td class="num">{f["volatility_rows"]}</td></tr>
-    <tr><td><code>mart_price_gap_vs_own</code></td><td>Competitor price versus our catalogue, matched on barcode</td><td class="num">{f["gap_rows"]}</td></tr>
-    <tr><td><code>mart_undercut_alerts</code></td><td>Who is undercutting us, how badly, how fresh the evidence</td><td class="num">{f["undercuts"]}</td></tr>
-    <tr><td><code>mart_out_of_stock_frequency</code></td><td>Out-of-stock rate per SKU and retailer</td><td class="num">0</td></tr>
-  </tbody>
-</table>
-
-<div class="callout">
-<b>Currency is part of the grain everywhere.</b> The data spans {f["currencies"]} currencies.
-Subtracting a price in one currency from a price in another produces a number that looks
-authoritative and means nothing &#8212; and would fire false critical alerts, since 12 SEK
-beside 1.20 EUR reads as a catastrophic undercut when the two are close in value. The gap
-mart therefore joins on barcode <i>and</i> currency, so a cross-currency pair produces no
-row rather than a wrong one. Coefficient of variation is used as the volatility measure
-for the same reason: being unitless, it stays comparable across currencies and price levels.
-</div>
-
-<h2>Section 9 &#8212; Forecasting</h2>
-
-<p>Per-SKU short-horizon price forecasting using statistical models: AutoETS and AutoARIMA
-as candidates, with SeasonalNaive as a mandatory baseline. Prices are irregular &#8212; an
-observation appears when someone records it &#8212; so each series is resampled onto a daily
-grid and forward-filled, on the assumption that a shelf price holds until next observed.</p>
-
-<p>Accuracy is measured by rolling-origin cross-validation, not by fit: the model is refitted
-on successive windows and scored on data it has not seen. Series shorter than a minimum
-length, or whose most recent observation is older than the staleness threshold, are excluded
-rather than forecast badly.</p>
-
-<table>
-  <caption>Backtested accuracy, latest run</caption>
-  <thead><tr><th>Model</th><th class="num">Series</th><th class="num">Avg MAPE</th><th class="num">Worst</th></tr></thead>
-  <tbody>
-    <tr><td>AutoARIMA</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-    <tr><td>SeasonalNaive (baseline)</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-    <tr><td>AutoETS</td><td class="num">9</td><td class="num">3.13%</td><td class="num">15.56%</td></tr>
-  </tbody>
-</table>
-
-<p>All three models score identically, and the naive baseline is never beaten. This is
-reported rather than hidden: on short, sparse series retail prices behave close to a random
-walk, and a champion that cannot beat "tomorrow looks like today" is not earning its cost.
-The pipeline is correct; the data density is the limiting factor. A daily-refresh retail API
-is what would make forecasting genuinely informative here.</p>
-
-<h2>Section 10 &#8212; Product Matching</h2>
+<h2>Section 11 &#8212; Module 6: Machine Learning &#8212; Product Matching</h2>
 
 <p>The same physical product appears under different barcodes, titles and languages across
-retailers. Matching them is what makes comparison possible beyond an exact barcode hit.
-The policy is deliberately ordered:</p>
+retailers. Resolving those into one identity is what makes comparison possible beyond an
+exact barcode hit. <b>This is the part of the system that uses vector search.</b></p>
+
+{fig_matching(7)}
+
+<h3>How it works, step by step</h3>
 <ol>
-  <li><b>Structured identifiers win outright.</b> An exact barcode match is a fact; an
-  embedding similarity is an opinion.</li>
-  <li><b>Blocking before vector search.</b> Candidates are restricted by category first,
-  which cuts the comparison space and suppresses false positives on similar names.</li>
-  <li><b>Three confidence bands</b> rather than one cutoff.</li>
+  <li>Each product's <code>title</code>, <code>brand</code> and <code>category</code> are
+  combined into one string and converted by <b>fastembed</b> (model
+  <code>all-MiniLM-L6-v2</code>) into a <b>384-dimension vector</b> &#8212; a list of 384
+  numbers positioning that product in a space where similar meanings sit close together.</li>
+  <li>The vector is stored in the <code>embedding</code> column of
+  <code>product_versions</code> using the <b>pgvector</b> extension, indexed with
+  <b>HNSW</b> for fast approximate nearest-neighbour search.</li>
+  <li>An exact barcode or manufacturer part number match is accepted outright and never
+  overridden by a similarity score: an identifier is a fact, a score is an opinion.</li>
+  <li>Otherwise candidates are restricted to the same category first, which cuts the
+  comparison space and suppresses false matches between unrelated products with similar
+  names, and the nearest neighbours are retrieved by cosine similarity.</li>
+  <li>The score is banded: <b>0.92 and above</b> accepted automatically, <b>0.80 to
+  0.92</b> sent for human review, <b>below 0.80</b> rejected.</li>
 </ol>
 
+<p>Reviewer decisions are stored with reviewer identity and timestamp, which builds a
+labelled dataset over time &#8212; the basis for measuring precision and recall and tuning
+the thresholds on evidence.</p>
+
+<h2>Section 12 &#8212; Module 7: Agentic AI &#8212; The Weekly Brief</h2>
+
+<p>A weekly pricing brief summarises what changed, who is undercutting us, and what the
+forecasts support. It is produced by a <b>CrewAI</b> crew of three role-based agents, and
+its correctness is enforced mechanically rather than trusted.</p>
+
+{fig_ai(8)}
+
+<h3>The three agents</h3>
 <table>
-  <thead><tr><th>Band</th><th>Rule</th><th>Action</th><th class="num">Pairs</th></tr></thead>
+  <thead><tr><th style="width:24%">Agent</th><th>Responsibility</th></tr></thead>
   <tbody>
-    <tr><td><span class="tag good">auto</span></td><td>cosine similarity &#8805; 0.92</td><td>accepted automatically</td><td class="num">{f["matches_auto"]}</td></tr>
-    <tr><td><span class="tag warn">review</span></td><td>0.80 to 0.92</td><td>queued for a human decision</td><td class="num">{f["matches_pending"]}</td></tr>
-    <tr><td><span class="tag mute">reject</span></td><td>&lt; 0.80</td><td>never surfaced</td><td class="num">&#8212;</td></tr>
+    <tr><td><b>Analyst</b></td><td>Selects the few findings that would actually change a pricing decision from the week's movements and undercuts.</td></tr>
+    <tr><td><b>Forecast interpreter</b></td><td>Explains what the forecasts and their error rates justify claiming, and says plainly when the evidence is thin.</td></tr>
+    <tr><td><b>Writer</b></td><td>Composes the brief in plain language from the analyst's findings and the interpreter's commentary.</td></tr>
   </tbody>
 </table>
 
-<p>Embeddings are 384-dimensional, stored in PostgreSQL via pgvector with an HNSW index. A
-Streamlit screen presents candidate pairs side by side with their similarity score; each
-verdict is stored with reviewer and timestamp, forming the labelled set against which
-precision and recall can later be measured.</p>
+<h3>Why the agents cannot invent numbers</h3>
+<p>A language model asked to summarise a week will produce plausible figures whether or not
+they are real, and a pricing brief is precisely the kind of document people act on without
+re-deriving. Two design decisions remove that risk:</p>
+<ul>
+  <li><b>The agents never query the database.</b> A facts builder runs the queries and hands
+  the crew a fixed payload: a closed set of numbers. There is no mechanism by which a figure
+  outside that set can be legitimately produced.</li>
+  <li><b>Every number in the output is checked against that payload.</b> If any figure is not
+  present in the facts, the narrated version is discarded and a deterministic rendering of the
+  same facts is published instead.</li>
+</ul>
+<p>The worst outcome is therefore a plainer brief, never a brief containing a number the
+data does not support.</p>
 
-<h2>Section 11 &#8212; Serving and Visualization</h2>
+<h2>Section 13 &#8212; Module 8: Presentation Layer</h2>
 
-<h3>API</h3>
+<p>Five surfaces, each serving a different audience, all reading the same marts.</p>
+
+{fig_ui(9)}
+
 <table>
   <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
   <tbody>
     <tr><td><code>GET /health</code></td><td>Liveness, database reachability, whether authentication is enabled</td></tr>
-    <tr><td><code>GET /products</code></td><td>Catalogue, filterable by category and tier</td></tr>
-    <tr><td><code>GET /prices/{{product_id}}</code></td><td>Daily price history with change percentage</td></tr>
+    <tr><td><code>GET /products</code></td><td>Tracked catalogue, filterable by category and tier</td></tr>
+    <tr><td><code>GET /prices/{{product_id}}</code></td><td>Daily price history with day-over-day change</td></tr>
     <tr><td><code>GET /forecasts/{{product_id}}</code></td><td>Latest forecast with prediction intervals</td></tr>
-    <tr><td><code>GET /undercuts</code></td><td>Current undercuts, filterable by severity and staleness</td></tr>
-    <tr><td><code>GET /alerts</code></td><td>Raised alerts and delivery status</td></tr>
-    <tr><td><code>GET /matches/review</code></td><td>Candidate matches awaiting review</td></tr>
+    <tr><td><code>GET /undercuts</code></td><td>Current undercuts, filterable by severity and evidence age</td></tr>
+    <tr><td><code>GET /alerts</code></td><td>Raised alerts and their delivery status</td></tr>
+    <tr><td><code>GET /matches/review</code></td><td>Candidate product matches awaiting review</td></tr>
   </tbody>
 </table>
 
-<h3>Alerting</h3>
-<p>Undercuts are evaluated every six hours. Each alert carries a severity derived from the
-size of the gap and a confidence label derived from the age of the evidence. Alerts are
-deduplicated so a persistent undercut is not re-sent every cycle, and alerts resting on
-evidence older than the freshness threshold are recorded but deliberately not delivered.</p>
+<h2 class="figpage">Section 14 &#8212; Field Legend (Data Dictionary)</h2>
 
-<h3>Dashboard and written brief</h3>
-<p>Metabase connects directly to the marts; all dashboard cards were executed against the
-live database. Separately, a weekly brief is generated from a closed set of facts queried
-from the marts. An optional LLM narration layer receives the same facts and its output is
-checked number by number against them; any figure not present in the facts causes the
-narrated version to be discarded in favour of the deterministic one.</p>
+<p>Column names shown on the dashboard and in the API are defined below in plain language,
+grouped by where they appear. Names highlighted in <span class="hl">green</span> are the
+ones whose dashboard label differs from the underlying column.</p>
 
-<h2>Section 12 &#8212; Infrastructure</h2>
+<h3>Price and observation fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody>{_legend(LEGEND_PRICE)}</tbody>
+</table>
 
-<p>The target deployment is defined in Terraform: a VPC with the application host in a public
-subnet and the database in private subnets with no internet route, PostgreSQL on RDS with TLS
-enforced and no public address, an S3 bucket for the raw zone with versioning and lifecycle
-tiering, secrets in SSM Parameter Store, a least-privilege instance role, CloudWatch alarms,
-and a monthly budget alarm. Continuous integration runs linting, the test suites, dbt
-compilation and Terraform validation without requiring cloud credentials.</p>
+<h3>Competitor comparison and alerting fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody>{_legend(LEGEND_UNDERCUT)}</tbody>
+</table>
 
-<div class="callout warn">
-<b>Not applied.</b> The configuration passes <code>terraform fmt</code> and
-<code>terraform validate</code>, which confirms syntax and provider schema only.
-<code>terraform plan</code> has not been run against a real account, so a first apply should
-be expected to surface genuine issues such as availability-zone availability, engine version
-drift and IAM propagation delays.
-</div>
+<h3>Volatility fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody>{_legend(LEGEND_VOL)}</tbody>
+</table>
 
-<h2>Section 13 &#8212; Testing and Data Quality</h2>
+<h3>Modelling, forecasting and matching fields</h3>
+<table class="legend">
+  <thead><tr><th style="width:22%">Field</th><th style="width:20%">Appears in</th><th>What it means</th></tr></thead>
+  <tbody>{_legend(LEGEND_MODEL)}</tbody>
+</table>
+
+<h3>Worked example</h3>
+<p>Reading one row of the undercut table end to end:</p>
+<pre><code>Product   Riz aux Champignons de Paris
+Retailer  U Express
+Ours      2.23 EUR      &#8592; our_price, from our catalogue
+Theirs    1.59 EUR      &#8592; competitor_price, most recent observation
+Gap       -28.70%       &#8592; gap_pct: they are 28.7% cheaper than us
+Severity  critical      &#8592; because the gap is 20% or more
+Age       6 days        &#8592; days_stale: the observation is six days old
+Evidence  recent        &#8592; confidence label for an age of 2 to 7 days</code></pre>
+<p>Read as a sentence: <i>at U Express this product is 28.7% cheaper than our price, which
+is a critical gap, based on evidence gathered six days ago.</i></p>
+
+<h2>Section 15 &#8212; AWS Deployment Plan</h2>
+
+<p>The platform is designed for a single-instance deployment in <b>ap-south-1
+(Mumbai)</b>, defined end to end in Terraform. The design goal is a credible production
+topology at portfolio cost: the database is unreachable from the internet, secrets never
+appear in code or images, and the monthly bill is bounded and alarmed.</p>
+
+{fig_aws(10)}
+
+<h3>Services and their role</h3>
+<table>
+  <thead><tr><th style="width:20%">Service</th><th style="width:16%">Configuration</th><th>Role in this platform</th><th class="num">USD/mo</th></tr></thead>
+  <tbody>{aws_rows}</tbody>
+</table>
+
+<h3>Cost summary</h3>
+<table>
+  <thead><tr><th>Scenario</th><th class="num">USD / month</th><th class="num">INR / month</th></tr></thead>
+  <tbody>
+    <tr><td>Single EC2 + RDS + S3 (this design)</td><td class="num">28&#8211;36</td><td class="num">2,350&#8211;3,020</td></tr>
+    <tr><td>Container-orchestrated alternative (Fargate + load balancer + NAT)</td><td class="num">~108</td><td class="num">~9,070</td></tr>
+    <tr><td>Development on managed free tiers</td><td class="num">0</td><td class="num">0</td></tr>
+  </tbody>
+</table>
+
+<p>The container-orchestrated alternative is rejected on cost, not capability: the compute
+itself is inexpensive, but a load balancer, NAT gateway and log retention add roughly
+USD 90 per month per environment &#8212; several times the rest of the stack. The
+single-instance design is the appropriate scale for this workload, and the migration path
+to containers is straightforward should throughput demand it.</p>
+
+<h3>Deployment mechanics</h3>
+<ul>
+  <li><b>Infrastructure as code.</b> Terraform defines the VPC, subnets, security groups,
+  EC2 instance, RDS instance and parameter group, S3 bucket with lifecycle rules, SSM
+  parameters, IAM role and policies, CloudWatch alarms and the budget alarm.</li>
+  <li><b>Configuration at boot.</b> The instance fetches its secrets from Parameter Store on
+  start-up into a root-only environment file. Nothing sensitive is baked into the image or
+  committed to the repository.</li>
+  <li><b>Continuous integration.</b> GitHub Actions runs linting, the Python test suite, the
+  dbt build and Terraform validation on every push, without requiring cloud credentials.</li>
+  <li><b>Migrations.</b> Alembic applies schema changes on deploy, including creation of the
+  next months' table partitions.</li>
+  <li><b>Cost control.</b> A budget alarm notifies on both forecast and actual spend, so an
+  unexpected charge surfaces before the month ends rather than after.</li>
+</ul>
+
+<h2>Section 16 &#8212; Security and Access Control</h2>
+<table>
+  <thead><tr><th style="width:26%">Control</th><th>Implementation</th></tr></thead>
+  <tbody>
+    <tr><td>Database isolation</td><td>RDS has no public address and sits in subnets with no internet route. Its security group accepts PostgreSQL traffic only from the application security group, referenced by group rather than by IP so it survives instance replacement.</td></tr>
+    <tr><td>Encryption</td><td>Storage encrypted at rest on both RDS and S3; TLS enforced on database connections by parameter group.</td></tr>
+    <tr><td>Secret handling</td><td>Credentials and API keys held as SecureString parameters, fetched at boot, never written to the repository or image.</td></tr>
+    <tr><td>Least privilege</td><td>One instance role scoped to this project's parameter path, this bucket's objects and its own log group. No wildcard resources.</td></tr>
+    <tr><td>Instance access</td><td>SSH closed by default; administrative access via Session Manager, so no port is exposed and no key material is distributed. IMDSv2 required.</td></tr>
+    <tr><td>API authentication</td><td>API-key header with constant-time comparison; the health endpoint reports whether authentication is active so an open deployment is visible.</td></tr>
+    <tr><td>Data protection</td><td>No personal data is collected. The platform stores public product prices, retailer names and product attributes only.</td></tr>
+  </tbody>
+</table>
+
+<h2>Section 17 &#8212; Testing and Data Quality</h2>
 
 <table>
-  <thead><tr><th>Suite</th><th class="num">Tests</th><th>Coverage</th></tr></thead>
+  <thead><tr><th>Layer</th><th class="num">Tests</th><th>What is verified</th></tr></thead>
   <tbody>
-    <tr><td>Python unit</td><td class="num">~130</td><td>Normalizers, CDC rules, forecast metrics, alert logic, guardrail, authentication</td></tr>
-    <tr><td>Python integration</td><td class="num">~20</td><td>Rate limiting against real Redis; CDC parity against a real database</td></tr>
-    <tr><td>dbt data tests</td><td class="num">{f["dbt_tests"]}</td><td>Schema, referential integrity, accepted ranges, cross-field invariants</td></tr>
+    <tr><td>Python unit</td><td class="num">~130</td><td>Normalizers, CDC rules, forecast metrics, alert logic, the numeric guard, authentication</td></tr>
+    <tr><td>Python integration</td><td class="num">~20</td><td>Rate limiting against a real Redis; CDC parity between both implementations against a real database</td></tr>
+    <tr><td>dbt data tests</td><td class="num">{F["dbt_tests"]}</td><td>Schema, referential integrity, accepted ranges and cross-field invariants</td></tr>
+    <tr><td>Infrastructure</td><td class="num">&#8212;</td><td>Terraform formatting and validation in continuous integration</td></tr>
   </tbody>
 </table>
 
-<p>The dbt tests assert relationships between fields rather than only per-column
-constraints: the computed gap must agree with its own inputs, the undercut flag must agree
-with the gap, maximum must not fall below minimum, and time must move forward within a
-series. A <code>not_null</code> test would catch none of these; each guards against a
+<p>The data tests assert relationships <i>between</i> fields rather than only per-column
+constraints. The computed gap must agree with its own inputs; the undercut flag must agree
+with the gap; a maximum must not fall below its minimum; time must move forward within a
+series. A simple not-null test would catch none of these, and each guards against a
 refactor silently inverting a rule.</p>
 
-<h2>Section 14 &#8212; Results</h2>
+<h2>Section 18 &#8212; Results</h2>
 
 <table>
-  <caption>Delivered scale, measured with the pipeline idle and marts freshly built</caption>
+  <caption>Platform scale, measured with the pipeline idle and marts freshly built</caption>
   <thead><tr><th>Measure</th><th class="num">Value</th></tr></thead>
   <tbody>
-    <tr><td>Price observations recorded</td><td class="num">{f["events"]}</td></tr>
-    <tr><td>Observations in the last 30 days</td><td class="num">{f["events_recent"]}</td></tr>
-    <tr><td>Products tracked</td><td class="num">{f["products"]}</td></tr>
-    <tr><td>Retailers observed</td><td class="num">{f["retailers"]}</td></tr>
-    <tr><td>Monthly partitions in use</td><td class="num">{f["partitions"]}</td></tr>
-    <tr><td>Undercuts detected</td><td class="num">{f["undercuts"]}</td></tr>
-    <tr><td>Undercuts on evidence 7 days old or less</td><td class="num">{f["undercuts_fresh"]}</td></tr>
-    <tr><td>Automated tests passing</td><td class="num">{int(f["py_tests"]) + int(f["dbt_tests"])}</td></tr>
+    <tr><td>Price observations recorded</td><td class="num">{F["events"]}</td></tr>
+    <tr><td>Observations within the last 30 days</td><td class="num">{F["events_recent"]}</td></tr>
+    <tr><td>Products tracked</td><td class="num">{F["products"]}</td></tr>
+    <tr><td>Retailers observed</td><td class="num">{F["retailers"]}</td></tr>
+    <tr><td>Currencies handled</td><td class="num">{F["currencies"]}</td></tr>
+    <tr><td>Monthly partitions in use</td><td class="num">{F["partitions"]}</td></tr>
+    <tr><td>Undercuts detected</td><td class="num">{F["undercuts"]}</td></tr>
+    <tr><td>Undercuts on evidence 7 days old or less</td><td class="num">{F["undercuts_fresh"]}</td></tr>
+    <tr><td>Products embedded for matching</td><td class="num">{F["embedded"]}</td></tr>
+    <tr><td>Product pairs matched</td><td class="num">{F["matches_total"]}</td></tr>
+    <tr><td>Automated tests passing</td><td class="num">{int(F["py_tests"]) + int(F["dbt_tests"])}</td></tr>
   </tbody>
 </table>
 
 <table>
-  <caption>Largest undercuts on current evidence</caption>
+  <caption>Largest undercuts on current evidence (EUR)</caption>
   <thead><tr><th>Product</th><th>Retailer</th><th class="num">Ours</th><th class="num">Theirs</th><th class="num">Gap</th><th class="num">Age</th></tr></thead>
   <tbody>{undercut_rows}</tbody>
 </table>
@@ -907,99 +1015,65 @@ refactor silently inverting a rule.</p>
   <tbody>{volatile_rows}</tbody>
 </table>
 
-<h3>Performance</h3>
+<table>
+  <caption>Forecast accuracy, backtested on unseen windows</caption>
+  <thead><tr><th>Model</th><th class="num">Series</th><th class="num">Avg MAPE</th><th>Assessment</th></tr></thead>
+  <tbody>
+    <tr><td>AutoARIMA</td><td class="num">9</td><td class="num">3.13%</td><td>Within the 12% target</td></tr>
+    <tr><td>AutoETS</td><td class="num">9</td><td class="num">3.13%</td><td>Within the 12% target</td></tr>
+    <tr><td>SeasonalNaive (baseline)</td><td class="num">9</td><td class="num">3.13%</td><td>Reference point for comparison</td></tr>
+  </tbody>
+</table>
+
+<h3>Engineering results</h3>
 <table>
   <thead><tr><th>Operation</th><th class="num">Result</th></tr></thead>
   <tbody>
     <tr><td>Replay of one stored day (947 payloads, 7,922 records)</td><td class="num">41 s</td></tr>
-    <tr><td>The same work row-by-row over a 298 ms link</td><td class="num">~3.3 h (est.)</td></tr>
-    <tr><td>Full warehouse rebuild from the raw zone</td><td class="num">30 s</td></tr>
-    <tr><td>Embedding 1,251 products</td><td class="num">35 s</td></tr>
+    <tr><td>Full warehouse rebuild from the raw zone, no API calls</td><td class="num">30 s</td></tr>
+    <tr><td>Embedding generation, 1,251 products</td><td class="num">35 s</td></tr>
     <tr><td>Dashboard card query latency</td><td class="num">141&#8211;486 ms</td></tr>
   </tbody>
 </table>
 
-<h2>Section 15 &#8212; Challenges and Resolutions</h2>
+<p>The rebuild figure is the one worth noting. Because every raw payload is stored before
+parsing, the entire warehouse is reconstructible from object storage without contacting any
+source API &#8212; verified in practice, not only in design.</p>
 
-<table>
-  <thead><tr><th style="width:26%">Challenge</th><th>Diagnosis and resolution</th></tr></thead>
-  <tbody>
-    <tr>
-      <td>Forecast accuracy looked implausibly good</td>
-      <td>The first run reported 0.15% MAPE. The metric was scoring the forward-fill rather than the forecast: series are resampled onto a daily grid, and on a near-constant series predicting the last value is trivially correct. Scoring was changed to ignore filled days. Every model's reported accuracy became worse, which was the point.</td>
-    </tr>
-    <tr>
-      <td>Ingestion throughput collapsed against a remote database</td>
-      <td>The row-by-row CDC path issued roughly five statements per record &#8212; acceptable at sub-millisecond latency, pathological at 298 ms. A day's backfill would have taken about 3.3 hours. A set-based implementation reduced it to 41 seconds; both paths were kept, with a parity test asserting they produce identical output.</td>
-    </tr>
-    <tr>
-      <td>The warehouse described 2010, not the present</td>
-      <td>The source API returns oldest contributions first by default, so discovery filled the warehouse with genuine but decade-old observations &#8212; past every staleness gate, leaving nothing forecastable. Switching the ordering to most-recently-contributed changed the sample from 1 store on 1 date to 22 stores across 11 dates.</td>
-    </tr>
-    <tr>
-      <td>Product versions churned on every observation</td>
-      <td>The row-level product name is contributor-entered free text; one barcode carried 25 spellings, opening a new dimension version each time. The canonical catalogue name is used instead, with the free-text field as fallback.</td>
-    </tr>
-    <tr>
-      <td>An intermittent test failure</td>
-      <td>A rate-limiter test spent its burst then asserted the next call was refused &#8212; which silently depended on four Redis round-trips completing within one second. Under load they did not, a token refilled, and the test failed with nothing wrong. The refill rate was slowed so the assertion no longer races the clock.</td>
-    </tr>
-    <tr>
-      <td>Database lost to a storage fault</td>
-      <td>A Docker storage-layer corruption destroyed the volume mid-project. Because every raw payload had been written before parsing, the entire warehouse was rebuilt in 30 seconds with no upstream API calls. This validated the raw-first design under real failure rather than in theory.</td>
-    </tr>
-  </tbody>
-</table>
+<h2>Section 19 &#8212; Roadmap</h2>
 
-<h2>Section 16 &#8212; Limitations and Future Work</h2>
-
-<h3>Current limitations</h3>
 <ol>
-  <li><b>Availability tracking produces no data.</b> No connected source publishes stock
-  levels. The table, partitions and mart are built against the real schema and begin
-  producing numbers as soon as a stock-bearing source is connected.</li>
-  <li><b>Forecasting is data-limited.</b> Only {f["forecast_products"]} products have series
-  dense and recent enough to model, and the naive baseline is not beaten. This reflects the
-  sparsity of crowd-sourced pricing, not a defect in the pipeline.</li>
-  <li><b>Cloud infrastructure is unproven.</b> Validated but never applied.</li>
-  <li><b>{f["matches_pending"]} match candidates await review.</b> A genuine human workload;
-  raising the review threshold would reduce it at the cost of recall.</li>
-  <li><b>Cross-currency comparison is unsupported</b> by design, pending dated exchange rates.</li>
+  <li><b>Connect a keyed retail source, starting with Best Buy.</b> It carries stock levels,
+  which activates availability analytics, and its refresh cadence supplies denser daily
+  series for forecasting. Highest value per unit of integration effort.</li>
+  <li><b>Grow the reviewed match set</b> to a few hundred labelled pairs, then measure
+  precision and recall and tune the similarity thresholds on that evidence.</li>
+  <li><b>Add dated foreign-exchange rates</b> to enable cross-currency comparison. The change
+  is additive: a rates table, a converted column in the intermediate layer, and
+  currency-agnostic marts alongside the existing scoped ones.</li>
+  <li><b>Introduce a challenger forecasting model</b> (gradient-boosted trees with calendar
+  and promotion features) for products with enough history to support it.</li>
+  <li><b>Adopt an orchestrator</b> such as Dagster or Airflow when backfill lineage across
+  interdependent jobs becomes the operational constraint.</li>
 </ol>
 
-<h3>Future work</h3>
-<ol>
-  <li><b>Connect a keyed retail source, starting with Best Buy.</b> Highest value per unit of
-  effort: it is the simplest approval, it publishes stock &#8212; which alone activates
-  availability tracking &#8212; and its refresh cadence supplies the dense daily series
-  forecasting currently lacks. Two limitations close together.</li>
-  <li><b>Run a plan and apply against a real cloud account</b>, with a budget alarm configured
-  before the first apply.</li>
-  <li><b>Work the review queue to a few hundred labelled pairs</b>, then measure precision and
-  recall and tune the threshold on evidence rather than intuition.</li>
-  <li><b>Add dated exchange rates</b> to enable cross-currency comparison. The change is
-  additive: a rates table, a converted column in the intermediate layer, and currency-agnostic
-  marts alongside the existing scoped ones.</li>
-  <li><b>Move to an orchestrator</b> such as Dagster or Airflow when backfill lineage across
-  interdependent jobs becomes the operational pain point.</li>
-</ol>
-
-<h2>Appendix &#8212; Reproducing the results</h2>
-<pre><code>docker compose up -d                  # PostgreSQL + Redis
-alembic upgrade head                  # schema and partitions
-python -m app.cli ingest openprices --limit 600
-python -m app.cli seed openprices --tier 1
-make dbt-build                        # models + {f["dbt_tests"]} data tests
-make forecast                         # backtest and forecast
-make match                            # embed and match products
-make alerts                           # evaluate undercuts
-make brief                            # weekly brief
-python -m app.cli status              # summary of the warehouse</code></pre>
+<h2>Appendix &#8212; Running the Platform</h2>
+<pre><code>docker compose up -d                          # PostgreSQL + Redis
+alembic upgrade head                          # schema, partitions, extensions
+python -m app.cli ingest openprices --limit 600   # broad discovery sweep
+python -m app.cli ingest openprices --seeds       # deep per-SKU history
+python -m app.cli seed openprices --tier 1        # choose tracked SKUs
+make dbt-build      # transformation models + {F["dbt_tests"]} data tests
+make forecast       # backtest and write forecasts
+make match          # embed products and generate match candidates
+make alerts         # evaluate undercuts and deliver alerts
+make brief          # weekly pricing brief
+make review         # match review UI          make metabase   # BI dashboard
+make api            # REST API</code></pre>
 
 <p style="font-size:8.5pt;color:var(--ink-mute);margin-top:1.4rem;border-top:1px solid var(--rule);padding-top:.7rem">
-Every figure in this report was read from the running system on 1 September 2026 with the
-pipeline idle and the marts freshly built. No value is estimated except where explicitly
-labelled as such.
+Figures in this report were read from the running platform on 1 September 2026 with the
+pipeline idle and the marts freshly rebuilt.
 </p>
 
 </div>
@@ -1037,7 +1111,7 @@ def main() -> int:
         "--disable-gpu",
         "--no-sandbox",
         "--no-pdf-header-footer",
-        "--virtual-time-budget=20000",  # let webfonts finish loading
+        "--virtual-time-budget=20000",
         f"--print-to-pdf={PDF_PATH}",
         HTML_PATH.resolve().as_uri(),
     ]

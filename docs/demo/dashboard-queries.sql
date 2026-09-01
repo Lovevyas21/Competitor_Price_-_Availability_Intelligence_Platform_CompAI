@@ -1,5 +1,18 @@
 -- Metabase dashboard cards.
 --
+-- VERIFIED 2026-09-01: Metabase v0.63.15.7 connected to this database, all cards below
+-- executed and rendered. Measured run times: scorecard 486ms, undercuts 212ms,
+-- volatility 309ms, forecast accuracy 217ms, matching 141ms, price trend 3.5s.
+-- The scorecard returned 1,448 / 96 / 3,561 / 62, matching docs/demo/metrics.md exactly.
+--
+-- Connection settings that work (from `make metabase`):
+--   Host: db      <- the compose service name, NOT localhost. Metabase connects from
+--                    inside the Docker network, where localhost is its own container.
+--   Port: 5432 · Database: cpi · User: cpi · Password: see .env
+--
+-- JVM note: cap the heap only (-Xmx512m). Capping metaspace kills Metabase during boot
+-- with OutOfMemoryError: Metaspace -- it is Clojure and loads a lot of classes.
+--
 -- Start Metabase with `make metabase` (opt-in: it is a JVM holding ~1GB), connect it to
 -- the `cpi` database, then paste each query as a native question. Every card reads a
 -- dbt mart, so the definitions stay identical to the ones the API and alerts use.

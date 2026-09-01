@@ -72,7 +72,10 @@ services:
     ports: ["3000:3000"]
     environment:
       MB_DB_TYPE: h2
-      JAVA_OPTS: -Xmx768m
+      # Cap the heap only. Metabase is Clojure and loads a large number of classes;
+      # capping metaspace (tried at 180m) kills it with OutOfMemoryError: Metaspace
+      # before it finishes booting. Heap is the knob worth constraining here.
+      JAVA_OPTS: -Xmx512m
     depends_on:
       db: {condition: service_healthy}
 

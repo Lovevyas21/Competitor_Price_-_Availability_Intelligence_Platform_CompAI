@@ -54,6 +54,18 @@ def limiter(redis_client):
     return RateLimiter(redis_client)
 
 
+#: Refill rate for the test bucket, deliberately slow.
+#:
+#: At the obvious 60/min the bucket refills a token every second, so "spend the burst,
+#: then assert the next call is refused" silently depends on four Redis round-trips
+#: completing inside one second. Under CPU or memory pressure they do not, a token
+#: refills, the call legitimately succeeds, and the test fails without anything being
+#: wrong. At 6/min a token takes ten seconds, which no longer races the assertion.
+TEST_RPM = 6.0
+TEST_BURST = 3
+SECONDS_PER_TOKEN = 60.0 / TEST_RPM  # 10s
+
+
 @pytest.fixture
 def source(monkeypatch):
     """A unique source name per test, so runs cannot interfere with each other."""
@@ -61,14 +73,14 @@ def source(monkeypatch):
     monkeypatch.setitem(
         __import__("app.ingestion.ratelimit", fromlist=["SOURCE_LIMITS"]).SOURCE_LIMITS,
         name,
-        SourceLimits(requests_per_minute=60, burst=3, daily_quota=5),
+        SourceLimits(requests_per_minute=TEST_RPM, burst=TEST_BURST, daily_quota=5),
     )
     return name
 
 
 def test_burst_is_allowed_then_blocked(limiter, source):
     """Capacity equals burst; the next call must be refused, not silently allowed."""
-    for _ in range(3):
+    for _ in range(TEST_BURST):
         limiter.acquire(source)
 
     with pytest.raises(RateLimited) as exc:
@@ -77,19 +89,20 @@ def test_burst_is_allowed_then_blocked(limiter, source):
 
 
 def test_retry_after_is_a_usable_hint(limiter, source):
-    for _ in range(3):
+    for _ in range(TEST_BURST):
         limiter.acquire(source)
     with pytest.raises(RateLimited) as exc:
         limiter.acquire(source)
-    # 60/min = 1 token/sec, so one token is roughly a second away.
-    assert 0 < exc.value.retry_after <= 5
+    # One token away, at SECONDS_PER_TOKEN each. Bounded generously rather than exactly:
+    # the point is that the hint is usable, not that the clock is precise.
+    assert 0 < exc.value.retry_after <= SECONDS_PER_TOKEN * 1.5
 
 
 def test_limiter_state_is_shared_across_instances(redis_client, source):
     """Two workers must share one budget, not get one each."""
     a = RateLimiter(redis_client)
     b = RateLimiter(redis_client)
-    for _ in range(3):
+    for _ in range(TEST_BURST):
         a.acquire(source)
     with pytest.raises(RateLimited):
         b.acquire(source)
@@ -104,7 +117,7 @@ def test_daily_quota_counts_and_then_raises(limiter, source):
 
 
 def test_reset_clears_both_guards(limiter, source):
-    for _ in range(3):
+    for _ in range(TEST_BURST):
         limiter.acquire(source)
     limiter.consume_daily(source)
     limiter.reset(source)

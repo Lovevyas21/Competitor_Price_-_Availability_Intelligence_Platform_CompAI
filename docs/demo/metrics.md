@@ -92,10 +92,13 @@ filled days. Every model's number got worse, which is the point.
 | Bronze replay (947 payloads → 7,922 records) | **41 s** |
 | Same, row-by-row over a 298 ms link | ~3.3 h (estimated) |
 | Warehouse rebuild after volume loss | 30 s, no upstream calls |
-| Embedding 1,251 products | 35 s |
-| Match generation (490 pairs) | 3 s |
+| Embedding products (measured over 1,251) | 35 s |
+| Match generation (measured over 490 pairs) | 3 s |
 
 ## Matching
+
+Counts are current; the timings above were measured on a smaller earlier run and are
+labelled with the size they were measured at.
 
 | Band | Count |
 |---|---|

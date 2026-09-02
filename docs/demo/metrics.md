@@ -29,7 +29,7 @@ docker compose exec db psql -U cpi -d cpi -c "select count(*) from price_events"
 
 | Suite | Result |
 |---|---|
-| Python (unit + integration) | **150 passed** |
+| Python (unit + integration) | **171 passed** |
 | dbt (models, seeds, data tests) | **102/102** |
 | Terraform | `fmt` + `validate` clean |
 | Lint / format | clean |
@@ -131,3 +131,6 @@ These are real and not worked around:
 4. **Terraform has never been applied.** `fmt` and `validate` pass; `plan` has not run.
 5. **The CrewAI path has not run against a live model.** No LLM key is configured. The
    guard and the fallback are tested independently of it.
+6. **Email alerting is built but has never reached a real mail server.** SMTP and SES
+   channels exist with 19 unit tests, all mocked. Nothing sends until a recipient and
+   either an SMTP host or an SES region are configured -- verified by test.

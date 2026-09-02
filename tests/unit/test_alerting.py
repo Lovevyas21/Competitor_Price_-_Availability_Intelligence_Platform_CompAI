@@ -12,7 +12,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from app.alerting.service import _fingerprint, format_message, send_to_slack
+from app.alerting.channels import SlackChannel
+from app.alerting.service import _fingerprint, format_message
 
 
 def row(**overrides):
@@ -80,28 +81,52 @@ def test_message_surfaces_evidence_age():
 
 
 # --------------------------------------------------------------------------- #
-# delivery
+# Slack delivery
+#
+# Slack posting moved from service.py into SlackChannel when email was added; these
+# assertions follow it rather than being deleted, since the behaviour still matters.
 # --------------------------------------------------------------------------- #
+SLACK = SlackChannel("http://hook")
+
+
 def test_successful_post_reports_success():
-    with patch("app.alerting.service.httpx.post") as post:
+    with patch("app.alerting.channels.httpx.post") as post:
         post.return_value = httpx.Response(200, request=httpx.Request("POST", "http://x"))
-        assert send_to_slack("hello", "http://hook") is True
+        assert SLACK.send_batch(["hello"]) is True
 
 
 def test_delivery_failure_is_reported_not_raised():
     """A webhook outage must not kill the alert cycle -- the send is retried next cycle."""
-    with patch("app.alerting.service.httpx.post", side_effect=httpx.ConnectError("down")):
-        assert send_to_slack("hello", "http://hook") is False
+    with patch("app.alerting.channels.httpx.post", side_effect=httpx.ConnectError("down")):
+        assert SLACK.send_batch(["hello"]) is False
 
 
 def test_http_error_status_is_treated_as_failure():
-    with patch("app.alerting.service.httpx.post") as post:
+    with patch("app.alerting.channels.httpx.post") as post:
         post.return_value = httpx.Response(500, request=httpx.Request("POST", "http://x"))
-        assert send_to_slack("hello", "http://hook") is False
+        assert SLACK.send_batch(["hello"]) is False
 
 
 @pytest.mark.parametrize("status_code", [200, 201, 204])
 def test_any_2xx_counts_as_delivered(status_code):
-    with patch("app.alerting.service.httpx.post") as post:
+    with patch("app.alerting.channels.httpx.post") as post:
         post.return_value = httpx.Response(status_code, request=httpx.Request("POST", "http://x"))
-        assert send_to_slack("hello", "http://hook") is True
+        assert SLACK.send_batch(["hello"]) is True
+
+
+def test_slack_posts_one_message_per_alert():
+    """Chat reads better as separate messages; email is the one that digests."""
+    with patch("app.alerting.channels.httpx.post") as post:
+        post.return_value = httpx.Response(200, request=httpx.Request("POST", "http://x"))
+        SLACK.send_batch(["one", "two", "three"])
+    assert post.call_count == 3
+
+
+def test_one_failed_post_fails_the_batch():
+    """Partial delivery is not delivery: sent_at must stay null so it retries."""
+    with patch("app.alerting.channels.httpx.post") as post:
+        post.side_effect = [
+            httpx.Response(200, request=httpx.Request("POST", "http://x")),
+            httpx.ConnectError("down"),
+        ]
+        assert SLACK.send_batch(["one", "two"]) is False

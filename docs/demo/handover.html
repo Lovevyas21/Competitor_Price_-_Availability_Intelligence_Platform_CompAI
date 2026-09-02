@@ -196,7 +196,7 @@
     <div><dt>Date</dt><dd>1 September 2026</dd></div>
     <div><dt>Version</dt><dd>1.0 — handover</dd></div>
     <div><dt>Status</dt><dd>Phases 0–6 complete</dd></div>
-    <div><dt>Head commit</dt><dd><code>ad1fa7d</code></dd></div>
+    <div><dt>Head commit</dt><dd><code>d69fecf</code></dd></div>
     <div><dt>Deployment</dt><dd>Local; AWS not applied</dd></div>
   </dl>
 </header>
@@ -586,7 +586,7 @@
     <tr><td><code>GET /prices/{product_id}</code></td><td>Daily price history with change percentage</td></tr>
     <tr><td><code>GET /forecasts/{product_id}</code></td><td>Latest forecast run, with prediction intervals</td></tr>
     <tr><td><code>GET /undercuts</code></td><td>Current undercuts, filterable by severity and staleness</td></tr>
-    <tr><td><code>GET /alerts</code></td><td>Raised alerts and their delivery status</td></tr>
+    <tr><td><code>GET /alerts</code></td><td>Raised alerts and their delivery status (Slack and email channels)</td></tr>
     <tr><td><code>GET /matches/review</code></td><td>Candidate matches awaiting human review</td></tr>
   </tbody>
 </table>
@@ -702,6 +702,7 @@ make dbt-build</code></pre>
 <li><strong>Only 11 of roughly 50 series are fresh enough to forecast.</strong> Crowd-sourced prices are sparse. All three models sit within 0.01 percentage points of each other and the naive baseline wins 8 of 11 series — retail prices are close to a random walk on short series. This is an honest result, not a tuning failure; a daily-refresh retail API is what would make forecasting genuinely useful.</li>
 <li><strong>Terraform has never been applied.</strong> <code>fmt</code> and <code>validate</code> pass; <code>plan</code> has not run. Only syntax and provider schema are confirmed. Expect a first apply to surface real issues — availability zones, engine version drift, IAM propagation.</li>
 <li><strong>The CrewAI narration path has not run against a live model.</strong> No LLM credential is configured. The brief renders deterministically, and the numeric guard and its fallback are tested independently.</li>
+<li><strong>Email delivery is built but unproven against a real mail server.</strong> SMTP and SES channels exist and are unit-tested with mocks; neither has sent a message to a live relay, because no credentials are configured.</li>
 <li><strong>2,187 match candidates await review.</strong> That is a genuine human workload. Raising the review threshold above 0.80 reduces it at the cost of recall; the stored reviewer verdicts are what would let that be tuned with evidence.</li>
 <li><strong>ADR numbering has gaps</strong> (002–004 were never written). Documentation debt, noted rather than renumbered, since the existing numbers are referenced from code comments.</li>
 </ol>
@@ -739,7 +740,7 @@ make dbt-build</code></pre>
   <li><span class="tag warn">action</span><span>API keys for Best Buy, eBay and Digi-Key — apply early, approval takes time</span></li>
   <li><span class="tag warn">action</span><span>AWS account with a budget alarm set <em>before</em> the first <code>terraform apply</code></span></li>
   <li><span class="tag warn">action</span><span>An LLM credential if the narrated brief is wanted; the deterministic brief needs none</span></li>
-  <li><span class="tag warn">action</span><span>A Slack webhook URL to enable alert delivery</span></li>
+  <li><span class="tag warn">action</span><span>A Slack webhook URL, or an SMTP host / SES region plus a recipient, to enable alert delivery. Both channels are built; neither sends until configured.</span></li>
   <li><span class="tag stop">note</span><span>Local <code>.env</code> is not in version control. Credentials come from <code>.env.example</code> plus the values above</span></li>
 </ul>
 

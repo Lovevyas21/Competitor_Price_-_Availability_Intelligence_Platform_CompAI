@@ -48,7 +48,25 @@ class Settings(BaseSettings):
     llm_model: str | None = None
 
     # --- alerting / serving ---
+    # Nothing is delivered anywhere unless a channel is explicitly configured. An
+    # unconfigured channel is skipped, so a fresh checkout cannot message anyone.
     slack_webhook_url: str | None = None
+
+    # Email digest. Both a recipient list and a sender are required before anything sends.
+    alert_email_to: str | None = None      # comma-separated
+    alert_email_from: str | None = None
+
+    # SMTP works with any relay, including Amazon SES's SMTP endpoint.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: float = 15.0
+
+    # SES via the API instead of SMTP. On EC2 the instance role supplies credentials,
+    # so only the region and a verified sender are needed. Takes precedence over SMTP.
+    ses_region: str | None = None
     api_key: str | None = None
     api_title: str = "Competitor Price Intelligence API"
 

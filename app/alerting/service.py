@@ -18,13 +18,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.alerting.channels import AlertChannel, configured_channels
 from app.core.db import session_scope
 from app.core.logging import get_logger
-from app.core.settings import get_settings
 
 log = get_logger(__name__)
 
@@ -64,6 +63,7 @@ class AlertCycleStats:
     suppressed_stale: int = 0
     delivered: int = 0
     delivery_failed: int = 0
+    channels: dict = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -105,19 +105,29 @@ def existing_fingerprints(session: Session) -> dict[str, datetime]:
     return out
 
 
-def send_to_slack(text_body: str, webhook_url: str, timeout: float = 10.0) -> bool:
-    try:
-        response = httpx.post(webhook_url, json={"text": text_body}, timeout=timeout)
-        response.raise_for_status()
-        return True
-    except httpx.HTTPError as exc:
-        log.error("alert.slack_failed", error=str(exc))
-        return False
+def deliver(messages: list[str], channels: list[AlertChannel] | None = None) -> dict:
+    """Send a batch to every configured channel.
+
+    Returns per-channel outcomes. Delivery counts as successful if *any* channel accepted
+    the batch -- the alert reached a human, which is the point. A channel that fails is
+    logged and retried next cycle, because `sent_at` stays null.
+    """
+    channels = configured_channels() if channels is None else channels
+    if not channels:
+        log.warning("alert.no_channel_configured", pending=len(messages))
+        return {}
+
+    return {c.name: c.send_batch(messages) for c in channels}
 
 
 def run_alert_cycle(dry_run: bool = False) -> dict:
-    """Evaluate undercuts, record new alerts, deliver the deliverable ones."""
-    settings = get_settings()
+    """Evaluate undercuts, record new alerts, deliver the deliverable ones.
+
+    `dry_run=True` reports what a real cycle would do and writes nothing: no alert rows,
+    no delivery. That is worth stating because the obvious implementation -- recording
+    the alerts and skipping only the send -- has a nasty side effect: the recorded rows
+    suppress the genuine alerts for a full cooldown, so previewing the cycle silences it.
+    """
     stats = AlertCycleStats()
     now = datetime.now(UTC)
 
@@ -137,6 +147,15 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
 
             message = format_message(row)
             stored = f"{message}\n#{fingerprint}"
+
+            if dry_run:
+                # A dry run must change nothing. Recording the alert here would not only
+                # surprise the operator, it would suppress the real alert for a full
+                # cooldown -- a "preview" that silences the thing it previewed.
+                stats.created += 1
+                if int(row["days_stale"]) > MAX_ALERTABLE_STALENESS_DAYS:
+                    stats.suppressed_stale += 1
+                continue
 
             alert_id = session.execute(
                 text("""
@@ -165,23 +184,26 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
         log.info("alert.cycle_done", dry_run=dry_run, **stats.as_dict())
         return stats.as_dict()
 
-    webhook = settings.slack_webhook_url
-    if not webhook:
-        log.warning("alert.no_webhook_configured", pending=len(to_deliver))
+    results = deliver([m for _, m in to_deliver])
+    stats.channels = results
+
+    if not results:
+        # Nothing configured. The alerts stay recorded with sent_at null, so they are
+        # visible on the API and get delivered once a channel is set up.
+        log.info("alert.cycle_done", **stats.as_dict())
         return stats.as_dict()
 
-    for alert_id, message in to_deliver:
-        if send_to_slack(message, webhook):
-            stats.delivered += 1
-            # Mark sent only after delivery succeeds, so a failure is retried next cycle
-            # rather than being silently lost.
-            with session_scope() as session:
-                session.execute(
-                    text("update alerts set sent_at = now() where alert_id = :id"),
-                    {"id": alert_id},
-                )
-        else:
-            stats.delivery_failed += 1
+    if any(results.values()):
+        stats.delivered = len(to_deliver)
+        # Marked only after a channel accepted the batch, so a total failure is retried
+        # next cycle rather than being silently lost.
+        with session_scope() as session:
+            session.execute(
+                text("update alerts set sent_at = now() where alert_id = any(:ids)"),
+                {"ids": [aid for aid, _ in to_deliver]},
+            )
+    else:
+        stats.delivery_failed = len(to_deliver)
 
     log.info("alert.cycle_done", **stats.as_dict())
     return stats.as_dict()

@@ -262,10 +262,10 @@ h1 {
   padding: 9px 0;
   border-left: 2px solid var(--line-soft);
   padding-left: 13px;
-  transition: border-color 0.3s, opacity 0.3s;
+  transition: border-color 0.45s ease, opacity 0.45s ease, transform 0.45s ease;
   opacity: 0.45;
 }
-.stage-item[data-state="running"] { border-left-color: var(--accent); opacity: 1; }
+.stage-item[data-state="running"] { border-left-color: var(--accent); opacity: 1; transform: translateX(2px); }
 .stage-item[data-state="done"] { border-left-color: var(--ok); opacity: 0.85; }
 .stage-dot {
   width: 7px; height: 7px;
@@ -380,10 +380,71 @@ td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-tbody tr { animation: rowIn 0.28s ease both; }
-@keyframes rowIn {
-  from { opacity: 0; transform: translateY(-3px); }
-  to { opacity: 1; transform: none; }
+/* One entrance, shared by everything the renderer appends. The easing is a gentle
+   decelerate rather than `ease`, so blocks settle instead of snapping into place. */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.stage-head, .ln, .metric, table, .summary, .boot {
+  animation: riseIn 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+/* Notes and the summary meta fade in a beat after the number they explain, so the eye
+   lands on the figure first. */
+.metric .note, .summary .meta {
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.metric .note.in, .summary .meta.in { opacity: 1; transform: none; }
+
+/* --------------------------------------------------------------------------- */
+/* boot sequence                                                                */
+/* --------------------------------------------------------------------------- */
+/* Pure presentation, and the only part of the page that is. It plays before a stage's
+   real output and then erases itself, so what remains on screen is all genuine. */
+.boot {
+  margin: 14px 0 18px;
+  max-width: 460px;
+  transition: opacity 0.34s ease, transform 0.34s ease;
+}
+.boot.out { opacity: 0; transform: translateY(-4px); }
+
+.boot-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
+.spin { color: var(--accent); width: 1ch; flex-shrink: 0; }
+.spin.done { color: var(--ok); }
+
+.boot-text {
+  color: var(--fg-dim);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  flex: 1;
+}
+.boot-text.in { opacity: 1; transform: none; }
+.boot-count { color: var(--line); font-size: 11px; flex-shrink: 0; }
+
+.boot-bar {
+  height: 2px;
+  background: var(--line-soft);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.boot-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), #7dd3fc);
+  border-radius: 2px;
+  transition: width 0.46s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 .cursor {
@@ -409,5 +470,6 @@ tbody tr { animation: rowIn 0.28s ease both; }
    is about. */
 @media (prefers-reduced-motion: reduce) {
   .cursor, .stage-item[data-state="running"] .stage-dot { animation: none; }
-  tbody tr { animation: none; }
+  .stage-head, .ln, .metric, table, .summary, .boot, tbody tr { animation: none; }
+  .metric .note, .summary .meta { opacity: 1; transform: none; transition: none; }
 }

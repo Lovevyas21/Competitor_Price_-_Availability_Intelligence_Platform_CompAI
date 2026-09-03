@@ -29,7 +29,7 @@ docker compose exec db psql -U cpi -d cpi -c "select count(*) from price_events"
 
 | Suite | Result |
 |---|---|
-| Python (unit + integration) | **171 passed** |
+| Python (unit + integration) | **205 passed** |
 | dbt (models, seeds, data tests) | **102/102** |
 | Terraform | `fmt` + `validate` clean |
 | Lint / format | clean |
@@ -129,8 +129,12 @@ These are real and not worked around:
 3. **62 of 108 undercuts now rest on evidence <= 7 days old** and are deliverable; the
    rest are recorded with a staleness label and withheld.
 4. **Terraform has never been applied.** `fmt` and `validate` pass; `plan` has not run.
-5. **The CrewAI path has not run against a live model.** No LLM key is configured. The
-   guard and the fallback are tested independently of it.
+5. **The CrewAI path now runs against a live model** (Gemini, `gemini-3.5-flash`). The
+   generated brief passed the numeric guard with 34 of 34 figures traced back to the
+   facts payload. Two caveats: the free tier returns 503 often enough that the crew
+   retries, and falls back to the deterministic brief when it cannot get through --
+   so narration is best-effort, not guaranteed. No live model is called by the test
+   suite.
 6. **Email alerting is built but has never reached a real mail server.** SMTP and SES
    channels exist with 19 unit tests, all mocked. Nothing sends until a recipient and
    either an SMTP host or an SES region are configured -- verified by test.

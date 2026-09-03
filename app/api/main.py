@@ -298,3 +298,9 @@ def matches_for_review(
 
 
 app.include_router(router)
+
+# The showcase walkthrough. Mounted only when enabled (dev by default) -- see
+# `app.showcase.routes.is_enabled` for why it is not simply always on.
+from app.showcase.routes import mount as mount_showcase  # noqa: E402
+
+mount_showcase(app)

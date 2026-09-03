@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     api_key: str | None = None
     api_title: str = "Competitor Price Intelligence API"
 
+    # The walkthrough UI at /showcase. It reads real mart data and is deliberately not
+    # behind the API key, so it defaults to dev only: leaving None means "on in dev, off
+    # in prod". Set it true to serve it from a demo deployment on purpose.
+    showcase_enabled: bool | None = None
+
     http_timeout_seconds: float = Field(default=20.0, gt=0)
 
     @property

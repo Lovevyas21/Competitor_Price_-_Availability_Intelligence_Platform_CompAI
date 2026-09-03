@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline walkthrough</title>
+<link rel="stylesheet" href="/showcase/static/showcase.css">
+</head>
+<body>
+
+<div class="bar">
+  <div class="bar-in">
+    <span class="brand">▸ price-intelligence</span>
+    <a href="/showcase">← overview</a>
+    <span class="spacer"></span>
+    <div class="speed" id="speed" role="group" aria-label="Playback speed">
+      <button data-speed="1" aria-pressed="true">1×</button>
+      <button data-speed="2" aria-pressed="false">2×</button>
+      <button data-speed="4" aria-pressed="false">4×</button>
+      <button data-speed="0" aria-pressed="false">skip</button>
+    </div>
+    <button class="btn primary" id="run">Run pipeline</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="layout">
+
+    <aside class="rail" id="rail">
+      <div class="rail-title">Pipeline</div>
+      <div class="stage-item" data-stage="connect" data-state="idle">
+        <span class="stage-dot"></span>
+        <span><span class="stage-name">Connect</span><br><span class="stage-ms"></span></span>
+      </div>
+      <div class="stage-item" data-stage="extract" data-state="idle">
+        <span class="stage-dot"></span>
+        <span><span class="stage-name">Extract</span><br><span class="stage-ms"></span></span>
+      </div>
+      <div class="stage-item" data-stage="resolve" data-state="idle">
+        <span class="stage-dot"></span>
+        <span><span class="stage-name">Resolve</span><br><span class="stage-ms"></span></span>
+      </div>
+      <div class="stage-item" data-stage="compare" data-state="idle">
+        <span class="stage-dot"></span>
+        <span><span class="stage-name">Compare</span><br><span class="stage-ms"></span></span>
+      </div>
+      <div class="stage-item" data-stage="decide" data-state="idle">
+        <span class="stage-dot"></span>
+        <span><span class="stage-name">Decide</span><br><span class="stage-ms"></span></span>
+      </div>
+    </aside>
+
+    <main class="console" id="console">
+      <div class="idle">
+        <strong>Ready.</strong><br>
+        Press <em>Run pipeline</em>. Each stage queries the live warehouse and prints what
+        it finds. The stage timings in the rail are real; the typing is not.
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script src="/showcase/static/showcase.js"></script>
+</body>
+</html>

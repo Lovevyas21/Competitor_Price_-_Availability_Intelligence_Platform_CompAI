@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Competitor Price Intelligence</title>
+<link rel="stylesheet" href="/showcase/static/showcase.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">Competitor Price &amp; Availability Intelligence</div>
+    <h1>Know what your competitors charge<br>before your customers tell you.</h1>
+    <p class="lede">
+      A data platform that collects competitor prices from public sources, works out which
+      of their listings are the same product as ours, and reports who is undercutting us —
+      by how much, on how fresh a basis, and whether that is worth waking someone for.
+    </p>
+    <p class="lede-sub">
+      The walkthrough below runs the real pipeline against the live warehouse. Nothing on
+      it is pre-recorded: press the button and it queries the database in front of you.
+    </p>
+    <a class="cta" href="/showcase/run?autorun">▸ Run the pipeline</a>
+    <div class="cta-note">Takes about a minute. Skip the animation any time.</div>
+  </header>
+
+  <div class="section-label">What it does</div>
+  <div class="grid">
+    <div class="card">
+      <h3>Collects, and keeps the receipts</h3>
+      <p>
+        Every upstream response is stored raw before anything parses it. When the database
+        was lost to a disk fault mid-project, the whole warehouse was rebuilt from those
+        files in 30 seconds without calling a single API again.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Tracks change, not snapshots</h3>
+      <p>
+        A price is written only when it moves, with a daily heartbeat recording that we
+        looked and it hadn't. That gives real price history rather than a pile of
+        duplicates — and makes "when did this change?" answerable.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Matches products across retailers</h3>
+      <p>
+        Competitors don't publish our SKUs. Barcodes match what they can; the rest is
+        semantic similarity on the title. Confident pairs are automatic, borderline ones go
+        to a person — because a wrong match corrupts every comparison built on it.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Knows how old its evidence is</h3>
+      <p>
+        Every comparison carries the age of the observation behind it. An undercut computed
+        from a three-week-old price is recorded and labelled, but not sent — stale alerts
+        are how people learn to ignore alerts.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Alerts without nagging</h3>
+      <p>
+        An undercut that lasts a week is one piece of news, not twenty-eight. Alerts re-fire
+        only when the competitor's price actually moves. Slack posts per event; email
+        arrives as a single digest.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Forecasts, honestly scored</h3>
+      <p>
+        Price forecasts are backtested against a naive baseline on held-out days only. On
+        this data the baseline wins most series — retail prices are close to a random walk.
+        That's reported rather than hidden.
+      </p>
+    </div>
+  </div>
+
+  <div class="section-label">The five stages you'll watch</div>
+  <div class="grid" id="stages"></div>
+
+  <div class="foot">
+    Built on PostgreSQL, dbt, Celery and FastAPI.
+    <a href="/docs">API reference</a> ·
+    <a href="/showcase/run">Open the console</a>
+  </div>
+
+</div>
+
+<script>
+// Pulled from the server so this page describes the pipeline that exists, rather than a
+// copy of it that can quietly drift out of date.
+fetch("/showcase/api/stages")
+  .then((r) => r.json())
+  .then((stages) => {
+    document.getElementById("stages").innerHTML = stages
+      .map(
+        (s, i) => `<div class="card">
+            <span class="num">STAGE ${String(i + 1).padStart(2, "0")}</span>
+            <h3>${s.title}</h3>
+            <p>${s.subtitle}</p>
+          </div>`
+      )
+      .join("");
+  })
+  .catch(() => {
+    document.getElementById("stages").innerHTML =
+      `<div class="card"><p>Could not reach the API — is it running?</p></div>`;
+  });
+</script>
+
+</body>
+</html>

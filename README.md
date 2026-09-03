@@ -113,6 +113,24 @@ Endpoints: `/health`, `/products`, `/prices/{id}`, `/forecasts/{id}`, `/undercut
 `/alerts`, `/matches/review`. Auth is an `X-API-Key` header, enabled by setting
 `API_KEY`; when unset the API is open and `/health` says so.
 
+## Walkthrough
+
+```bash
+make showcase   # http://localhost:8000/showcase
+```
+
+A guided tour of the pipeline for people who would rather see it than read about it. It
+walks the five stages -- connect, extract, resolve, compare, decide -- revealing each
+one line by line in a console.
+
+Every figure it prints is queried live at the moment you press run; the stage timings in
+the rail are real elapsed milliseconds. Only the pacing is theatre, and it happens in the
+browser after the data has already arrived, so the server never sleeps to look busy.
+`skip` renders the whole run instantly.
+
+It reads real mart data and is deliberately **not** behind the API key, so it serves in
+dev only by default. A demo deployment opts in with `SHOWCASE_ENABLED=true`.
+
 ### Forecasting
 
 statsforecast (AutoETS / AutoARIMA) with a seasonal-naive baseline that always competes

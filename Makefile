@@ -1,6 +1,6 @@
 PY := .venv/Scripts/python.exe
 
-.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase review match brief flower logs
+.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase review showcase match brief flower logs
 
 install:
 	python -m uv pip install --python $(PY) -e ".[dev]"
@@ -67,6 +67,10 @@ metabase:
 
 review:
 	$(PY) -m streamlit run app/ui/review.py
+
+# The guided walkthrough. Same process as `api`, just named for what you want to look at.
+showcase:
+	$(PY) -m uvicorn app.api.main:app --reload --port 8000 --log-level warning & sleep 2 && $(PY) -m webbrowser http://localhost:8000/showcase && wait
 
 match:
 	$(PY) -c "import warnings; warnings.filterwarnings('ignore'); 	          from app.core.db import session_scope; 	          from app.ai.matching import embed_pending_products, generate_matches; 	          s=session_scope().__enter__(); print(embed_pending_products(s).as_dict()); print(generate_matches(s).as_dict())"

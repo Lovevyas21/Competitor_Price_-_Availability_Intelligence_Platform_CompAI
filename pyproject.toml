@@ -35,6 +35,10 @@ matching = [
 # the crew only adds narration on top of already-validated facts.
 ai = [
     "crewai>=0.100.0",
+    # CrewAI reaches Gemini through Google's native client, which is a separate extra.
+    # Without it a `gemini/...` model fails at construction with a message about the
+    # provider being unavailable, long before any request is made.
+    "google-genai>=1.0.0",
 ]
 dev = [
     "ruff>=0.8.4",

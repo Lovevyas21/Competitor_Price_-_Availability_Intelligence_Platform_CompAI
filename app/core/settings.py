@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     # possibility of a fabricated number.
     llm_model: str | None = None
 
+    # Provider credentials. LiteLLM (under CrewAI) reads these from the process
+    # environment, not from here, so `app.ai.crew` exports whichever one the configured
+    # model needs. They are declared as settings anyway so that `.env` stays the single
+    # place credentials live, and so a missing key fails with a sentence rather than a
+    # provider authentication error.
+    gemini_api_key: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+
     # --- alerting / serving ---
     # Nothing is delivered anywhere unless a channel is explicitly configured. An
     # unconfigured channel is skipped, so a fresh checkout cannot message anyone.

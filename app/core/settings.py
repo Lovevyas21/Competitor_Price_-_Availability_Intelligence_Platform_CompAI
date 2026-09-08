@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     slack_webhook_url: str | None = None
 
     # Email digest. Both a recipient list and a sender are required before anything sends.
-    alert_email_to: str | None = None      # comma-separated
+    alert_email_to: str | None = None  # comma-separated
     alert_email_from: str | None = None
 
     # SMTP works with any relay, including Amazon SES's SMTP endpoint.

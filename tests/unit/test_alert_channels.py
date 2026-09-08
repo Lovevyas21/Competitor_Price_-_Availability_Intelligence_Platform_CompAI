@@ -246,6 +246,6 @@ def test_dry_run_records_nothing():
     ):
         stats = service.run_alert_cycle(dry_run=True)
 
-    assert stats["created"] == 1        # reported...
+    assert stats["created"] == 1  # reported...
     session.execute.assert_not_called()  # ...but nothing written
     deliver.assert_not_called()

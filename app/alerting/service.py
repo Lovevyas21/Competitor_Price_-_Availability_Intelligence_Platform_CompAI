@@ -55,6 +55,12 @@ order by product_id, message, created_at desc
 """
 
 
+#: Advisory-lock key for the alert cycle. Arbitrary, but must never change: it is the
+#: identity of the lock, and two deployments disagreeing about it would not exclude
+#: each other. Derived from the alert type so it reads as deliberate rather than magic.
+ALERT_CYCLE_LOCK_KEY = 0x_A1E7_C7C1
+
+
 @dataclass
 class AlertCycleStats:
     candidates: int = 0
@@ -63,11 +69,38 @@ class AlertCycleStats:
     suppressed_stale: int = 0
     delivered: int = 0
     delivery_failed: int = 0
+    skipped_locked: bool = False
     channels: dict = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
+
+
+def _acquire_cycle_lock(session: Session) -> bool:
+    """Claim the right to run an alert cycle, or report that someone else has it.
+
+    Deduplication reads the existing fingerprints and then inserts. That is safe in one
+    process and wrong in two: both cycles read "nothing recorded", both insert, and the
+    same undercut is sent to a human twice. Nothing in the schema prevents it, and it
+    only appears once the scheduler is scaled or restarted mid-cycle -- so it is exactly
+    the class of bug that survives every local test and surfaces in production.
+
+    A unique index on the fingerprint would be the obvious fix and is the wrong one: the
+    same fingerprint is *supposed* to reappear once the cooldown expires, so a uniqueness
+    constraint would permanently silence legitimate re-alerts instead of preventing
+    concurrent ones. The exclusion needed is between runs, not between rows.
+
+    `try` rather than a blocking acquire: if a cycle is already running, this one has
+    nothing to add -- the other will see the same candidates. Waiting would only queue
+    up a duplicate pass. Transaction-scoped, so the lock is released on commit *or*
+    rollback and a crashed cycle cannot wedge the schedule.
+    """
+    held = session.execute(
+        text("select pg_try_advisory_xact_lock(:key)"),
+        {"key": ALERT_CYCLE_LOCK_KEY},
+    ).scalar()
+    return bool(held)
 
 
 def _fingerprint(row) -> str:
@@ -132,6 +165,14 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
     now = datetime.now(UTC)
 
     with session_scope() as session:
+        # A dry run writes nothing, so it needs no exclusion -- and taking the lock would
+        # mean a preview could be refused because a real cycle was running, or worse,
+        # hold the lock against one.
+        if not dry_run and not _acquire_cycle_lock(session):
+            stats.skipped_locked = True
+            log.info("alert.cycle_skipped", reason="another cycle holds the lock")
+            return stats.as_dict()
+
         candidates = load_candidates(session)
         stats.candidates = len(candidates)
         seen = existing_fingerprints(session)

@@ -109,6 +109,17 @@ def limits_for(source: str) -> SourceLimits:
     return SOURCE_LIMITS.get(source, DEFAULT_LIMITS)
 
 
+def register_limits(source: str, limits: SourceLimits) -> None:
+    """Add or replace one source's limits at runtime.
+
+    The table above is for sources whose caps are published and fixed. This exists for
+    the ones that are not: an LLM provider's free-tier allowance depends on the key, the
+    model and the day, so it is configured rather than hard-coded, and registered here so
+    it still goes through the same shared-state guards as everything else.
+    """
+    SOURCE_LIMITS[source] = limits
+
+
 class RateLimiter:
     def __init__(self, client: redis.Redis | None = None) -> None:
         self._redis = client or redis.Redis.from_url(

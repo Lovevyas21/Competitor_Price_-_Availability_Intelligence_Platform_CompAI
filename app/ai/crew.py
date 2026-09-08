@@ -21,6 +21,7 @@ import os
 import time
 
 from app.ai.facts import WeeklyFacts
+from app.ai.llm import build_llm, reserve
 from app.core.logging import get_logger
 from app.core.settings import get_settings
 
@@ -42,6 +43,34 @@ qualitatively instead.
 Write in plain British English. Be direct and short: what changed, who is undercutting
 us, what deserves attention this week. No preamble, no filler, no invented context.
 Use Markdown with a heading and short sections.
+
+FACTS:
+{facts_json}
+"""
+
+#: The single-call prompt. It carries the same absolute numeric constraint as the crew
+#: version, plus the two judgements the analyst and interpreter agents used to contribute:
+#: rank by what changes a decision, and refuse to sound confident about thin accuracy
+#: figures. Those were instructions, not information -- which is why they fold into one
+#: prompt without losing anything.
+SINGLE_CALL_INSTRUCTIONS = """
+You are writing a weekly competitor-pricing brief for a category manager.
+
+ABSOLUTE CONSTRAINT: you may only state numbers that appear in the FACTS JSON below.
+Do not round them, do not average them, do not compute new figures, do not estimate.
+If a number you want is not in the FACTS, leave it out and describe the situation
+qualitatively instead.
+
+Select ruthlessly. Lead with the two or three findings that would change a pricing
+decision this week, not with everything present. An undercut computed from stale
+evidence is not urgent -- say so rather than implying action is needed.
+
+Where you mention forecasts, state what their accuracy actually supports. If the error
+figures rest on few series, say that plainly instead of projecting confidence.
+
+Write in plain British English. Be direct and short: what changed, who is undercutting
+us, what deserves attention. No preamble, no filler, no invented context. Use Markdown
+with a heading and short sections, and end each section with a one-line decision.
 
 FACTS:
 {facts_json}
@@ -124,9 +153,49 @@ def _silence_crewai_prompts() -> None:
         os.environ.setdefault(name, value)
 
 
+def _narrate_single(facts_json, llm, model, Agent, Crew, Process, Task) -> str:
+    """One writer, one request, one copy of the facts.
+
+    The writer in the full crew already receives the complete payload; the analyst and
+    interpreter refine emphasis rather than supply information it lacks. Folding their
+    briefs into the writer's instructions keeps that emphasis at a third of the cost.
+    """
+    writer = Agent(
+        role="Pricing analyst and brief writer",
+        goal="Write the weekly pricing brief using only the supplied facts.",
+        backstory=(
+            "You review competitor pricing for a retail category team. You cut a wall of "
+            "numbers down to the two or three that change a decision, you say plainly "
+            "when accuracy figures are too thin to support a confident claim, and you "
+            "never invent a figure."
+        ),
+        allow_delegation=False,
+        verbose=False,
+        llm=llm,
+    )
+
+    task = Task(
+        description=SINGLE_CALL_INSTRUCTIONS.format(facts_json=facts_json),
+        expected_output="A Markdown weekly pricing brief citing only the supplied numbers.",
+        agent=writer,
+    )
+
+    crew = Crew(agents=[writer], tasks=[task], process=Process.sequential, verbose=False)
+    log.info("brief.crew_start", model=model, mode="single")
+    return _kickoff_with_retry(crew, model)
+
+
 def narrate_with_crew(facts: WeeklyFacts) -> str:
-    """Turn the facts payload into prose. Raises CrewUnavailable when not configured."""
+    """Turn the facts payload into prose. Raises CrewUnavailable when not configured.
+
+    Runs as a single writer call by default. The three-agent crew below is the design the
+    build document describes and is kept intact behind `llm_single_call=False`, but it
+    costs three requests and three copies of the facts payload to produce a brief the
+    writer can produce alone -- which on a free-tier key is most of a day's allowance for
+    a difference in wording.
+    """
     model = _require_llm()
+    settings = get_settings()
 
     _silence_crewai_prompts()
 
@@ -136,6 +205,13 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
         raise CrewUnavailable("crewai is not installed; pip install -e '.[ai]'") from exc
 
     facts_json = json.dumps(facts.as_dict(), indent=2, default=str)
+    llm = build_llm(model, settings)
+
+    if settings.llm_single_call:
+        reserve(1, settings)
+        return _narrate_single(facts_json, llm, model, Agent, Crew, Process, Task)
+
+    reserve(3, settings)
 
     analyst = Agent(
         role="Pricing analyst",
@@ -146,7 +222,7 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
         ),
         allow_delegation=False,
         verbose=False,
-        llm=model,
+        llm=llm,
     )
 
     interpreter = Agent(
@@ -158,7 +234,7 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
         ),
         allow_delegation=False,
         verbose=False,
-        llm=model,
+        llm=llm,
     )
 
     writer = Agent(
@@ -170,7 +246,7 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
         ),
         allow_delegation=False,
         verbose=False,
-        llm=model,
+        llm=llm,
     )
 
     analysis = Task(
@@ -206,7 +282,7 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
         verbose=False,
     )
 
-    log.info("brief.crew_start", model=model)
+    log.info("brief.crew_start", model=model, mode="crew")
     return _kickoff_with_retry(crew, model)
 
 

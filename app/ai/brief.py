@@ -30,7 +30,7 @@ log = get_logger(__name__)
 @dataclass
 class BriefResult:
     body: str
-    source: str  # "deterministic" | "llm"
+    source: str  # "deterministic" | "llm" | "llm-cached"
     guard: GuardResult | None = None
     facts: WeeklyFacts | None = None
 
@@ -148,7 +148,22 @@ def generate_brief(session: Session, period_days: int = 7, use_llm: bool = False
         return BriefResult(body=deterministic, source="deterministic", facts=facts)
 
     try:
-        from app.ai.crew import narrate_with_crew  # noqa: PLC0415
+        from app.ai import cache  # noqa: PLC0415
+        from app.ai.crew import _require_llm, narrate_with_crew  # noqa: PLC0415
+
+        # Checked before the model is reached. The brief is a function of the facts, so
+        # unchanged facts justify the previous prose -- and a request not made is the
+        # only one guaranteed not to cost anything.
+        fingerprint = cache.facts_fingerprint(facts, _require_llm())
+        cached = cache.get(fingerprint)
+        if cached is not None:
+            guard = validate_brief(cached, facts.all_numbers())
+            if guard.ok:
+                return BriefResult(body=cached, source="llm-cached", guard=guard, facts=facts)
+            # Re-validated rather than trusted. The guard is cheap, and the facts are
+            # what the cache is keyed on, so a hit that no longer validates means the
+            # key is wrong -- fall through and narrate again rather than serve it.
+            log.warning("brief.cache_rejected", fingerprint=fingerprint)
 
         narrated = narrate_with_crew(facts)
     except Exception as exc:  # noqa: BLE001 - never let the crew break the brief
@@ -160,4 +175,5 @@ def generate_brief(session: Session, period_days: int = 7, use_llm: bool = False
         log.error("brief.llm_rejected", unsupported=guard.unsupported)
         return BriefResult(body=deterministic, source="deterministic", guard=guard, facts=facts)
 
+    cache.put(fingerprint, narrated)
     return BriefResult(body=narrated, source="llm", guard=guard, facts=facts)

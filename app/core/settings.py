@@ -56,6 +56,30 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
 
+    # --- LLM cost control ---
+    # Written for a free-tier key, where both requests per day and tokens are scarce.
+    #
+    # `llm_thinking` off is the single biggest saving: measured on gemini-3.5-flash, a
+    # short narration prompt cost 796 tokens with reasoning enabled and 105 with it
+    # disabled -- 697 of those tokens were "thoughts" -- for an equivalent answer. This
+    # job narrates a closed set of pre-validated facts; there is nothing to reason out.
+    llm_thinking: bool = False
+    llm_max_output_tokens: int = 1200
+
+    # One model call instead of three. The full crew (analyst -> interpreter -> writer)
+    # sends the same facts payload three times for a brief the writer could produce
+    # alone. Set false to run the full crew when quota is not the constraint.
+    llm_single_call: bool = True
+
+    # Skip the model entirely when the facts have not changed since the last brief.
+    # A brief regenerated twice in a day is one that costs nothing the second time.
+    llm_cache_ttl_seconds: int = 86_400
+
+    # Hard ceilings, shared across workers via Redis. Free tiers are usually ~10 rpm;
+    # the daily figure is deliberately well under any published cap.
+    llm_requests_per_minute: float = 10.0
+    llm_daily_request_limit: int = 200
+
     # --- alerting / serving ---
     # Nothing is delivered anywhere unless a channel is explicitly configured. An
     # unconfigured channel is skipped, so a fresh checkout cannot message anyone.

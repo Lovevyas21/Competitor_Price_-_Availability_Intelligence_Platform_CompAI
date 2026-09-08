@@ -152,3 +152,52 @@ def test_newlines_in_text_cannot_break_the_frame(event):
     frame = next(iter(routes._sse(iter([event]))))
     assert frame.count("\n\n") == 1
     assert frame.endswith("\n\n")
+
+
+# --------------------------------------------------------------------------- #
+# the narrate stage and the live-fetch controls
+# --------------------------------------------------------------------------- #
+def test_narrate_is_the_last_stage():
+    """It reads what the earlier stages computed, so it cannot run before them."""
+    assert pipeline.STAGES[-1]["id"] == "narrate"
+
+
+def test_narrate_says_so_when_no_model_is_configured():
+    """The stage must not imply an LLM ran when none is configured."""
+    from app.core.settings import Settings
+
+    with patch.object(
+        pipeline, "get_settings", return_value=Settings(_env_file=None, llm_model=None)
+    ):
+        events = list(pipeline.stage_narrate(MagicMock()))
+
+    assert any("no model configured" in e.get("text", "") for e in events)
+    assert not any(e["t"] == "prose" for e in events)
+
+
+def test_the_console_offers_the_fetch_and_chat_controls():
+    html = (routes.TEMPLATES / "console.html").read_text(encoding="utf-8")
+    for control in ('id="fetch"', 'id="data"', 'id="dock-form"', 'id="dock-input"'):
+        assert control in html
+
+
+def test_hidden_panels_are_actually_hidden():
+    """Regression: `display: flex` beat the browser's default `[hidden]` rule, so the
+    data sheet and the chat panel both rendered while still marked hidden."""
+    css = (routes.STATIC / "showcase.css").read_text(encoding="utf-8")
+    assert ".sheet[hidden]" in css
+    assert ".dock-panel[hidden]" in css
+
+
+def test_the_fetch_limit_is_small_enough_to_watch():
+    """It runs from a button while someone waits; a backfill belongs in the Celery sweep."""
+    assert pipeline.FETCH_LIMIT <= 100
+
+
+def test_a_failed_fetch_still_closes_the_stream():
+    with patch("app.ingestion.runner.ingest_source", side_effect=OSError("upstream refused")):
+        events = list(pipeline.run_fetch(10))
+
+    assert events[-1]["t"] == "done"
+    assert events[-1]["ok"] is False
+    assert any(e.get("cls") == "err" for e in events if e["t"] == "line")

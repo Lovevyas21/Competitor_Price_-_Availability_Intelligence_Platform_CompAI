@@ -52,6 +52,11 @@ def table(cols: list[str], rows: list[list[Any]], caption: str = "") -> Event:
     }
 
 
+def prose(body: str, title: str = "", note: str = "") -> Event:
+    """A block of generated text, rendered as-is rather than typed line by line."""
+    return {"t": "prose", "body": body, "title": title, "note": note}
+
+
 def _rows(session: Session, sql: str, **params) -> list[dict]:
     return [dict(r) for r in session.execute(text(sql), params).mappings()]
 
@@ -372,6 +377,191 @@ def stage_decide(session: Session) -> Iterator[Event]:
 
 
 # --------------------------------------------------------------------------- #
+# stage 6 -- narrate
+# --------------------------------------------------------------------------- #
+def stage_narrate(session: Session) -> Iterator[Event]:
+    """The only stage that calls a language model, and the only one that has to prove
+    it is allowed to be believed.
+
+    The model never touches the database. It is handed a closed payload of figures
+    already computed by the marts, and every number it writes back is checked against
+    that payload. A brief containing a figure the warehouse cannot account for is
+    discarded, not published -- which is why the guard result is reported here as
+    prominently as the prose.
+    """
+    from app.ai.brief import generate_brief  # noqa: PLC0415
+    from app.ai.llm import budget_used_today  # noqa: PLC0415
+
+    settings = get_settings()
+    if not settings.llm_model:
+        yield line("no model configured -- the brief renders deterministically", "warn")
+        yield line(
+            "that is the default: no key, no cost, and no chance of a fabricated number",
+            "dim",
+        )
+        return
+
+    yield metric("Model", settings.llm_model)
+    yield line("handing the model a closed set of facts, not a database connection", "dim")
+    yield line(
+        "an agent that can query freely can also summarise loosely, "
+        "and its output is then unverifiable",
+        "dim",
+    )
+
+    spent_before = budget_used_today()
+    result = generate_brief(session, period_days=7, use_llm=True)
+    spent = budget_used_today() - spent_before
+
+    labels = {
+        "llm": ("written by the model, just now", "ok"),
+        "llm-cached": ("unchanged facts -- served from cache, no request made", "ok"),
+        "deterministic": ("model unavailable or rejected; deterministic brief stands in", "warn"),
+    }
+    label, cls = labels.get(result.source, (result.source, ""))
+    yield metric("Narration", result.source, label, cls=cls)
+    yield metric(
+        "Requests spent",
+        spent,
+        f"{budget_used_today()} of {settings.llm_daily_request_limit} used today",
+    )
+
+    guard = result.guard
+    if guard is not None:
+        if guard.ok:
+            yield metric(
+                "Numeric guard",
+                f"{guard.checked} of {guard.checked} figures verified",
+                "every number traced back to the facts payload",
+                cls="ok",
+            )
+        else:
+            yield metric(
+                "Numeric guard",
+                f"REJECTED -- {len(guard.unsupported)} unsupported",
+                f"not in the facts: {', '.join(str(u) for u in guard.unsupported[:5])}",
+                cls="warn",
+            )
+            yield line("the brief was discarded and the deterministic one used", "warn")
+
+    yield prose(
+        result.body,
+        title="Weekly brief",
+        note=(
+            "Generated from the figures above. Reasoning is disabled and the crew runs as a "
+            "single call -- one brief costs about 2,400 tokens instead of 12,500."
+        ),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# live fetch
+# --------------------------------------------------------------------------- #
+#: Deliberately small. This runs from a button in a browser, so it must finish while
+#: someone is watching, and it is a demonstration of the ingest path rather than a
+#: backfill -- the scheduled Celery sweep is what fills the warehouse.
+FETCH_LIMIT = 60
+
+
+def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
+    """Pull fresh observations from Open Prices, live.
+
+    The same `ingest_source` the Celery task calls -- not a demo variant. Every payload
+    still lands in bronze before it is parsed, still passes validation, and still goes
+    through change-detection, so a row that appears here is a row the warehouse would
+    have taken anyway.
+    """
+    from app.ingestion.runner import ingest_source  # noqa: PLC0415
+
+    started = time.perf_counter()
+    yield {
+        "t": "stage",
+        "id": "fetch",
+        "title": "Fetch",
+        "subtitle": f"pull up to {limit} fresh observations from Open Prices",
+    }
+    yield line("calling prices.openfoodfacts.org", "dim")
+    yield line("keyless, crowd-sourced, rate-limited to be polite about it", "dim")
+
+    before = _snapshot()
+
+    try:
+        result = ingest_source("openprices", limit=limit)
+    except Exception as exc:  # noqa: BLE001 - a failed fetch must report, not crash the page
+        yield line(f"{type(exc).__name__}: {str(exc).splitlines()[0]}", "err")
+        elapsed = round((time.perf_counter() - started) * 1000)
+        yield {"t": "stage_done", "id": "fetch", "ms": elapsed}
+        yield {"t": "done", "ms": elapsed, "ok": False}
+        return
+
+    summary = result.summary()
+    ok = result.status == "success"
+    yield metric("Status", result.status, cls="ok" if ok else "warn")
+    yield metric("Records fetched", f"{summary.get('fetched', 0):,}")
+    yield metric("Normalised", f"{summary.get('normalized', 0):,}")
+    if summary.get("error"):
+        yield line(str(summary["error"])[:300], "err")
+
+    after = _snapshot()
+    yield metric(
+        "New price events",
+        f"+{after['events'] - before['events']:,}",
+        "insert-on-change: an unchanged price is not a new row, so this is genuinely new "
+        "information rather than a count of what was downloaded",
+    )
+    yield metric("New products", f"+{after['products'] - before['products']:,}")
+    yield metric("Latest observation", after["last_seen"])
+
+    with session_scope() as session:
+        recent = _rows(
+            session,
+            """
+            select r.name as retailer,
+                   coalesce(pv.title, p.external_id) as product,
+                   pe.price, pe.currency, pe.observed_at::date as seen,
+                   to_char(pe.ingested_at, 'HH24:MI:SS') as stored
+            from price_events pe
+            join products  p using (product_id)
+            join retailers r using (retailer_id)
+            left join product_versions pv
+                   on pv.product_id = p.product_id and pv.is_current
+            order by pe.ingested_at desc nulls last, pe.observed_at desc
+            limit 10
+            """,
+        )
+    if recent:
+        yield table(
+            ["retailer", "product", "price", "ccy", "observed", "stored at"],
+            [
+                [r["retailer"], r["product"], r["price"], r["currency"], r["seen"], r["stored"]]
+                for r in recent
+            ],
+            "rows just written to the warehouse",
+        )
+
+    yield line(
+        "marts are not rebuilt by this button -- run `make dbt-build` (or wait for the "
+        "scheduled sweep) before the undercut figures reflect these rows",
+        "dim",
+    )
+    yield {"t": "stage_done", "id": "fetch", "ms": round((time.perf_counter() - started) * 1000)}
+    yield {"t": "done", "ms": round((time.perf_counter() - started) * 1000), "ok": ok}
+
+
+def _snapshot() -> dict:
+    """Counts either side of a fetch, so the page can report what actually changed."""
+    with session_scope() as session:
+        return _rows(
+            session,
+            """
+            select (select count(*) from price_events) as events,
+                   (select count(*) from products)     as products,
+                   (select max(observed_at)::date from price_events) as last_seen
+            """,
+        )[0]
+
+
+# --------------------------------------------------------------------------- #
 # orchestration
 # --------------------------------------------------------------------------- #
 STAGES: list[dict] = [
@@ -404,6 +594,12 @@ STAGES: list[dict] = [
         "title": "Decide",
         "subtitle": "turn detections into alerts worth sending",
         "fn": stage_decide,
+    },
+    {
+        "id": "narrate",
+        "title": "Narrate",
+        "subtitle": "let a model write it up, and check every number it uses",
+        "fn": stage_narrate,
     },
 ]
 

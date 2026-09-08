@@ -14,16 +14,24 @@ unless `showcase_enabled=true` is set deliberately. See `is_enabled`.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 
+from app.ai.chat import answer_question
+from app.core.db import session_scope
 from app.core.settings import Settings, get_settings
-from app.showcase.pipeline import STAGES, run_pipeline
+from app.showcase.pipeline import FETCH_LIMIT, STAGES, run_fetch, run_pipeline
 
 HERE = Path(__file__).parent
 TEMPLATES = HERE / "templates"
@@ -90,6 +98,94 @@ def stream(stage: str | None = Query(default=None)) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/api/fetch", include_in_schema=False)
+def fetch(limit: int = Query(default=FETCH_LIMIT, ge=1, le=300)) -> StreamingResponse:
+    """Pull fresh data from Open Prices, streaming progress as it goes.
+
+    A GET so the browser's EventSource can drive it, which is a deliberate compromise:
+    the call is not read-only, and normally that would be a POST. It is acceptable here
+    only because the operation is idempotent in effect -- re-running it stores nothing
+    new unless prices actually moved -- and because the showcase is dev-only.
+    """
+    return StreamingResponse(
+        _sse(run_fetch(limit)),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+DATASET_SQL = """
+select pe.observed_at::date as observed_date,
+       r.name               as retailer,
+       coalesce(pv.title, p.external_id) as product,
+       p.upc,
+       pe.price,
+       pe.currency,
+       s.name               as source
+from price_events pe
+join products  p using (product_id)
+join retailers r using (retailer_id)
+join sources   s on s.source_id = p.source_id
+left join product_versions pv on pv.product_id = p.product_id and pv.is_current
+order by pe.observed_at desc
+limit :limit
+"""
+
+
+@router.get("/api/dataset", include_in_schema=False)
+def dataset(
+    limit: int = Query(default=500, ge=1, le=10_000),
+    download: bool = Query(default=False),
+):
+    """The collected observations, as JSON to display or CSV to keep.
+
+    Streamed and capped rather than materialised whole: the table is partitioned and
+    grows without limit, and an unbounded `select *` behind a browser button is how a
+    demo takes the database down in front of an audience.
+    """
+    with session_scope() as session:
+        rows = [dict(r) for r in session.execute(text(DATASET_SQL), {"limit": limit}).mappings()]
+
+    if not download:
+        return JSONResponse({"count": len(rows), "rows": jsonable_encoder(rows)})
+
+    def as_csv() -> Iterator[str]:
+        buffer = io.StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=list(rows[0]) if rows else ["observed_date"])
+        writer.writeheader()
+        yield buffer.getvalue()
+        for row in rows:
+            buffer.seek(0)
+            buffer.truncate(0)
+            writer.writerow(row)
+            yield buffer.getvalue()
+
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
+    return StreamingResponse(
+        as_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="price-observations-{stamp}.csv"'},
+    )
+
+
+class Question(BaseModel):
+    question: str = Field(max_length=2000)
+
+
+@router.post("/api/chat", include_in_schema=False)
+def chat(payload: Question) -> dict:
+    """Answer a question about the data, guarded the same way the brief is.
+
+    A POST, unlike the streams above: it spends model allowance and it takes a body.
+    """
+    with session_scope() as session:
+        return answer_question(session, payload.question).as_dict()
 
 
 @router.get("/api/stages", include_in_schema=False)

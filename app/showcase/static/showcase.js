@@ -53,6 +53,12 @@ const BOOT = {
     "checking the cooldown window",
     "resolving delivery channels",
   ],
+  narrate: [
+    "assembling the facts payload",
+    "reasoning disabled · single call",
+    "handing the model a closed set of numbers",
+    "arming the numeric guard",
+  ],
 };
 
 const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
@@ -295,8 +301,41 @@ async function renderDone(ev) {
   finish();
 }
 
+async function renderProse(ev) {
+  const box = appendTo(
+    el.console,
+    Object.assign(document.createElement("div"), {
+      className: "prose",
+      innerHTML:
+        `<div class="prose-head"></div><div class="prose-body"></div>` +
+        `<div class="prose-note"></div>`,
+    })
+  );
+  if (ev.title) box.querySelector(".prose-head").textContent = ev.title;
+
+  // Rendered a line at a time rather than typed character by character. A page of
+  // generated prose typed out at reading speed is a minute of waiting for something
+  // the reader can already see is text.
+  const body = box.querySelector(".prose-body");
+  for (const raw of ev.body.split("\n")) {
+    const row = document.createElement("div");
+    const heading = /^#{1,6}\s/.test(raw);
+    row.className = heading ? "prose-h" : "prose-p";
+    row.textContent = raw.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "");
+    appendTo(body, row);
+    await pace(raw.trim() ? 60 : 20);
+  }
+  if (ev.note) {
+    const note = box.querySelector(".prose-note");
+    note.textContent = ev.note;
+    requestAnimationFrame(() => note.classList.add("in"));
+  }
+  await pace(300);
+}
+
 const RENDERERS = {
   stage: renderStage,
+  prose: renderProse,
   line: renderLine,
   metric: renderMetric,
   table: renderTable,
@@ -332,6 +371,11 @@ function finish() {
   state.running = false;
   el.run.disabled = false;
   el.run.textContent = "Run again";
+  const fetchBtn = document.getElementById("fetch");
+  if (fetchBtn) {
+    fetchBtn.disabled = false;
+    fetchBtn.textContent = "↻ Fetch data";
+  }
 }
 
 function start() {
@@ -392,3 +436,153 @@ setSpeed(state.speed);
 // Arriving with ?autorun (the intro button's link) starts immediately, so the walkthrough
 // is one click from the front page rather than two.
 if (new URLSearchParams(location.search).has("autorun")) start();
+
+// --------------------------------------------------------------------------- //
+// live fetch from Open Prices
+// --------------------------------------------------------------------------- //
+/* Reuses the console renderer wholesale. The fetch stream emits the same event shapes
+ * as the pipeline, so it types itself out into the same panel with no separate view to
+ * keep in step. */
+function startFetch() {
+  if (state.running) return;
+  state.running = true;
+  state.queue = [];
+  state.stageIndex = 0;
+  el.console.innerHTML = "";
+  el.run.disabled = true;
+  const btn = document.getElementById("fetch");
+  btn.disabled = true;
+  btn.textContent = "Fetching…";
+
+  const source = new EventSource("/showcase/api/fetch");
+  source.onmessage = (msg) => {
+    const ev = JSON.parse(msg.data);
+    if (ev.t === "done") source.close();
+    state.queue.push(ev);
+    drain();
+  };
+  source.onerror = () => {
+    source.close();
+    if (!state.running) return;
+    state.queue.push({ t: "line", cls: "err", text: "the fetch connection dropped" });
+    state.queue.push({ t: "done", ms: 0, ok: false });
+    drain();
+  };
+}
+
+// --------------------------------------------------------------------------- //
+// data viewer
+// --------------------------------------------------------------------------- //
+async function openSheet() {
+  const sheet = document.getElementById("sheet");
+  const body = document.getElementById("sheet-body");
+  sheet.hidden = false;
+  body.innerHTML = `<div class="ln dim">loading…</div>`;
+
+  try {
+    const res = await fetch("/showcase/api/dataset?limit=500");
+    const data = await res.json();
+    if (!data.rows.length) {
+      body.innerHTML = `<div class="ln warn">No observations stored yet.</div>`;
+      return;
+    }
+    const cols = Object.keys(data.rows[0]);
+    // Built as DOM rather than an HTML string: product titles are upstream text and
+    // would otherwise be a markup-injection route straight from a third-party API.
+    const table = document.createElement("table");
+    const head = table.createTHead().insertRow();
+    for (const c of cols) {
+      const th = document.createElement("th");
+      th.textContent = c;
+      head.appendChild(th);
+    }
+    const tbody = table.createTBody();
+    for (const row of data.rows) {
+      const tr = tbody.insertRow();
+      for (const c of cols) {
+        const td = tr.insertCell();
+        td.textContent = row[c] ?? "";
+        td.title = td.textContent;
+      }
+    }
+    body.innerHTML = "";
+    body.appendChild(table);
+    document.getElementById("sheet-title").textContent =
+      `Collected observations — showing ${data.count.toLocaleString()} most recent`;
+  } catch (e) {
+    body.innerHTML = `<div class="ln err">could not load the data: ${e}</div>`;
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// ask about the data
+// --------------------------------------------------------------------------- //
+function chatSay(who, text, cls = "") {
+  const log = document.getElementById("dock-log");
+  const row = document.createElement("div");
+  row.className = `chat ${who} ${cls}`.trim();
+  row.textContent = text;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+  return row;
+}
+
+async function ask(question) {
+  chatSay("you", question);
+  const pending = chatSay("bot", "…", "pending");
+  const send = document.getElementById("dock-send");
+  send.disabled = true;
+
+  try {
+    const res = await fetch("/showcase/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    const data = await res.json();
+    pending.classList.remove("pending");
+    pending.textContent = data.answer;
+    if (!data.ok) pending.classList.add(data.source === "refused" ? "refused" : "warn");
+    if (data.ok && data.checked) {
+      const tag = document.createElement("span");
+      tag.className = "chat-tag";
+      tag.textContent = `${data.checked} figures verified against the warehouse`;
+      pending.appendChild(tag);
+    }
+  } catch (e) {
+    pending.classList.remove("pending");
+    pending.classList.add("warn");
+    pending.textContent = `could not reach the server: ${e}`;
+  } finally {
+    send.disabled = false;
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// wiring
+// --------------------------------------------------------------------------- //
+document.getElementById("fetch").addEventListener("click", startFetch);
+document.getElementById("data").addEventListener("click", openSheet);
+document.getElementById("sheet-close").addEventListener("click", () => {
+  document.getElementById("sheet").hidden = true;
+});
+
+const dockPanel = document.getElementById("dock-panel");
+const dockTab = document.getElementById("dock-tab");
+dockTab.addEventListener("click", () => {
+  dockPanel.hidden = !dockPanel.hidden;
+  dockTab.hidden = !dockPanel.hidden;
+  if (!dockPanel.hidden) document.getElementById("dock-input").focus();
+});
+document.getElementById("dock-close").addEventListener("click", () => {
+  dockPanel.hidden = true;
+  dockTab.hidden = false;
+});
+document.getElementById("dock-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("dock-input");
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = "";
+  ask(q);
+});

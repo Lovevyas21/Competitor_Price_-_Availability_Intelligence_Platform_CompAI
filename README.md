@@ -128,6 +128,20 @@ the rail are real elapsed milliseconds. Only the pacing is theatre, and it happe
 browser after the data has already arrived, so the server never sleeps to look busy.
 `skip` renders the whole run instantly.
 
+Three controls sit alongside it:
+
+* **Narrate** (stage 06) is the only stage that calls a language model. It is handed a
+  closed payload of figures the marts already computed -- never a database connection --
+  and every number it writes back is checked against that payload. The count of verified
+  figures is shown next to the brief, and a brief containing a figure the warehouse
+  cannot account for is discarded rather than published.
+* **Fetch data** pulls fresh observations from Open Prices through the same
+  `ingest_source` the Celery task uses. It reports how many rows were *new* rather than
+  how many were downloaded, which is usually far fewer -- an unchanged price is not a new
+  row.
+* **Ask about this data** answers questions under the same numeric guard as the brief.
+  It refuses rather than guesses, and says so.
+
 It reads real mart data and is deliberately **not** behind the API key, so it serves in
 dev only by default. A demo deployment opts in with `SHOWCASE_ENABLED=true`.
 

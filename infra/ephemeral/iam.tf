@@ -26,13 +26,13 @@ data "aws_iam_policy_document" "app" {
   statement {
     sid       = "BronzeObjectAccess"
     actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = ["${aws_s3_bucket.bronze.arn}/*"]
+    resources = ["${data.aws_s3_bucket.bronze.arn}/*"]
   }
 
   statement {
     sid       = "BronzeList"
     actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.bronze.arn]
+    resources = [data.aws_s3_bucket.bronze.arn]
   }
 
   # Only this project's parameters, in this environment.

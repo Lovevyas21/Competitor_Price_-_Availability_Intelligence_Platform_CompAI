@@ -5,3 +5,10 @@
 terraform.tfvars
 *.tfplan
 crash.log
+
+# Per-stack terraform working directories and state.
+*/.terraform/
+*/.terraform.lock.hcl
+*/terraform.tfstate
+*/terraform.tfstate.backup
+*/terraform.tfvars

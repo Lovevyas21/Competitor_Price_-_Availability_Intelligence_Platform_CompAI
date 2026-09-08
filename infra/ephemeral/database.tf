@@ -64,11 +64,24 @@ resource "aws_db_instance" "pg" {
   maintenance_window      = "sun:19:30-sun:20:30"
 
   auto_minor_version_upgrade = true
-  deletion_protection        = true
 
-  # A final snapshot is cheap insurance against a mistaken destroy.
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project}-pg-final"
+  # Both of these default to the *unsafe-looking* value on purpose, because this stack
+  # is designed to be destroyed. The safe production settings are two blockers:
+  #
+  #   deletion_protection = true  makes `terraform destroy` fail outright.
+  #   skip_final_snapshot = false with a fixed identifier succeeds the first time and
+  #   then fails on every subsequent destroy, because the snapshot name already exists.
+  #
+  # Losing this database is survivable in a way losing most databases is not: bronze
+  # lives in the persistent stack's S3 bucket, and the warehouse rebuilds from it with
+  # `cpi replay` in about thirty seconds, no upstream traffic and no quota spend. Set
+  # both variables the other way for anything holding data that is not reproducible.
+  deletion_protection = var.db_deletion_protection
+  skip_final_snapshot = var.db_skip_final_snapshot
+
+  # Only used when a snapshot is actually taken. Timestamped so repeated teardowns do
+  # not collide on the identifier.
+  final_snapshot_identifier = var.db_skip_final_snapshot ? null : "${var.project}-pg-final-${formatdate("YYYYMMDDhhmmss", timestamp())}"
 
   performance_insights_enabled    = false # not free on t4g.micro
   enabled_cloudwatch_logs_exports = ["postgresql"]

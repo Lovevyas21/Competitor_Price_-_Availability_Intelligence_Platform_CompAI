@@ -221,7 +221,8 @@ without an AWS account. `terraform plan` has never run, so a first apply should 
 expected to surface real issues validation cannot catch. See ADR-011.
 
 ```bash
-cd infra && terraform init -backend=false && terraform validate
+cd infra/persistent && terraform init -backend=false && terraform validate
+cd ../ephemeral  && terraform init -backend=false && terraform validate
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, migrations, the full test suite

@@ -35,7 +35,7 @@ docker compose exec db psql -U cpi -d cpi -c "select count(*) from price_events"
 | Lint / format | clean |
 
 ```bash
-make test && make dbt-build && (cd infra && terraform validate)
+make test && make dbt-build && (cd infra/persistent && terraform validate) \n  && (cd infra/ephemeral && terraform validate)
 ```
 
 ## Marts

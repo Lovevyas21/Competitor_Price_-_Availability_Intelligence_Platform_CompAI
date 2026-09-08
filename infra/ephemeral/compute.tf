@@ -86,7 +86,7 @@ locals {
     chmod 700 /usr/local/bin/cpi-fetch-env
 
     echo "BRONZE_BACKEND=s3" >> /srv/cpi/.env.static
-    echo "BRONZE_S3_BUCKET=${aws_s3_bucket.bronze.bucket}" >> /srv/cpi/.env.static
+    echo "BRONZE_S3_BUCKET=${data.aws_s3_bucket.bronze.bucket}" >> /srv/cpi/.env.static
     echo "ENV=${var.environment}" >> /srv/cpi/.env.static
   EOT
 }

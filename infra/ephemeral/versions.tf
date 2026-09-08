@@ -18,7 +18,7 @@ terraform {
   #
   # backend "s3" {
   #   bucket         = "cpi-tfstate"
-  #   key            = "cpi/terraform.tfstate"
+  #   key            = "cpi/ephemeral.tfstate"
   #   region         = "ap-south-1"
   #   dynamodb_table = "cpi-tflock"
   #   encrypt        = true

@@ -86,6 +86,14 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
 
+    # Both stacks, independently. They are separate root modules with separate state,
+    # so validating one says nothing about the other -- and the ephemeral stack is the
+    # one that gets edited under time pressure just before a demo.
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [persistent, ephemeral]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -96,15 +104,15 @@ jobs:
       # No AWS credentials: fmt/init/validate check the configuration is well-formed
       # without touching an account or creating anything.
       - name: Terraform format
-        working-directory: infra
+        working-directory: infra/${{ matrix.stack }}
         run: terraform fmt -check -recursive
 
       - name: Terraform init
-        working-directory: infra
+        working-directory: infra/${{ matrix.stack }}
         run: terraform init -backend=false -input=false
 
       - name: Terraform validate
-        working-directory: infra
+        working-directory: infra/${{ matrix.stack }}
         run: terraform validate
 
   docker:

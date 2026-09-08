@@ -1,13 +1,14 @@
+# `project` and `environment` must match the persistent stack: this stack finds the
+# bronze bucket, the alerts topic and the secrets path by deriving their names from
+# these, rather than through a shared state file.
 variable "project" {
-  description = "Name prefix for every resource."
-  type        = string
-  default     = "cpi"
+  type    = string
+  default = "cpi"
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, prod)."
-  type        = string
-  default     = "prod"
+  type    = string
+  default = "prod"
 }
 
 variable "region" {
@@ -38,7 +39,7 @@ variable "ssh_ingress_cidrs" {
   description = <<-EOT
     CIDRs allowed to reach SSH. Deliberately empty by default: an open 0.0.0.0/0 SSH
     rule is the single most common way a portfolio deployment gets compromised.
-    Set this to your own address, or leave empty and use SSM Session Manager.
+    Leave empty and use SSM Session Manager.
   EOT
   type        = list(string)
   default     = []
@@ -78,19 +79,23 @@ variable "db_username" {
 }
 
 variable "db_backup_retention_days" {
-  type    = number
-  default = 7
-}
-
-# --- budget ----------------------------------------------------------------
-variable "monthly_budget_inr" {
-  description = "Budget alarm threshold. The build document recommends INR 400-2000."
+  description = "0 disables automated backups. Reasonable here: the warehouse is rebuilt from bronze, not restored."
   type        = number
-  default     = 3000
+  default     = 1
 }
 
-variable "alert_email" {
-  description = "Where budget and CloudWatch alarms are sent."
-  type        = string
-  default     = ""
+# --- teardown behaviour ----------------------------------------------------
+# See the comment in database.tf. These default to destroy-friendly because this stack
+# exists to be torn down between demos, and because bronze in the persistent stack makes
+# the database reproducible rather than precious.
+variable "db_deletion_protection" {
+  description = "true blocks `terraform destroy` entirely. Set true for anything holding irreproducible data."
+  type        = bool
+  default     = false
+}
+
+variable "db_skip_final_snapshot" {
+  description = "false takes a snapshot on destroy, which costs storage and slows teardown."
+  type        = bool
+  default     = true
 }

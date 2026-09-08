@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars and adjust. Never commit the real file.
+#
+# Applied before a demo and destroyed after. `project` and `environment` must match the
+# persistent stack.
+
+region      = "ap-south-1"
+project     = "cpi"
+environment = "prod"
+
+# SSH is closed by default; SSM Session Manager is the intended access path and needs
+# no inbound rule at all. Only set this if you specifically need SSH, never 0.0.0.0/0.
+# ssh_ingress_cidrs = ["203.0.113.4/32"]
+# key_pair_name     = "my-keypair"
+
+# Teardown behaviour. Both default to destroy-friendly because this stack exists to be
+# torn down, and the warehouse is rebuilt from bronze rather than restored. Flip both
+# for anything holding data that is not reproducible.
+# db_deletion_protection = true
+# db_skip_final_snapshot = false

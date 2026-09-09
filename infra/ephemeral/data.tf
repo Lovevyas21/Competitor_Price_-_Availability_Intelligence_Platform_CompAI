@@ -15,3 +15,8 @@ data "aws_s3_bucket" "bronze" {
 data "aws_sns_topic" "alerts" {
   name = "${var.project}-alerts"
 }
+
+# The image repository, created by the persistent stack.
+data "aws_ecr_repository" "app" {
+  name = var.project
+}

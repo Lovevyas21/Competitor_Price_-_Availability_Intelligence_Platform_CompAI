@@ -36,11 +36,18 @@ data "aws_iam_policy_document" "app" {
   }
 
   # Only this project's parameters, in this environment.
+  #
+  # Two ARNs, not one, and the difference is not cosmetic. `GetParameter` acts on each
+  # parameter, so it needs `/cpi/prod/*`. `GetParametersByPath` acts on the *path node*
+  # `/cpi/prod` itself, which `/cpi/prod/*` does not match -- a trailing wildcard covers
+  # the children, never the parent. Granting only the wildcard produces an AccessDenied
+  # naming a resource that looks like it is obviously covered.
   statement {
     sid     = "ReadOwnParameters"
     actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
     resources = [
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.environment}/*"
+      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.environment}",
+      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project}/${var.environment}/*",
     ]
   }
 
@@ -48,6 +55,30 @@ data "aws_iam_policy_document" "app" {
     sid       = "DecryptParameters"
     actions   = ["kms:Decrypt"]
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:alias/aws/ssm"]
+  }
+
+  # ECR. Split across two statements because `GetAuthorizationToken` is an account-level
+  # action that AWS only accepts against `*` -- scoping it to the repository silently
+  # denies every login. Everything that touches image content is scoped to this one
+  # repository.
+  statement {
+    sid       = "EcrLogin"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "EcrPushPull"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+    ]
+    resources = [data.aws_ecr_repository.app.arn]
   }
 
   statement {

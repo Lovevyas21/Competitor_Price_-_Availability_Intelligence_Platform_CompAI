@@ -471,8 +471,6 @@ def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
     through change-detection, so a row that appears here is a row the warehouse would
     have taken anyway.
     """
-    from app.ingestion.runner import ingest_source  # noqa: PLC0415
-
     started = time.perf_counter()
     yield {
         "t": "stage",
@@ -483,20 +481,32 @@ def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
     yield line("calling prices.openfoodfacts.org", "dim")
     yield line("keyless, crowd-sourced, rate-limited to be polite about it", "dim")
 
-    before = _snapshot()
-
+    # Everything that can fail sits inside one try -- the snapshots and the sample query
+    # as much as the ingest itself. The browser closes this stream on the `done` event
+    # and on nothing else, so any path that escapes without emitting one leaves a
+    # spinner turning forever. An unreachable database took exactly that path: the
+    # `before` snapshot raised outside the guard.
     try:
+        from app.ingestion.runner import ingest_source  # noqa: PLC0415
+
+        before = _snapshot()
         result = ingest_source("openprices", limit=limit)
+        yield from _report_fetch(result, before)
+        ok = result.status == "success"
     except Exception as exc:  # noqa: BLE001 - a failed fetch must report, not crash the page
         yield line(f"{type(exc).__name__}: {str(exc).splitlines()[0]}", "err")
-        elapsed = round((time.perf_counter() - started) * 1000)
-        yield {"t": "stage_done", "id": "fetch", "ms": elapsed}
-        yield {"t": "done", "ms": elapsed, "ok": False}
-        return
+        ok = False
+
+    elapsed = round((time.perf_counter() - started) * 1000)
+    yield {"t": "stage_done", "id": "fetch", "ms": elapsed}
+    yield {"t": "done", "ms": elapsed, "ok": ok}
+
+
+def _report_fetch(result, before: dict) -> Iterator[Event]:
+    """What the fetch actually changed. Split out so `run_fetch` has one exit path."""
 
     summary = result.summary()
-    ok = result.status == "success"
-    yield metric("Status", result.status, cls="ok" if ok else "warn")
+    yield metric("Status", result.status, cls="ok" if result.status == "success" else "warn")
     yield metric("Records fetched", f"{summary.get('fetched', 0):,}")
     yield metric("Normalised", f"{summary.get('normalized', 0):,}")
     if summary.get("error"):
@@ -544,8 +554,6 @@ def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
         "scheduled sweep) before the undercut figures reflect these rows",
         "dim",
     )
-    yield {"t": "stage_done", "id": "fetch", "ms": round((time.perf_counter() - started) * 1000)}
-    yield {"t": "done", "ms": round((time.perf_counter() - started) * 1000), "ok": ok}
 
 
 def _snapshot() -> dict:

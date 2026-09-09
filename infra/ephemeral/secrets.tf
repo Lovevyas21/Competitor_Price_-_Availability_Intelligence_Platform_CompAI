@@ -20,3 +20,29 @@ resource "aws_ssm_parameter" "db_url" {
 
   tags = { Name = "${var.project}-database-url" }
 }
+
+# dbt reads discrete connection parts, not a URL: `profiles.yml` is templated with
+# POSTGRES_HOST/PORT/USER/PASSWORD/DB. Publishing only DATABASE_URL_OVERRIDE left the
+# application able to reach the database and dbt unable to, which surfaces as an API
+# serving 500s from analytics_marts.* tables that were never built.
+locals {
+  db_connection_parts = {
+    POSTGRES_HOST     = aws_db_instance.pg.address
+    POSTGRES_PORT     = tostring(aws_db_instance.pg.port)
+    POSTGRES_DB       = var.db_name
+    POSTGRES_USER     = var.db_username
+    POSTGRES_PASSWORD = random_password.db.result
+    DBT_SSLMODE       = "require" # rds.force_ssl = 1
+  }
+}
+
+resource "aws_ssm_parameter" "db_parts" {
+  for_each = local.db_connection_parts
+
+  name      = "/${var.project}/${var.environment}/${each.key}"
+  type      = "SecureString"
+  value     = each.value
+  overwrite = true
+
+  tags = { Name = "${var.project}-${lower(each.key)}" }
+}

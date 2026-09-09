@@ -40,6 +40,13 @@ ai = [
     # provider being unavailable, long before any request is made.
     "google-genai>=1.0.0",
 ]
+# The marts. Needed wherever `dbt build` runs, which is not only a developer laptop:
+# the API serves analytics_marts.* and those tables do not exist until dbt creates them,
+# so a deployed image without dbt produces a warehouse the API cannot read.
+transform = [
+    "dbt-core>=1.10.0",
+    "dbt-postgres>=1.9.0",
+]
 dev = [
     "ruff>=0.8.4",
     "pytest>=8.3.4",

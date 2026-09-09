@@ -53,8 +53,20 @@ variable "key_pair_name" {
 
 # --- database --------------------------------------------------------------
 variable "db_instance_class" {
-  type    = string
-  default = "db.t4g.micro"
+  description = <<-EOT
+    db.t3.micro rather than the cheaper Graviton db.t4g.micro, which is not a preference
+    but a availability finding: ap-south-1 returned "Insufficient instance capacity for
+    instance type db.t4g.micro" and left the instance retrying in `insufficient-capacity`
+    for over twenty minutes. Burstable Graviton database classes are frequently
+    constrained in this region.
+
+    Capacity is real-time and regional, so `describe-orderable-db-instance-options` will
+    happily list a class that cannot actually be launched right now. If a create hangs in
+    `creating`, read the reason rather than waiting:
+      aws rds describe-events --source-identifier <id> --source-type db-instance
+  EOT
+  type        = string
+  default     = "db.t3.micro"
 }
 
 variable "db_allocated_storage" {
@@ -63,9 +75,18 @@ variable "db_allocated_storage" {
 }
 
 variable "db_engine_version" {
-  description = "Must be a version offering pgvector (15.9+, 16.5+, 17.1+)."
+  description = <<-EOT
+    Must be a version offering pgvector (15.9+, 16.5+, 17.1+) *and* actually offered in
+    the target region -- those are different lists. 16.6 was pinned here and does not
+    exist in ap-south-1, which `validate` and `plan` both accept happily and `apply`
+    rejects several minutes in.
+
+    16.15 matches the Docker image used in development, so the same Postgres runs in both
+    places. Check before changing:
+      aws rds describe-orderable-db-instance-options --engine postgres         --engine-version <v> --db-instance-class <class> --region <region>
+  EOT
   type        = string
-  default     = "16.6"
+  default     = "16.15"
 }
 
 variable "db_name" {

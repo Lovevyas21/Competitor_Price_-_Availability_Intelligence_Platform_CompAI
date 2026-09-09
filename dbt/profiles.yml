@@ -14,3 +14,7 @@ cpi:
       threads: 4
       keepalives_idle: 0
       connect_timeout: 30
+      # RDS runs with rds.force_ssl = 1. `prefer` happens to negotiate TLS anyway,
+      # but relying on that means a silent downgrade if the server ever stops
+      # requiring it. Set DBT_SSLMODE=require against RDS.
+      sslmode: "{{ env_var('DBT_SSLMODE', 'prefer') }}"

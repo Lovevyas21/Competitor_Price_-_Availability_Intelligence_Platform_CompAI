@@ -14,7 +14,9 @@ WORKDIR /build
 # layer cache and force a full reinstall.
 COPY pyproject.toml README.md ./
 COPY app/__init__.py app/__init__.py
-RUN uv venv /opt/venv && uv pip install --python /opt/venv/bin/python .
+# `.[transform]` rather than `.`: the deployed host is where marts get rebuilt after
+# an ingest, and without dbt the API has no analytics_marts.* tables to read.
+RUN uv venv /opt/venv && uv pip install --python /opt/venv/bin/python ".[transform]"
 
 
 FROM python:3.12-slim AS runtime
@@ -31,6 +33,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY app/ ./app/
 COPY migrations/ ./migrations/
+COPY dbt/ ./dbt/
 COPY alembic.ini ./
 
 RUN mkdir -p /app/data/bronze /app/data/deadletter && chown -R cpi:cpi /app

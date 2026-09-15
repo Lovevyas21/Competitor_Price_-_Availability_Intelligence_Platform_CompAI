@@ -113,6 +113,34 @@ Endpoints: `/health`, `/products`, `/prices/{id}`, `/forecasts/{id}`, `/undercut
 `/alerts`, `/matches/review`. Auth is an `X-API-Key` header, enabled by setting
 `API_KEY`; when unset the API is open and `/health` says so.
 
+## Deploying to AWS
+
+The deployment is meant to exist only while it is being looked at: idle cost is about
+$0.30/month, and roughly $0.035/hour while it is up.
+
+```powershell
+.ws.ps1 status    # what is running, and what it cost
+.ws.ps1 up        # create everything and deploy   (~15 min)
+.ws.ps1 down      # destroy everything billable    (~10 min)
+```
+
+Equivalent from any POSIX shell, and what the PowerShell wrapper calls:
+
+```bash
+bash scripts/aws.sh status|up|down|deploy|nuke
+```
+
+There are `make aws-*` targets too, but `make` is not installed on Windows by default --
+use one of the two above rather than assuming the Makefile runs.
+
+`down` does not stop at "terraform destroy reported success". It then asks AWS what still
+exists, because those are different statements: Terraform reports what it removed from
+its own state, not what the account is still charging for. The gap is where surprise
+bills live -- an untracked EBS volume, an Elastic IP (free while attached, charged while
+idle), or an RDS snapshot created *by* the teardown.
+
+See `infra/README.md` for the two-stack split and what survives a teardown.
+
 ## Walkthrough
 
 ```bash

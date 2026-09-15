@@ -16,3 +16,13 @@ dbt/logs/
 
 # generated report artefacts are committed; scratch renders are not
 docs/report/*.png
+
+# Terraform state, anywhere. infra/.gitignore covers the two stack directories, but a
+# stray `terraform` run from the repo root writes state here -- and state files carry
+# generated database passwords in clear text, so this must never depend on remembering
+# which directory the command was run from.
+terraform.tfstate
+terraform.tfstate.backup
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/.terraform/

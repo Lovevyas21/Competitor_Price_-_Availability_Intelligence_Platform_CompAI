@@ -128,7 +128,13 @@ These are real and not worked around:
    make forecasting genuinely meaningful here.
 3. **62 of 108 undercuts now rest on evidence <= 7 days old** and are deliverable; the
    rest are recorded with a staleness label and withheld.
-4. **Terraform has never been applied.** `fmt` and `validate` pass; `plan` has not run.
+4. **Terraform has been applied, and destroyed, against a real account.** Doing so
+   surfaced seven faults that `validate`, `plan`, the full test suite and every CI gate
+   had passed -- a missing region-specific engine version, an instance class with no
+   capacity, two IAM scoping errors, a missing dbt in the deployed image, a teardown
+   that could only run once, and an Alembic `%`-interpolation failure that only a
+   generated password triggers. See ADR-011. The deployment reached image build and
+   push; migrations onward have not yet been run end to end.
 5. **The CrewAI path now runs against a live model** (Gemini, `gemini-3.5-flash`). The
    generated brief passed the numeric guard with 34 of 34 figures traced back to the
    facts payload. Two caveats: the free tier returns 503 often enough that the crew

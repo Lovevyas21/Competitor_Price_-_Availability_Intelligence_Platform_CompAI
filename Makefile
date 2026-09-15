@@ -1,6 +1,6 @@
 PY := .venv/Scripts/python.exe
 
-.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase review showcase match brief flower logs
+.PHONY: install up down migrate lint test fmt reset worker beat workers-docker dbt-deps dbt-build dbt-test dbt-docs api forecast alerts metabase review showcase match brief flower logs aws-up aws-down aws-status aws-deploy aws-nuke
 
 install:
 	python -m uv pip install --python $(PY) -e ".[dev]"
@@ -83,3 +83,25 @@ flower:
 
 logs:
 	docker compose logs -f db redis
+
+# --- AWS ---------------------------------------------------------------------
+# The deployment is meant to exist only while it is being looked at. `aws-down` is the
+# one that matters: it destroys everything billable and then asks AWS what survived,
+# because "terraform destroy succeeded" and "the account is charging nothing" are
+# different statements.
+
+aws-up:
+	bash scripts/aws.sh up
+
+aws-down:
+	bash scripts/aws.sh down
+
+aws-status:
+	bash scripts/aws.sh status
+
+aws-deploy:
+	bash scripts/aws.sh deploy
+
+# Also destroys bronze, the image repository and the stored API keys. Prompts first.
+aws-nuke:
+	bash scripts/aws.sh nuke

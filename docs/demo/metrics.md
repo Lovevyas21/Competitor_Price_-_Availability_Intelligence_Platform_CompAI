@@ -128,13 +128,22 @@ These are real and not worked around:
    make forecasting genuinely meaningful here.
 3. **62 of 108 undercuts now rest on evidence <= 7 days old** and are deliverable; the
    rest are recorded with a staleness label and withheld.
-4. **Terraform has been applied, and destroyed, against a real account.** Doing so
-   surfaced seven faults that `validate`, `plan`, the full test suite and every CI gate
-   had passed -- a missing region-specific engine version, an instance class with no
-   capacity, two IAM scoping errors, a missing dbt in the deployed image, a teardown
-   that could only run once, and an Alembic `%`-interpolation failure that only a
-   generated password triggers. See ADR-011. The deployment reached image build and
-   push; migrations onward have not yet been run end to end.
+4. **The platform runs on AWS, verified end to end.** Both stacks applied, the image
+   built natively on Graviton and pushed to ECR, migrations applied to RDS, `dbt build`
+   green at 102/102, a live ingest of 3,428 price events, and the six-stage walkthrough
+   completing with `ok: true` and the numeric guard reporting 34 of 34 figures verified.
+   Then destroyed, so it costs nothing while idle.
+
+   Getting there surfaced **eleven faults that `validate`, `plan`, the full test suite
+   and every CI gate had passed.** Only two were AWS trivia (an engine version absent
+   from the region, an instance class with no capacity). The rest were ordinary: two IAM
+   scoping errors, three dependencies missing from the image because every import of
+   them is lazy and only production takes those paths (`dbt`, `boto3`, `crewai`), an
+   `REDIS_URL` the API container never inherited, an Alembic `%`-interpolation failure
+   that only a generated password triggers, CRLF line endings that made a valid script
+   unrunnable, and a deploy that reported success while half-finished because an outer
+   `| tail` masked the exit code. See ADR-011.
+
 5. **The CrewAI path now runs against a live model** (Gemini, `gemini-3.5-flash`). The
    generated brief passed the numeric guard with 34 of 34 figures traced back to the
    facts payload. Two caveats: the free tier returns 503 often enough that the crew

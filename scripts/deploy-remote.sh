@@ -10,6 +10,12 @@
 # running the same command again.
 set -euo pipefail
 
+# Say which step died, on the way out. `set -e` stops at the first failure but prints
+# nothing about where, and the interesting part of a 150-line deploy log is precisely
+# which of nine steps it stopped at.
+STEP="starting up"
+trap 'rc=$?; [ $rc -ne 0 ] && echo "=== DEPLOY FAILED during: $STEP (exit $rc) ===" >&2; exit $rc' EXIT
+
 REGION="${REGION:-ap-south-1}"
 PROJECT="${PROJECT:-cpi}"
 SRC=/srv/cpi/src
@@ -18,7 +24,7 @@ ACCOUNT=$(aws sts get-caller-identity --query Account --output text --region "$R
 BUCKET="${PROJECT}-bronze-${ACCOUNT}"
 ECR="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${PROJECT}"
 
-log() { echo "=== $* ==="; }
+log() { STEP="$*"; echo "=== $* ==="; }
 
 log "fetching source"
 aws s3 cp "s3://${BUCKET}/deploy/cpi-src.tar.gz" /tmp/src.tar.gz --region "$REGION" --quiet
@@ -47,8 +53,16 @@ docker run --rm --env-file /srv/cpi/.env "${PROJECT}:latest" alembic upgrade hea
 
 log "building marts"
 # DBT_PROFILES_DIR is how profiles.yml is found; the image carries dbt/ at /app/dbt.
+#
+# `dbt deps` first: the image carries dbt/ but deliberately not dbt_packages/, so
+# dbt_utils has to be fetched here. Without it `dbt build` fails at compile time with a
+# message about missing packages rather than anything to do with the warehouse.
+#
+# Both commands in one container, so the packages downloaded by `deps` are still present
+# for `build` -- a second `docker run` starts from a clean layer and loses them.
 docker run --rm --env-file /srv/cpi/.env -e DBT_PROFILES_DIR=/app/dbt \
-  -w /app/dbt "${PROJECT}:latest" dbt build 2>&1 | tail -20
+  -w /app/dbt "${PROJECT}:latest" \
+  sh -c 'dbt deps && dbt build' 2>&1 | tail -25
 
 log "starting the stack"
 cd "$SRC"

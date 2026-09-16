@@ -17,6 +17,10 @@ locals {
     "API_KEY",
     "LLM_MODEL",
     "GEMINI_API_KEY",
+    # Not a secret, but SSM is the only channel configuration reaches the host by:
+    # cpi-fetch-env pulls everything under /cpi/<env> into /srv/cpi/.env. Declared here
+    # so the list of what the application reads stays in one place.
+    "SHOWCASE_ENABLED",
   ]
 }
 

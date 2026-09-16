@@ -40,6 +40,14 @@ ai = [
     # provider being unavailable, long before any request is made.
     "google-genai>=1.0.0",
 ]
+# AWS SDK. Imported lazily in two places -- S3 bronze storage
+# (app/ingestion/bronze.py) and SES email delivery (app/alerting/channels.py) -- and
+# both of those paths are only reached in production, where BRONZE_BACKEND=s3 and a
+# region is configured. Locally neither import ever runs, so an undeclared boto3 stayed
+# invisible through every test and surfaced as ModuleNotFoundError on the deployed host.
+aws = [
+    "boto3>=1.35.0",
+]
 # The marts. Needed wherever `dbt build` runs, which is not only a developer laptop:
 # the API serves analytics_marts.* and those tables do not exist until dbt creates them,
 # so a deployed image without dbt produces a warehouse the API cannot read.

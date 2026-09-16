@@ -3,6 +3,7 @@
 #
 #   ./scripts/aws.sh up        create infrastructure and deploy   (~15 min)
 #   ./scripts/aws.sh down      destroy everything billable        (~10 min)
+#   ./scripts/aws.sh open      tunnel to the API (nothing is published)
 #   ./scripts/aws.sh status    what is running, and what it cost
 #   ./scripts/aws.sh deploy    redeploy the app onto a running host
 #   ./scripts/aws.sh nuke      also destroy the persistent stack  (rare)
@@ -123,7 +124,13 @@ cmd_up() {
 
   cmd_deploy
   echo
-  bold "up. http://$(terraform -chdir="$EPHEMERAL" output -raw app_public_ip):8000/showcase"
+  bold "up."
+  # The security group has no inbound rules at all, deliberately. The API runs with
+  # auth_enabled=false until an API_KEY is set, so publishing port 8000 would put an
+  # unauthenticated window onto the warehouse on the public internet. Reached through
+  # SSM instead -- which also sidesteps an ISP that blocks outbound database ports.
+  echo "  Nothing is published: the host has no open ports. Tunnel to it with"
+  echo "    ./scripts/aws.sh open      then browse http://localhost:8000/docs"
   warn "this now costs ~\$0.035/hour. Run './scripts/aws.sh down' when finished."
 }
 
@@ -147,16 +154,22 @@ cmd_deploy() {
   ok "$(du -h "$tarball" | cut -f1)"
 
   aws s3 cp "$tarball" "s3://${bucket}/deploy/cpi-src.tar.gz" --region "$REGION" --only-show-errors
-  aws s3 cp "$ROOT/scripts/deploy-remote.sh" "s3://${bucket}/deploy/deploy.sh" \
+  # Carriage returns stripped on the way up. .gitattributes pins these files to LF, but
+  # that governs this repository's checkouts only -- and to a POSIX shell a CR is part of
+  # the line, so `set -euo pipefail` arrives as `pipefail\r` and is rejected as an invalid
+  # option name. The file looks perfect in an editor; cheaper to guarantee here than to
+  # diagnose on the host again.
+  tr -d '\r' < "$ROOT/scripts/deploy-remote.sh" > "${tarball}.sh"
+  aws s3 cp "${tarball}.sh" "s3://${bucket}/deploy/deploy.sh" \
     --region "$REGION" --only-show-errors
-  rm -f "$tarball"
+  rm -f "$tarball" "${tarball}.sh"
   ok "uploaded"
 
   step "Building and starting on the host"
   local cmd_id
   cmd_id=$(aws ssm send-command --region "$REGION" --instance-ids "$instance" \
     --document-name AWS-RunShellScript --timeout-seconds 3600 \
-    --parameters "commands=[\"aws s3 cp s3://${bucket}/deploy/deploy.sh /root/deploy.sh --region ${REGION} --quiet\",\"bash /root/deploy.sh 2>&1 | tail -150\"]" \
+    --parameters "commands=[\"aws s3 cp s3://${bucket}/deploy/deploy.sh /root/deploy.sh --region ${REGION} --quiet\",\"bash /root/deploy.sh\"]" \
     --query "Command.CommandId" --output text)
   echo "  command $cmd_id"
 
@@ -177,6 +190,24 @@ cmd_deploy() {
 
   [ "$status" = "Success" ] || { echo; warn "deploy ended as $status"; return 1; }
   ok "deployed"
+}
+
+# --------------------------------------------------------------------------- #
+# open -- a tunnel, because nothing is published
+# --------------------------------------------------------------------------- #
+cmd_open() {
+  local instance; instance="$(terraform -chdir="$EPHEMERAL" output -raw app_instance_id)"
+  command -v session-manager-plugin >/dev/null || {
+    warn "the AWS session-manager-plugin is not installed -- the tunnel needs it"
+    echo "  https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"
+    return 1
+  }
+  bold "forwarding localhost:8000 to the API. Ctrl-C to stop."
+  echo "  http://localhost:8000/docs"
+  echo "  http://localhost:8000/health"
+  aws ssm start-session --region "$REGION" --target "$instance" \
+    --document-name AWS-StartPortForwardingSession \
+    --parameters '{"portNumber":["8000"],"localPortNumber":["8000"]}'
 }
 
 # --------------------------------------------------------------------------- #
@@ -252,7 +283,8 @@ case "${1:-status}" in
   up)     cmd_up ;;
   down)   cmd_down ;;
   deploy) cmd_deploy ;;
+  open)   cmd_open ;;
   status) cmd_status ;;
   nuke)   cmd_nuke ;;
-  *) echo "usage: $0 {up|down|deploy|status|nuke}" >&2; exit 2 ;;
+  *) echo "usage: $0 {up|down|deploy|open|status|nuke}" >&2; exit 2 ;;
 esac

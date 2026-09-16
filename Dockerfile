@@ -14,9 +14,14 @@ WORKDIR /build
 # layer cache and force a full reinstall.
 COPY pyproject.toml README.md ./
 COPY app/__init__.py app/__init__.py
-# `.[transform]` rather than `.`: the deployed host is where marts get rebuilt after
-# an ingest, and without dbt the API has no analytics_marts.* tables to read.
-RUN uv venv /opt/venv && uv pip install --python /opt/venv/bin/python ".[transform]"
+# Extras, not a bare `.`. Each covers something only the deployed host does, and each
+# is imported lazily, so omitting it fails in production and nowhere else:
+#   transform  rebuilds marts after an ingest (dbt)
+#   aws        stores raw payloads in S3, sends SES mail (boto3)
+#   ai         narrates the weekly brief and answers chat (crewai, google-genai)
+# Without `ai` the brief silently falls back to its deterministic renderer, which
+# looks like a working feature rather than a missing dependency.
+RUN uv venv /opt/venv && uv pip install --python /opt/venv/bin/python ".[transform,aws,ai]"
 
 
 FROM python:3.12-slim AS runtime

@@ -87,6 +87,8 @@ target-version = "py312"
 # the markup for no benefit.
 "scripts/build_report.py" = ["E501"]
 "scripts/report_figures.py" = ["E501"]
+# The map's geography is a hand-laid table of coordinates and one-line descriptions.
+"scripts/codebase_map/*" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]

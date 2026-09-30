@@ -1,0 +1,660 @@
+"""The surveyed half of the map: where things sit, and what the roads are called.
+
+Positions are grid cells on an isometric plane. `gx` runs down-right on screen (the
+direction data flows), `gy` runs down-left, `z` is height. Nothing here is allowed to
+describe code that does not exist: build.py checks every path, every function, and every
+piece of evidence a route cites against extract.py, and marks or refuses what fails.
+
+Elevation carries meaning:
+    +3  the rim: services outside this codebase
+     0  ground: application code
+    -4  underground: things that persist
+    -7  bedrock: app/core, which everything else stands on
+"""
+
+# --------------------------------------------------------------------------- districts
+# (id, name, gx0, gx1, gy0, gy1, z, terrain, what it does, folders)
+DISTRICTS = [
+    ("ports_w", "Ports of Entry", -10, -2, 11, 30, 3, "rim",
+     "Where outside data comes in: the price APIs this system reads.", []),
+    ("ports_n", "Ports of Entry", 28, 58, -7, -1, 3, "rim",
+     "Services this system talks out to: messaging and the language model.", []),
+    ("ports_e", "Ports of Entry", 66, 72, 11, 30, 3, "rim",
+     "Where results leave: the reader's browser, and Metabase.", []),
+    ("dispatch", "Dispatch Yard", 0, 18, 0, 11, 0, "ground",
+     "The clock and the job queue. Every scheduled run starts here.",
+     ["app/celery_app.py", "app/ingestion/tasks.py", "app/cli.py"]),
+    ("intelligence", "Intelligence", 18, 40, 0, 11, 0, "ground",
+     "Forecasting, product matching and alerting: work done on stored data.",
+     ["app/forecasting/", "app/ai/matching.py", "app/alerting/"]),
+    ("analyst", "The Analyst", 40, 66, 0, 11, 0, "ground",
+     "Turns the week's numbers into a written brief, and answers questions, with a number guard.",
+     ["app/ai/"]),
+    ("acquisition", "Acquisition", -2, 12, 11, 30, 0, "ground",
+     "One client per source. Fetches raw prices; a toll gate limits how fast.",
+     ["app/clients/", "app/ingestion/ratelimit.py"]),
+    ("customs", "Customs", 12, 26, 11, 30, 0, "ground",
+     "Where one payload becomes two: a raw copy is filed, a clean record goes on.",
+     ["app/ingestion/runner.py", "app/ingestion/bronze.py", "app/ingestion/idempotency.py",
+      "app/models/"]),
+    ("registry", "Registry", 26, 36, 11, 30, 0, "ground",
+     "Decides what is new and writes it to the database.",
+     ["app/ingestion/bulk.py", "app/ingestion/cdc.py"]),
+    ("modelling", "Modelling", 36, 52, 11, 30, 0, "ground",
+     "dbt: SQL layers that turn stored rows into finished report tables (marts).",
+     ["app/transform/", "dbt/models/", "dbt/seeds/"]),
+    ("presentation", "Presentation", 52, 66, 11, 30, 0, "ground",
+     "Everything a person looks at: the API, the walkthrough, the review screen.",
+     ["app/api/", "app/showcase/", "app/ui/"]),
+    ("surveyor", "Surveyor's Office", -10, 0, 30, 44, 0, "ground",
+     "How the whole map is built and deployed: containers, Terraform, deploy scripts.",
+     ["infra/", "scripts/", "Dockerfile", "docker-compose*.yml", "aws.ps1"]),
+    ("underground", "Underground", 0, 40, 30, 44, -4, "under",
+     "Everything that persists: PostgreSQL, Redis, the raw store, the dead-letter store.",
+     ["migrations/"]),
+    ("bedrock", "Bedrock", 40, 50, 30, 44, -7, "bedrock",
+     "app/core: settings, database session, logging. Imported by almost every file.",
+     ["app/core/"]),
+    ("proving", "Proving Grounds", 50, 66, 30, 44, 0, "ground",
+     "The test suite. Each marker is a test file wired to what it checks.",
+     ["tests/"]),
+]
+
+# Where a district's name is written, when the centre is taken by something more
+# important. Customs' centre is the fork itself.
+DISTRICT_LABEL_AT = {"customs": (19.2, 12.8), "underground": (9, 41), "registry": (31, 29)}
+
+# --------------------------------------------------------------------------- buildings
+# path -> (gx, gy, w, d, purpose). District is inferred from position; kind from path.
+BUILDINGS = {
+    # Dispatch Yard
+    "app/celery_app.py": (2, 3, 2, 2, "The clock: Celery app, Redis broker settings, and the 10 scheduled jobs."),
+    "app/ingestion/tasks.py": (7, 2, 5, 4, "Every background job: per-barcode fetch, sweeps, replay, marts, forecasts, alerts, matches, brief."),
+    "app/cli.py": (14, 5, 2, 2, "Command line for a person: cpi ingest, seed, replay, status."),
+    # Intelligence
+    "app/ai/matching.py": (20, 1.5, 3, 3, "Turns product titles into vectors and proposes which products are the same across shops."),
+    "app/forecasting/dataset.py": (20, 6.5, 3, 3, "Loads daily price history from the trend mart into regular series."),
+    "app/forecasting/train.py": (25, 6.5, 3, 3, "Backtests three models per series, keeps the best, stores forecasts."),
+    "app/alerting/service.py": (30, 6, 3, 3, "Finds new undercuts, skips repeats and stale evidence, records and sends alerts."),
+    "app/alerting/channels.py": (35, 1.5, 3, 3, "Delivery: one Slack post per alert, or one email digest (SMTP or Amazon SES)."),
+    # The Analyst
+    "app/ai/crew.py": (46, 1.5, 3, 3, "Asks the language model to narrate the facts; retries while the provider is busy."),
+    "app/ai/llm.py": (51, 1.5, 2.5, 2.5, "Builds the model client with cost limits: reasoning off, output cap, daily allowance."),
+    "app/ai/chat.py": (60, 1.5, 3, 3, "Answers a typed question from the facts, under the same number guard."),
+    "app/ai/facts.py": (42, 6.5, 3, 3, "Collects the week's numbers into one closed facts payload."),
+    "app/ai/guard.py": (47, 6.5, 2.5, 2.5, "Rejects any AI text that contains a number not in the facts."),
+    "app/ai/cache.py": (51, 7, 2.5, 2.5, "Keeps the last brief per facts fingerprint in Redis, so an unchanged week costs nothing."),
+    "app/ai/brief.py": (56, 6.5, 3, 3, "Produces the weekly brief: model-written if it passes the guard, else plain template."),
+    # Acquisition
+    "app/clients/openprices.py": (1, 13.5, 3.5, 3.5, "Talks to Open Prices; rewrites each price row into the standard record."),
+    "app/clients/fakestore.py": (1, 20, 3, 2.5, "A fake shop API used in development and tests."),
+    "app/clients/base.py": (5, 24.5, 3, 3, "The contract every client follows, and the shared HTTP call."),
+    "app/clients/registry.py": (1, 25, 2.5, 2.5, "Finds the client for a source name."),
+    "app/ingestion/ratelimit.py": (8, 13.5, 3, 3, "Toll gate: Redis token bucket and daily quota, shared by every worker."),
+    # Customs
+    "app/ingestion/runner.py": (13.5, 13, 3.5, 3.5, "The broad sweep and seeded runs: fetch, file the raw copy, normalize, validate, store."),
+    "app/ingestion/idempotency.py": (22.8, 12.6, 2, 2, "Fingerprints a record so storing it twice changes nothing."),
+    "app/models/domain.py": (22.2, 16.8, 3, 3, "The one standard record shape, with per-record checks built in."),
+    "app/models/validation.py": (22.2, 24.6, 3, 2.5, "Checks a whole batch before anything is stored."),
+    "app/ingestion/bronze.py": (13.2, 24.8, 3, 3, "Writes and reads raw payloads (disk or S3) and dead-lettered ones."),
+    # Registry
+    "app/ingestion/bulk.py": (28, 14, 4, 3.5, "Stores a whole batch in a few SQL statements; only changed prices are written."),
+    "app/ingestion/cdc.py": (28, 22, 4, 4, "The same rules one record at a time. Live code uses bulk.py; this is the reference the parity test checks against."),
+    # Modelling
+    "app/transform/dbt_runner.py": (38, 12.5, 3, 2.5, "Runs `dbt build` as a separate process and reports what passed."),
+    # Presentation
+    "app/api/main.py": (54, 13, 4, 3.5, "The API: health, products, prices, forecasts, undercuts, alerts, matches."),
+    "app/api/deps.py": (60, 13, 2.5, 2.5, "A database session per request, and the API-key check."),
+    "app/showcase/pipeline.py": (54, 19, 4, 4, "The six walkthrough stages; each is a live query streamed as events."),
+    "app/showcase/routes.py": (60, 19.5, 3, 3, "Walkthrough pages and endpoints: stream, live fetch, CSV download, chat."),
+    "app/ui/review.py": (55, 25.5, 3, 2.5, "Streamlit screen where a person accepts or rejects proposed matches."),
+    # Bedrock
+    "app/core/settings.py": (42, 32.5, 3, 3, "Every setting, read from the environment or .env."),
+    "app/core/db.py": (46.5, 32.5, 2.5, 2.5, "Database engine and the transaction helper everything uses."),
+    "app/core/logging.py": (42, 38, 2.5, 2.5, "Structured logging setup."),
+    # Underground: schema blueprints
+    "migrations/versions/0001_initial_schema.py": (37, 32, 2.2, 2, "Creates the 12 tables, monthly partitions and pgvector."),
+    "migrations/versions/0002_matching_indexes.py": (37, 35, 2.2, 2, "Adds the vector similarity index used by matching."),
+    # Surveyor's Office
+    "infra/persistent": (-9, 31.5, 3.5, 3, "Terraform, kept forever: S3 raw bucket, image registry, secrets, budget alarm."),
+    "infra/ephemeral": (-4.5, 31.5, 3.5, 3, "Terraform, destroyed after a demo: network, EC2 host, RDS database."),
+    "scripts/aws.sh": (-9, 36, 2.5, 2.5, "One command to bring AWS up, tear it down, and check what it cost."),
+    "aws.ps1": (-6, 36, 2, 2, "PowerShell wrapper for scripts/aws.sh."),
+    "scripts/deploy-remote.sh": (-3, 36, 2.5, 2.5, "Runs on the EC2 host: build image, migrate, build marts, start containers."),
+    "Dockerfile": (-9, 40, 2.5, 2.5, "The application image."),
+    "docker-compose.yml": (-6, 40, 2.5, 2.5, "Local stack: PostgreSQL, Redis, workers, optional Metabase."),
+    "docker-compose.prod.yml": (-3, 40, 2.5, 2.5, "Production overlay: RDS instead of local Postgres, logs to CloudWatch."),
+}
+
+# Referenced somewhere, absent from the repo. Drawn as an empty plot, never as a building.
+PHANTOMS = {
+    "app/ai/tools.py": (42, 1.5, 2, 2, "Referenced in app/ai/crew.py's docstring as a read-only SQL tool. The file does not exist.",
+                        ("app/ai/crew.py", r"tools\.py")),
+}
+
+# dbt nodes: name -> (gx, gy, w, d)
+DBT = {
+    "own_catalog": (43, 12.5, 3, 2),
+    "stg_sources": (38, 16, 3, 1.5),
+    "stg_products": (38, 18, 3, 1.5),
+    "stg_product_versions": (38, 20, 3, 1.5),
+    "stg_retailers": (38, 22, 3, 1.5),
+    "stg_price_events": (38, 24, 3, 1.5),
+    "stg_stock_events": (38, 26, 3, 1.5),
+    "int_price_observations": (43, 17, 3, 2),
+    "int_price_daily": (43, 20.5, 3, 2),
+    "int_price_latest": (43, 24, 3, 2),
+    "mart_price_gap_vs_own": (48, 13, 3, 1.8),
+    "mart_undercut_alerts": (48, 16, 3, 1.8),
+    "mart_price_trend": (48, 19, 3, 1.8),
+    "mart_price_volatility": (48, 22, 3, 1.8),
+    "mart_out_of_stock_frequency": (48, 25, 3, 1.8),
+}
+DBT_PURPOSE = {
+    "own_catalog": "Seed file: our own products and prices, loaded into the database by dbt.",
+    "stg_sources": "Cleaned view of the sources table.",
+    "stg_products": "Cleaned view of the products table.",
+    "stg_product_versions": "Cleaned view of product detail versions (SCD2).",
+    "stg_retailers": "Cleaned view of the retailers table.",
+    "stg_price_events": "Cleaned view of every stored price.",
+    "stg_stock_events": "Cleaned view of stock observations.",
+    "int_price_observations": "Joins each price to its product, version, shop and source.",
+    "int_price_daily": "One closing price per product, shop, currency and day.",
+    "int_price_latest": "The latest price per product and shop.",
+    "mart_price_gap_vs_own": "Their price against our catalogue price, per product and shop.",
+    "mart_undercut_alerts": "Where a competitor is cheaper: gap, severity, and how old the evidence is.",
+    "mart_price_trend": "Daily price series with day-over-day change.",
+    "mart_price_volatility": "How much each price moves (coefficient of variation).",
+    "mart_out_of_stock_frequency": "How often items go out of stock. Empty today: neither source reports stock (docs/demo/metrics.md).",
+}
+
+# --------------------------------------------------------------------------- landmarks
+# id -> (name, gx, gy, w, d, shape, district-ish note, evidence (file, regex))
+LANDMARKS = {
+    "ext:openprices": ("Open Prices API", -8, 13, 4, 4, "pier",
+                       "prices.openfoodfacts.org. Keyless, crowd-sourced prices.",
+                       ("app/clients/openprices.py", r"prices\.openfoodfacts\.org")),
+    "ext:fakestore": ("FakeStore API", -8, 21, 3.5, 3, "pier",
+                      "fakestoreapi.com. A stand-in shop used in development.",
+                      ("app/clients/fakestore.py", r"fakestoreapi")),
+    "ext:slack": ("Slack", 30, -5, 3, 3, "pier",
+                  "Incoming webhook. Only used if SLACK_WEBHOOK_URL is set.",
+                  ("app/alerting/channels.py", r"class SlackChannel")),
+    "ext:smtp": ("Mail server (SMTP)", 34, -5, 3, 3, "pier",
+                 "Any SMTP relay. Only used if SMTP_HOST and recipients are set.",
+                 ("app/alerting/channels.py", r"smtplib\.SMTP")),
+    "ext:ses": ("Amazon SES", 38, -5, 3, 3, "pier",
+                "AWS email API. Preferred over SMTP when both are configured.",
+                ("app/alerting/channels.py", r"boto3\.client\(\"ses\"")),
+    "ext:gemini": ("Gemini (language model)", 49, -5, 3.5, 3, "pier",
+                   "Google's model, called through CrewAI. Optional: without it the brief is a template.",
+                   ("app/ai/llm.py", r"gemini/")),
+    "ext:browser": ("The reader's browser", 67.5, 13, 3.5, 3.5, "pier",
+                    "Where every surface is finally seen: API JSON, walkthrough pages, review screen.",
+                    ("app/showcase/routes.py", r"FileResponse")),
+    "ext:metabase": ("Metabase", 67.5, 21, 3.5, 3.5, "pier",
+                     "BI dashboards. Its queries live inside Metabase, not in this repo: wiring unverified.",
+                     ("docker-compose.yml", r"metabase/metabase")),
+    "lm:redis": ("Redis", 3, 33, 5, 5, "cylinder",
+                 "Job queue for Celery, the rate-limit counters, the LLM allowance, the brief cache.",
+                 ("app/celery_app.py", r"broker=settings\.redis_url")),
+    "lm:raw": ("Raw store", 13, 33, 6, 6, "silo",
+               "Every API response, exactly as received, gzipped, filed by source and day. Local disk or S3.",
+               ("app/ingestion/bronze.py", r"source=\{source\}/dt=")),
+    "lm:dlq": ("Dead-letter store", 21, 35.5, 3.5, 3.5, "cylinder",
+               "Payloads that failed for good. Written by dead_letter(); nothing in app/ ever reads it back.",
+               ("app/ingestion/tasks.py", r"def dead_letter")),
+    "lm:postgres": ("PostgreSQL", 27, 32.5, 9, 9, "cylinder",
+                    "The database: 12 tables from migrations, plus dbt's staging, intermediate and mart schemas.",
+                    ("app/core/db.py", r"create_engine")),
+}
+
+# The fork: the most important junction on the map. A point, not a building.
+FORK = {"id": "fork", "gx": 18.6, "gy": 21.2, "z": 0,
+        "label": "THE FORK",
+        "caption": "One payload becomes two. The raw copy goes down to the raw store; the same payload goes on to be parsed.",
+        "evidence": ("app/ingestion/tasks.py", r"get_bronze_store\(\)\.put\([\s\S]{0,400}client\.normalize\(row\)")}
+
+TERMINUS = {"id": "turnaround", "gx": 33.4, "gy": 11.6, "z": 0,
+            "label": "Unchanged: not stored",
+            "evidence": ("app/ingestion/bulk.py", r"heartbeat")}
+
+# --------------------------------------------------------------------------- HTTP / IO targets
+# Which landmark a function's direct I/O lands on. Everything with `db` goes to
+# PostgreSQL and `redis` to Redis; only the ambiguous ones are listed.
+IO_TARGETS = {
+    "app.clients.openprices": {"http": "ext:openprices"},
+    "app.clients.fakestore": {"http": "ext:fakestore"},
+    "app.clients.base": {"http": "ext:openprices"},
+    "app.alerting.channels:SlackChannel.send_batch": {"http": "ext:slack"},
+    "app.alerting.channels:EmailChannel.send_batch": {"http": "ext:smtp"},
+    "app.alerting.channels:SesChannel.send_batch": {"http": "ext:ses"},
+    "app.ai.crew": {"http": "ext:gemini"},
+    "app.ai.chat": {"http": "ext:gemini"},
+    "app.ingestion.tasks:dead_letter": {"raw": "lm:dlq"},
+    "app.ingestion.bronze": {"raw": "lm:raw"},
+    "app.ingestion.runner": {"raw": "lm:raw"},
+    "app.ingestion.tasks": {"raw": "lm:raw"},
+    "app.transform.dbt_runner": {"process": "modelling"},
+}
+
+# --------------------------------------------------------------------------- dynamic calls
+# Calls the parser cannot resolve (method on an object returned by a factory). Each one
+# carries the exact source text that proves it; build.py checks the text is really there.
+DISPATCH = [
+    ("app.ingestion.tasks:fetch_sku", "app.ingestion.ratelimit:RateLimiter.acquire", r"limiter\.acquire\("),
+    ("app.ingestion.tasks:fetch_sku", "app.ingestion.ratelimit:RateLimiter.consume_daily", r"limiter\.consume_daily\("),
+    ("app.ingestion.tasks:fetch_sku", "app.clients.openprices:OpenPricesClient.fetch_raw", r"client\.fetch_raw\("),
+    ("app.ingestion.tasks:fetch_sku", "app.clients.openprices:OpenPricesClient.normalize", r"client\.normalize\("),
+    ("app.ingestion.tasks:fetch_sku", "app.ingestion.bronze:LocalBronzeStore.put", r"get_bronze_store\(\)\.put\("),
+    ("app.ingestion.tasks:fetch_sku", "app.ingestion.bronze:S3BronzeStore.put", r"get_bronze_store\(\)\.put\("),
+    ("app.ingestion.tasks:replay_from_bronze", "app.ingestion.bronze:LocalBronzeStore.iter_payloads", r"store\.iter_payloads\("),
+    ("app.ingestion.tasks:replay_from_bronze", "app.clients.openprices:OpenPricesClient.normalize", r"client\.normalize\("),
+    ("app.ingestion.tasks:dead_letter", "app.ingestion.bronze:LocalBronzeStore.put", r"store\.put\("),
+    ("app.ingestion.runner:ingest_source", "app.clients.openprices:OpenPricesClient.discover", r"client\.discover\("),
+    ("app.ingestion.runner:ingest_source", "app.clients.openprices:OpenPricesClient.normalize", r"client\.normalize\("),
+    ("app.ingestion.runner:ingest_seeds", "app.clients.openprices:OpenPricesClient.fetch_raw", r"client\.fetch_raw\("),
+    ("app.ingestion.runner:_persist_raw", "app.ingestion.bronze:LocalBronzeStore.put", r"store\.put\("),
+    ("app.clients.openprices:OpenPricesClient.fetch_raw", "app.clients.base:SourceClient._get_json", r"self\._get_json\("),
+    ("app.clients.openprices:OpenPricesClient.discover", "app.clients.base:SourceClient._get_json", r"self\._get_json\("),
+    ("app.clients.fakestore:FakeStoreClient.fetch_raw", "app.clients.base:SourceClient._get_json", r"self\._get_json\("),
+    ("app.alerting.service:deliver", "app.alerting.channels:SlackChannel.send_batch", r"\.send_batch\("),
+    ("app.alerting.service:deliver", "app.alerting.channels:EmailChannel.send_batch", r"\.send_batch\("),
+    ("app.alerting.service:deliver", "app.alerting.channels:SesChannel.send_batch", r"\.send_batch\("),
+    ("app.api.main:undercuts", "app.api.deps:get_db", r"Depends\(get_db\)"),
+] + [
+    # run_pipeline calls each stage through the STAGES table, as stage["fn"](session).
+    ("app.showcase.pipeline:run_pipeline", f"app.showcase.pipeline:{s}", r'stage\["fn"\]\(session\)')
+    for s in ("stage_connect", "stage_extract", "stage_resolve", "stage_compare", "stage_decide", "stage_narrate")
+]
+
+# --------------------------------------------------------------------------- routes
+# The road network. kind: data | control | failure | recovery | provision
+# Each route cites evidence; build.py verifies it and flags the route if it cannot.
+#   ("call", "mod:qual", "mod:qual")   the call exists in the extracted graph or DISPATCH
+#   ("reads"|"writes", "mod:qual", table)
+#   ("touch", "mod:qual", kind)
+#   ("text", path, regex)
+#   ("ref", child, parent)             a dbt ref()/source() edge
+R = []
+
+
+def route(rid, name, a, b, kind, carries, weight, evidence, via=(), level=1, label=True, label_at=None):
+    R.append({"id": rid, "name": name, "from": a, "to": b, "kind": kind, "carries": carries,
+              "weight": weight, "evidence": list(evidence), "via": [list(p) for p in via],
+              "level": level, "label": label, "label_at": list(label_at) if label_at else None})
+
+
+# Acquisition
+route("price_feed", "Price Feed", "ext:openprices", "app/clients/openprices.py", "data",
+      "Raw JSON over HTTPS", 3,
+      [("touch", "app.clients.openprices:OpenPricesClient.fetch_raw", "http")])
+route("test_feed", "Test Feed", "ext:fakestore", "app/clients/fakestore.py", "data",
+      "Raw JSON (development)", 1,
+      [("touch", "app.clients.fakestore:FakeStoreClient.fetch_raw", "http")], label=False)
+# Scheduling
+route("broker_out", "Broker Line", "app/celery_app.py", "lm:redis", "control",
+      "Scheduled job messages", 2,
+      [("text", "app/celery_app.py", r"broker=settings\.redis_url")], via=[(3, 29)])
+route("broker_in", "Broker Line", "lm:redis", "app/ingestion/tasks.py", "control",
+      "Queued jobs to workers", 2,
+      [("text", "app/celery_app.py", r"backend=settings\.redis_url")], via=[(6.5, 29), (6.5, 10.5)], label=False)
+route("toll_road", "Toll Road", "app/ingestion/tasks.py", "app/ingestion/ratelimit.py", "control",
+      "May I call now?", 2,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.ingestion.ratelimit:RateLimiter.acquire")])
+route("toll_ledger", "Toll Ledger", "app/ingestion/ratelimit.py", "lm:redis", "control",
+      "Token bucket + daily counter", 2,
+      [("touch", "app.ingestion.ratelimit:RateLimiter.acquire", "redis"),
+       ("touch", "app.ingestion.ratelimit:RateLimiter.consume_daily", "redis")], via=[(9.5, 29)])
+route("fetch_order", "Fetch Order", "app/ingestion/ratelimit.py", "app/clients/openprices.py", "control",
+      "Fetch this barcode", 2,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.clients.openprices:OpenPricesClient.fetch_raw")], label=False)
+# Customs: the fork
+route("intake", "Intake Road", "app/clients/openprices.py", "fork", "data",
+      "Raw payload", 4,
+      [("text", "app/ingestion/tasks.py", r"raw = client\.fetch_raw\(")], via=[(6, 19.2), (12, 19.2)])
+route("raw_chute", "Raw Chute", "fork", "lm:raw", "data",
+      "Raw copy, untouched, filed first", 5,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.ingestion.bronze:LocalBronzeStore.put"),
+       ("touch", "app.ingestion.bronze:LocalBronzeStore.put", "raw")], via=[(16.4, 23.4), (16.4, 29)], label_at=(14.6, 28.6))
+route("parsed_road", "Parsed Road", "fork", "app/models/domain.py", "data",
+      "Same payload, on to be parsed", 5,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.clients.openprices:OpenPricesClient.normalize")], label_at=(22.6, 21.6))
+route("checkpoint", "Checkpoint", "app/models/domain.py", "app/models/validation.py", "data",
+      "NormalizedRecord", 3,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.models.validation:validate_price_batch")], label=False)
+route("to_registry", "Registry Road", "app/models/validation.py", "app/ingestion/bulk.py", "data",
+      "Validated batch", 3,
+      [("call", "app.ingestion.tasks:fetch_sku", "app.ingestion.bulk:apply_records_bulk")], via=[(26.5, 26), (26.5, 17.5)])
+route("ledger_shaft", "Ledger Shaft", "app/ingestion/bulk.py", "lm:postgres", "data",
+      "SQL rows, insert-on-change", 4,
+      [("writes", "app.ingestion.bulk:apply_records_bulk", "price_events")], via=[(33.5, 17.5), (33.5, 29)])
+route("unchanged", "Turnaround", "app/ingestion/bulk.py", "turnaround", "failure",
+      "Same price within 24h: skipped", 1,
+      [("text", "app/ingestion/bulk.py", r"observed_at - prev_at >= cast\(:heartbeat as interval\)")])
+# The broad sweep and replay
+route("sweep", "Sweep Line", "app/ingestion/tasks.py", "app/ingestion/runner.py", "control",
+      "Broad sweep: 300 recent prices", 2,
+      [("call", "app.ingestion.tasks:ingest_source_task", "app.ingestion.runner:ingest_source")], via=[(15.2, 10.5)])
+route("sweep_fetch", "Sweep Line", "app/ingestion/runner.py", "app/clients/openprices.py", "control",
+      "discover()", 1,
+      [("call", "app.ingestion.runner:ingest_source", "app.clients.openprices:OpenPricesClient.discover")],
+      via=[(12, 12.2), (4, 12.2)], level=2, label=False)
+route("sweep_fork", "Sweep Line", "app/ingestion/runner.py", "fork", "data",
+      "Raw payloads, same fork", 2,
+      [("call", "app.ingestion.runner:ingest_source", "app.ingestion.runner:_persist_raw")], level=2, label=False)
+route("replay", "Replay Line", "lm:raw", "app/models/domain.py", "recovery",
+      "Stored raw payloads, parsed again", 2,
+      [("call", "app.ingestion.tasks:replay_from_bronze", "app.ingestion.bronze:LocalBronzeStore.iter_payloads"),
+       ("call", "app.ingestion.tasks:replay_from_bronze", "app.ingestion.bulk:apply_records_bulk")],
+      via=[(19.5, 30), (19.5, 23)])
+# Failure sidings
+route("wait_loop", "Wait Loop", "app/ingestion/ratelimit.py", "app/ingestion/ratelimit.py", "failure",
+      "Rate-limited: wait, then rejoin", 1,
+      [("text", "app/ingestion/tasks.py", r"self\.retry\(exc=exc, countdown=exc\.retry_after\)")],
+      via=[(12, 13), (12, 11.6), (8.5, 11.6)], label=False)
+route("quota_siding", "Quota Siding", "app/ingestion/ratelimit.py", "lm:dlq", "failure",
+      "Quota exhausted: no retry today", 1,
+      [("text", "app/ingestion/tasks.py", r'dead_letter\("quota_exhausted"')], via=[(11.7, 17), (11.7, 29.6), (22.5, 29.6)])
+route("transport_siding", "Transport Siding", "app/clients/openprices.py", "lm:dlq", "failure",
+      "5 failed retries", 1,
+      [("text", "app/ingestion/tasks.py", r'"transport_retries_exhausted"')], via=[(-1, 17), (-1, 29.8), (23, 29.8)])
+route("validation_siding", "Validation Siding", "app/models/validation.py", "lm:dlq", "failure",
+      "Batch rejected", 1,
+      [("text", "app/ingestion/tasks.py", r'"validation_failed"')], via=[(24.6, 29.2)])
+# Modelling
+route("marts_rail", "Dispatch Rail", "app/ingestion/tasks.py", "app/transform/dbt_runner.py", "control",
+      "Rebuild marts, 01:45 daily", 2,
+      [("call", "app.ingestion.tasks:build_marts", "app.transform.dbt_runner:run_dbt")], via=[(12, 10.5), (39.5, 10.5)])
+route("lineage_lift", "Lineage Lift", "lm:postgres", "app/transform/dbt_runner.py", "data",
+      "Source tables read by dbt", 3,
+      [("touch", "app.transform.dbt_runner:run_dbt", "process")], via=[(36.6, 29), (36.6, 14)])
+route("mart_return", "Mart Return", "dbt:mart_undercut_alerts", "lm:postgres", "data",
+      "Built marts, written to analytics_marts", 3,
+      [("text", "dbt/dbt_project.yml", r"\+schema: marts")], via=[(51.6, 16.9), (51.6, 29.4), (35, 29.4)])
+# Intelligence
+route("forecast_rail", "Dispatch Rail", "app/ingestion/tasks.py", "app/forecasting/train.py", "control",
+      "Train at 03:00", 1,
+      [("call", "app.ingestion.tasks:train_forecasts", "app.forecasting.train:train_and_forecast")], via=[(18, 5)], level=2, label=False)
+route("alert_rail", "Dispatch Rail", "app/ingestion/tasks.py", "app/alerting/service.py", "control",
+      "Every 6h at :20", 1,
+      [("call", "app.ingestion.tasks:evaluate_alerts", "app.alerting.service:run_alert_cycle")], via=[(18, 10.4), (31.5, 10.4)], level=2, label=False)
+route("match_rail", "Dispatch Rail", "app/ingestion/tasks.py", "app/ai/matching.py", "control",
+      "Daily at 02:15", 1,
+      [("call", "app.ingestion.tasks:refresh_matches", "app.ai.matching:generate_matches")], via=[(18, 3)], level=2, label=False)
+route("brief_rail", "Dispatch Rail", "app/ingestion/tasks.py", "app/ai/brief.py", "control",
+      "Mondays at 06:00", 1,
+      [("call", "app.ingestion.tasks:generate_brief_task", "app.ai.brief:generate_brief")], via=[(12, 0.4), (57.5, 0.4)], level=2, label=False)
+route("trend_spur", "Trend Spur", "lm:postgres", "app/forecasting/dataset.py", "data",
+      "mart_price_trend history", 2,
+      [("reads", "app.forecasting.dataset:load_price_history", "mart_price_trend")], via=[(26.2, 34), (26.2, 10.6), (21.5, 10.6)])
+route("forecast_in", "Forecast Spur", "app/forecasting/dataset.py", "app/forecasting/train.py", "data",
+      "Regular daily series", 2,
+      [("call", "app.forecasting.train:train_and_forecast", "app.forecasting.dataset:build_dataset")], label=False)
+route("forecast_out", "Forecast Spur", "app/forecasting/train.py", "lm:postgres", "data",
+      "forecasts rows", 2,
+      [("writes", "app.forecasting.train:persist_forecasts", "forecasts")], via=[(27, 10.8), (27, 30)], label=False)
+route("registry_spur", "Registry Spur", "lm:postgres", "app/ai/matching.py", "data",
+      "Product titles (not a mart)", 2,
+      [("reads", "app.ai.matching:generate_matches", "products")], via=[(25.6, 33), (25.6, 11.2), (18.6, 11.2), (18.6, 3)])
+route("matches_out", "Registry Spur", "app/ai/matching.py", "lm:postgres", "data",
+      "Proposed matches", 1,
+      [("writes", "app.ai.matching:generate_matches", "product_matches")], level=2, label=False, via=[(24, 3), (24, 11), (25.9, 11), (25.9, 32)])
+route("undercut_spur", "Undercut Spur", "lm:postgres", "app/alerting/service.py", "data",
+      "mart_undercut_alerts rows", 2,
+      [("reads", "app.alerting.service:load_candidates", "mart_undercut_alerts")], via=[(34.4, 30), (34.4, 10.2), (31.5, 10.2)])
+route("alert_handoff", "Alert Wire", "app/alerting/service.py", "app/alerting/channels.py", "data",
+      "Messages to deliver", 2,
+      [("call", "app.alerting.service:deliver", "app.alerting.channels:configured_channels")], label=False)
+route("to_slack", "Alert Wire", "app/alerting/channels.py", "ext:slack", "data",
+      "One post per alert", 1,
+      [("touch", "app.alerting.channels:SlackChannel.send_batch", "http")], via=[(31.5, 0)])
+route("to_smtp", "Alert Wire", "app/alerting/channels.py", "ext:smtp", "data",
+      "One email digest", 1,
+      [("touch", "app.alerting.channels:EmailChannel.send_batch", "http")], label=False)
+route("to_ses", "Alert Wire", "app/alerting/channels.py", "ext:ses", "data",
+      "One email digest", 1,
+      [("touch", "app.alerting.channels:SesChannel.send_batch", "http")], label=False)
+# The Analyst
+route("facts_road", "Facts Road", "lm:postgres", "app/ai/facts.py", "data",
+      "Mart and table rows", 2,
+      [("reads", "app.ai.facts:collect_weekly_facts", "mart_undercut_alerts")], via=[(36.8, 36), (36.8, 10.4), (43.5, 10.4)])
+route("facts_json", "Facts Road", "app/ai/facts.py", "app/ai/brief.py", "data",
+      "Facts JSON (closed payload)", 2,
+      [("call", "app.ai.brief:generate_brief", "app.ai.facts:collect_weekly_facts")], via=[(45, 10.4), (57.5, 10.4)])
+route("to_model", "Model Link", "app/ai/crew.py", "ext:gemini", "data",
+      "Prompt out, prose back", 2,
+      [("touch", "app.ai.crew:_kickoff_with_retry", "http")], via=[(47.5, -0.4), (50.7, -0.4)])
+route("chat_model", "Model Link", "app/ai/chat.py", "ext:gemini", "data",
+      "Question + facts out, answer back", 1,
+      [("touch", "app.ai.chat:answer_question", "http")], via=[(61.5, -0.6), (51.5, -0.6)], label=False)
+route("brief_crew", "Draft Lane", "app/ai/brief.py", "app/ai/crew.py", "data",
+      "Facts to narrate", 1,
+      [("call", "app.ai.brief:generate_brief", "app.ai.crew:narrate_with_crew")], via=[(57.5, 5.2), (47.5, 5.2)], label=False)
+route("to_guard", "Guard Check", "app/ai/crew.py", "app/ai/guard.py", "data",
+      "Draft brief", 2,
+      [("call", "app.ai.brief:generate_brief", "app.ai.guard:validate_brief")], label=False)
+route("guard_out", "Guard Check", "app/ai/guard.py", "app/ai/brief.py", "data",
+      "Passed, or template instead", 2,
+      [("call", "app.ai.brief:generate_brief", "app.ai.guard:validate_brief")], label=False)
+route("allowance", "Allowance Pipe", "app/ai/llm.py", "lm:redis", "control",
+      "Daily LLM allowance", 1,
+      [("call", "app.ai.llm:reserve", "app.ingestion.ratelimit:get_rate_limiter")], via=[(52, 11.4), (0.6, 11.4), (0.6, 35.5)], level=2, label=False)
+route("brief_cache", "Allowance Pipe", "app/ai/cache.py", "lm:redis", "control",
+      "Cached brief", 1,
+      [("touch", "app.ai.cache:get", "redis")], level=2, label=False, via=[(52, 11.2), (0.4, 11.2), (0.4, 35.5)])
+# Presentation
+route("front_street", "Front Street", "lm:postgres", "app/api/main.py", "data",
+      "Query results", 3,
+      [("reads", "app.api.main:undercuts", "mart_undercut_alerts"),
+       ("reads", "app.api.main:forecasts", "forecasts")], via=[(36, 40.5), (52.4, 40.5), (52.4, 15)])
+route("showcase_line", "Showcase Line", "lm:postgres", "app/showcase/pipeline.py", "data",
+      "Live stage queries", 2,
+      [("reads", "app.showcase.pipeline:stage_compare", "mart_undercut_alerts")], via=[(36, 41), (53, 41), (53, 21)], label=False)
+route("review_lane", "Review Lane", "lm:postgres", "app/ui/review.py", "data",
+      "Pending matches, verdicts back", 1,
+      [("reads", "app.ui.review:load_pending", "product_matches")], via=[(36, 41.5), (53.4, 41.5), (53.4, 26.8)], label=False)
+route("viewer_api", "Viewer Road", "app/api/main.py", "ext:browser", "data",
+      "JSON", 3,
+      [("text", "app/api/main.py", r'@router\.get\("/undercuts"')])
+route("viewer_show", "Viewer Road", "app/showcase/routes.py", "ext:browser", "data",
+      "HTML + live stream (SSE)", 2,
+      [("text", "app/showcase/routes.py", r"text/event-stream")], label=False)
+route("show_pipe", "Stage Feed", "app/showcase/pipeline.py", "app/showcase/routes.py", "data",
+      "Stage events", 2,
+      [("call", "app.showcase.routes:stream", "app.showcase.pipeline:run_pipeline")], label=False)
+route("review_view", "Viewer Road", "app/ui/review.py", "ext:browser", "data",
+      "Streamlit page", 1,
+      [("text", "app/ui/review.py", r"import streamlit")], via=[(66.4, 26.7), (66.4, 17)], label=False)
+route("to_metabase", "Metabase Line", "lm:postgres", "ext:metabase", "data",
+      "SQL (configured in Metabase, unverified)", 1,
+      [("text", "docker-compose.yml", r"metabase/metabase")], via=[(36, 42.5), (66.8, 42.5), (66.8, 23)])
+route("chat_line", "Chat Line", "app/showcase/routes.py", "app/ai/chat.py", "data",
+      "A typed question", 1,
+      [("call", "app.showcase.routes:chat", "app.ai.chat:answer_question")], via=[(63.4, 21), (63.4, 11.2), (61.5, 11.2)], label=False)
+# Provisioning (drawn only close in)
+route("prov_raw", "Provisions", "infra/persistent", "lm:raw", "provision",
+      "Creates the S3 raw bucket", 1,
+      [("text", "infra/persistent/storage.tf", r'resource "aws_s3_bucket" "bronze"')], level=2, label=False, via=[(-7.2, 45), (15, 45)])
+route("prov_pg", "Provisions", "infra/ephemeral", "lm:postgres", "provision",
+      "Creates RDS PostgreSQL", 1,
+      [("text", "infra/ephemeral/database.tf", r'resource "aws_db_instance" "pg"')], level=2, label=False, via=[(-2.8, 45.5), (31.5, 45.5)])
+ROUTES = R
+
+# --------------------------------------------------------------------------- journey
+# One price observation, stop by stop. Each leg follows drawn routes (id, direction).
+# `stop` numbers match the ten stops in the brief; lettered nodes are sub-steps.
+JOURNEY = {
+    "start": "beat",
+    "nodes": {
+        "beat": {"stop": 1, "at": "app/celery_app.py", "title": "Celery Beat fires a scheduled job",
+                 "fn": "app/celery_app.py · beat_schedule['tier1-every-6h']",
+                 "caption": "Every 6 hours Beat puts an enqueue_tier message onto the Redis queue.",
+                 "next": [{"to": "fanout", "legs": [["broker_out", 1], ["broker_in", 1]]}]},
+        "fanout": {"stop": 1, "at": "app/ingestion/tasks.py", "title": "A worker fans out",
+                   "fn": "app/ingestion/tasks.py · enqueue_tier() → fetch_sku.delay()",
+                   "caption": "enqueue_tier reads seed_products and queues one fetch_sku job per tracked barcode.",
+                   "next": [{"to": "guards", "legs": [["toll_road", 1]]}]},
+        "guards": {"stop": 2, "at": "app/ingestion/ratelimit.py", "title": "Rate limit and daily quota, checked in Redis",
+                   "fn": "app/ingestion/ratelimit.py · RateLimiter.acquire(), consume_daily()",
+                   "caption": "acquire() takes a token from a Redis token bucket; consume_daily() counts today's calls.",
+                   "visit": ["toll_ledger"],
+                   "next": [
+                       {"to": "api", "label": "Allowed", "kind": "main", "legs": [["fetch_order", 1], ["price_feed", -1]]},
+                       {"to": "waiting", "label": "Rate-limited", "kind": "failure", "legs": [["wait_loop", 1]]},
+                       {"to": "dlq_quota", "label": "Daily quota exhausted", "kind": "failure", "legs": [["quota_siding", 1]]},
+                   ]},
+        "waiting": {"stop": 2, "at": "app/ingestion/ratelimit.py", "title": "Waits, then rejoins",
+                    "fn": "app/ingestion/tasks.py · self.retry(countdown=exc.retry_after)",
+                    "caption": "The job goes back on the queue for retry_after seconds, then asks again. No quota is spent while waiting.",
+                    "next": [{"to": "guards", "legs": []}]},
+        "dlq_quota": {"stop": 2, "at": "lm:dlq", "title": "Dead-letter siding: quota",
+                      "fn": "app/ingestion/tasks.py · dead_letter('quota_exhausted')",
+                      "caption": "Retrying the same day cannot succeed, so the job is parked for a person. Nothing reads this store back.",
+                      "end": True},
+        "api": {"stop": 3, "at": "ext:openprices", "title": "The source API is called",
+                "fn": "app/clients/openprices.py · fetch_raw() → base.py · _get_json()",
+                "caption": "GET prices.openfoodfacts.org/api/v1/prices?product_code=… returns about 100 dated prices.",
+                "next": [
+                    {"to": "fork", "label": "200 OK", "kind": "main", "legs": [["price_feed", 1], ["intake", 1]]},
+                    {"to": "api", "label": "Network error: retry", "kind": "failure", "legs": [], "note": "autoretry with backoff and jitter, up to 5 times"},
+                    {"to": "dlq_transport", "label": "5 retries failed", "kind": "failure", "legs": [["price_feed", 1], ["transport_siding", 1]]},
+                ]},
+        "dlq_transport": {"stop": 3, "at": "lm:dlq", "title": "Dead-letter siding: transport",
+                          "fn": "app/ingestion/tasks.py · dead_letter('transport_retries_exhausted')",
+                          "caption": "After five failed attempts the request is parked, with the error, for a person.",
+                          "end": True},
+        "fork": {"stop": 4, "at": "fork", "title": "The fork: raw copy filed before any parsing",
+                 "fn": "app/ingestion/tasks.py · get_bronze_store().put(raw), then client.normalize(row)",
+                 "caption": "The payload splits. One copy drops to the raw store untouched; the same payload goes on to be parsed. If parsing is ever wrong, the raw copy can be replayed without calling the API again.",
+                 "split": ["raw_chute", 1],
+                 "next": [
+                     {"to": "normalize", "label": "Follow the parsed record", "kind": "main", "legs": [["parsed_road", 1]]},
+                     {"to": "rawstore", "label": "Follow the raw copy", "kind": "main", "legs": [["raw_chute", 1]]},
+                 ]},
+        "rawstore": {"stop": 4, "at": "lm:raw", "title": "Filed in the raw store",
+                     "fn": "app/ingestion/bronze.py · LocalBronzeStore.put() / S3BronzeStore.put()",
+                     "caption": "Saved as source=openprices/dt=YYYY-MM-DD/<key>.json.gz. Written to a temp file first, then renamed, so a crash never leaves half a file.",
+                     "next": [{"to": "normalize", "label": "Replay it (recovery)", "kind": "recovery", "legs": [["replay", 1]]}]},
+        "normalize": {"stop": 5, "at": "app/models/domain.py", "title": "Normalized into the standard record",
+                      "fn": "app/clients/openprices.py · normalize() → app/models/domain.py · NormalizedRecord",
+                      "also": ["app/clients/openprices.py"],
+                      "caption": "Messy vendor JSON becomes one shape: product, price, currency, time, shop. Rows with no currency, price or date are dropped, never guessed.",
+                      "next": [
+                          {"to": "validate", "label": "Records built", "kind": "main", "legs": [["checkpoint", 1]]},
+                          {"to": "empty", "label": "Nothing usable", "kind": "failure", "legs": []},
+                      ]},
+        "empty": {"stop": 5, "at": "app/models/domain.py", "title": "Quiet stop: no usable rows",
+                  "fn": "app/ingestion/tasks.py · return {'applied': 0}",
+                  "caption": "Not an error and not dead-lettered: logged as fetch_sku.no_records, and the job ends.",
+                  "end": True},
+        "validate": {"stop": 6, "at": "app/models/validation.py", "title": "Per-record and per-batch validation",
+                     "fn": "app/models/domain.py validators · app/models/validation.py · validate_price_batch()",
+                     "caption": "Each record already passed its own checks (price above zero, timezone set). Now the whole batch is checked as a table.",
+                     "next": [
+                         {"to": "cdc", "label": "Batch passes", "kind": "main", "legs": [["to_registry", 1]]},
+                         {"to": "dlq_validation", "label": "Batch rejected", "kind": "failure", "legs": [["validation_siding", 1]]},
+                     ]},
+        "dlq_validation": {"stop": 6, "at": "lm:dlq", "title": "Dead-letter siding: validation",
+                           "fn": "app/ingestion/tasks.py · dead_letter('validation_failed')",
+                           "caption": "The whole batch is parked with the reason. The raw copy is already safe in the raw store.",
+                           "end": True},
+        "cdc": {"stop": 7, "at": "app/ingestion/bulk.py", "title": "Change-data-capture: insert or skip",
+                "fn": "app/ingestion/bulk.py · apply_records_bulk()",
+                "caption": "One SQL statement compares each price with the one before it. A changed price is written; an unchanged one is skipped unless 24 hours have passed.",
+                "next": [
+                    {"to": "stored", "label": "Price changed", "kind": "main", "legs": [["ledger_shaft", 1]]},
+                    {"to": "skipped", "label": "Same price within 24h", "kind": "failure", "legs": [["unchanged", 1]]},
+                ]},
+        "skipped": {"stop": 7, "at": "turnaround", "title": "Skipped, never stored",
+                    "fn": "app/ingestion/bulk.py · heartbeat check (price_events_skipped_unchanged)",
+                    "caption": "Nothing new to record. Counted, not written: this is what keeps the price table small.",
+                    "end": True},
+        "stored": {"stop": 7, "at": "lm:postgres", "title": "Written to PostgreSQL",
+                   "fn": "price_events (monthly partition) · product_versions (SCD2)",
+                   "caption": "The idempotency key makes a repeated write a no-op, so a retried job cannot double-count.",
+                   "next": [{"to": "dbt", "label": "Later: marts-daily, 01:45", "kind": "main", "legs": [["lineage_lift", 1]]}]},
+        "dbt": {"stop": 8, "at": "app/transform/dbt_runner.py", "title": "dbt rebuilds the marts",
+                "fn": "app/ingestion/tasks.py · build_marts() → app/transform/dbt_runner.py · run_dbt()",
+                "caption": "Runs `dbt build`: staging views clean the tables, intermediate models join and roll up by day, marts answer the questions.",
+                "chain": ["dbt:stg_price_events", "dbt:int_price_observations", "dbt:int_price_daily",
+                          "dbt:int_price_latest", "dbt:mart_price_gap_vs_own", "dbt:mart_undercut_alerts"],
+                "next": [{"to": "consumers", "label": "Marts written", "kind": "main", "legs": [["mart_return", 1]]}]},
+        "consumers": {"stop": 9, "at": "lm:postgres", "title": "Stored data feeds four consumers",
+                      "fn": "forecasting · matching · alerting · the weekly brief",
+                      "caption": "Forecasting, alerting and the brief read marts. Matching does not: it reads the products tables directly.",
+                      "next": [
+                          {"to": "surface_api", "label": "Serve it (API)", "kind": "main", "legs": [["front_street", 1]]},
+                          {"to": "alerting", "label": "Alert on it", "kind": "main", "legs": [["undercut_spur", 1]]},
+                          {"to": "forecasting", "label": "Forecast it", "kind": "main", "legs": [["trend_spur", 1], ["forecast_in", 1]]},
+                          {"to": "matching", "label": "Match it", "kind": "main", "legs": [["registry_spur", 1]]},
+                          {"to": "briefing", "label": "Brief it", "kind": "main", "legs": [["facts_road", 1]]},
+                      ]},
+        "alerting": {"stop": 9, "at": "app/alerting/service.py", "title": "Alerting decides what is worth sending",
+                     "fn": "app/alerting/service.py · run_alert_cycle()",
+                     "caption": "Takes a database lock so two schedulers never double-send, skips repeats within 24h and evidence older than 7 days.",
+                     "next": [{"to": "surface_slack", "label": "Deliver", "kind": "main", "legs": [["alert_handoff", 1], ["to_slack", 1]]}]},
+        "surface_slack": {"stop": 10, "at": "ext:slack", "title": "Surfaces as an alert",
+                          "fn": "app/alerting/channels.py · SlackChannel.send_batch()",
+                          "caption": "One Slack post per undercut; email would be one digest. Nothing sends unless a channel is configured.",
+                          "end": True},
+        "forecasting": {"stop": 9, "at": "app/forecasting/train.py", "title": "Forecasting trains on the trend mart",
+                        "fn": "app/forecasting/train.py · train_and_forecast()",
+                        "caption": "Backtests AutoETS, AutoARIMA and a naive baseline per series and keeps whichever was most accurate.",
+                        "next": [{"to": "surface_forecast", "label": "Store and serve", "kind": "main", "legs": [["forecast_out", 1], ["front_street", 1]]}]},
+        "surface_forecast": {"stop": 10, "at": "app/api/main.py", "title": "Surfaces on GET /forecasts",
+                             "fn": "app/api/main.py · forecasts()",
+                             "caption": "Returns the latest forecast run for a product, read from the forecasts table.",
+                             "end": True},
+        "matching": {"stop": 9, "at": "app/ai/matching.py", "title": "Matching proposes same-product pairs",
+                     "fn": "app/ai/matching.py · generate_matches()",
+                     "caption": "Reads product titles (not a mart), compares vectors. Above 0.92 auto-accepted; 0.80 to 0.92 waits for a person.",
+                     "next": [{"to": "surface_review", "label": "Send to review", "kind": "main", "legs": [["matches_out", 1], ["review_lane", 1]]}]},
+        "surface_review": {"stop": 10, "at": "app/ui/review.py", "title": "Surfaces on the review screen",
+                           "fn": "app/ui/review.py · main()",
+                           "caption": "A person accepts or rejects each borderline pair; the verdict is written back to product_matches.",
+                           "end": True},
+        "briefing": {"stop": 9, "at": "app/ai/facts.py", "title": "The Analyst gathers facts",
+                     "fn": "app/ai/facts.py · collect_weekly_facts()",
+                     "caption": "Every number the brief may use is collected into one closed payload. The model never gets a database connection.",
+                     "next": [{"to": "model", "label": "Narrate", "kind": "main", "legs": [["facts_json", 1], ["brief_crew", 1], ["to_model", 1]]}]},
+        "model": {"stop": 9, "at": "ext:gemini", "title": "The language model writes a draft",
+                  "fn": "app/ai/crew.py · narrate_with_crew() → _kickoff_with_retry()",
+                  "caption": "One call, reasoning off, output capped, under a daily allowance counted in Redis.",
+                  "next": [{"to": "surface_brief", "label": "Check every number", "kind": "main", "legs": [["to_model", -1], ["to_guard", 1], ["guard_out", 1]]}]},
+        "surface_brief": {"stop": 10, "at": "app/ai/brief.py", "title": "Surfaces as the weekly brief",
+                          "fn": "app/ai/guard.py · validate_brief() → app/ai/brief.py · generate_brief()",
+                          "caption": "If any number in the draft is not in the facts, the draft is thrown away and the plain template is used instead.",
+                          "end": True},
+        "surface_api": {"stop": 10, "at": "app/api/main.py", "title": "The value surfaces on the API",
+                        "fn": "app/api/main.py · undercuts() reads analytics_marts.mart_undercut_alerts",
+                        "caption": "A real row from a production run: Carrefour undercut Nutella Plant-Based by 41.71%, severity critical, evidence 225 days old.",
+                        "next": [{"to": "screen", "label": "To the screen", "kind": "main", "legs": [["viewer_api", 1]]}]},
+        "screen": {"stop": 10, "at": "ext:browser", "title": "On the screen",
+                   "fn": "GET /undercuts → JSON in the reader's browser",
+                   "caption": "The same number also appears in the walkthrough's Compare stage. End of the journey.",
+                   "end": True},
+    },
+}
+
+# --------------------------------------------------------------------------- glossary
+GLOSSARY = [
+    ("Raw store", "A folder (or S3 bucket) holding every API response exactly as it arrived, before anything reads it. Also called bronze."),
+    ("Normalize", "Rewrite messy vendor data into one standard record shape."),
+    ("CDC", "Change-data-capture: only record a price when it actually changed."),
+    ("Heartbeat", "Even an unchanged price is recorded once every 24 hours, so 'still the same' is provable."),
+    ("Idempotency key", "A fingerprint of a record. Saving the same record twice has no effect, so retries cannot double-count."),
+    ("SCD2", "Slowly-changing dimension, type 2: when product details change, keep the old version with dates instead of overwriting it."),
+    ("Partition", "The price table is split into one physical table per month, created as data arrives."),
+    ("dbt", "A tool that builds report tables from layered SQL files: staging (clean), intermediate (join, roll up), marts (answers)."),
+    ("Mart", "A finished, query-ready report table, such as 'who is undercutting us'."),
+    ("DLQ / dead-letter store", "Where a job's payload is parked after it failed for good. Here, nothing reads it back automatically."),
+    ("Token bucket", "A rate limiter: allows short bursts but caps the average number of calls per minute."),
+    ("Daily quota", "A hard ceiling on calls per source per day, counted in Redis."),
+    ("Broker", "The queue that carries job messages from the scheduler to the workers. Here, Redis."),
+    ("Celery Beat", "Celery's clock: fires jobs on a schedule (every 6 hours, daily at 01:45, ...)."),
+    ("Advisory lock", "A database-level 'only one at a time' flag, so two alert runs never send the same alert twice."),
+    ("Embedding", "A list of numbers representing a product title, so similar titles end up close together."),
+    ("Numeric guard", "Checks every number in AI-written text exists in the facts it was given; otherwise the text is rejected."),
+    ("SSE", "Server-sent events: the server streams lines to the browser as they happen."),
+]

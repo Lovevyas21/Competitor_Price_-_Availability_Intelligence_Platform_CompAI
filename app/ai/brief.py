@@ -1,17 +1,11 @@
-"""Weekly pricing brief.
+"""Weekly pricing brief: deterministic by default, LLM-narrated when configured.
 
-Two paths, same facts:
+Both paths render the same facts. The narrated one goes through `guard.validate_brief`
+and falls back to the deterministic render if any number in it is absent from those facts.
 
-* **Deterministic** (default) -- renders the facts as Markdown. No API key, no cost, no
-  chance of a fabricated number. This is what runs today.
-* **LLM-narrated** (optional) -- a CrewAI crew turns the same facts into prose. The
-  output is passed through `guard.validate_brief`, and **falls back to the deterministic
-  brief if any number in it is not present in the facts.**
-
-That fallback is the point. An unvalidated LLM brief is a liability in a pricing context:
-it reads authoritatively whether or not the figures are real. Making the deterministic
-render the default -- and the guard a hard gate rather than a warning -- means the worst
-case is a plainer brief, never a wrong one.
+That fallback is the design, not a safety net bolted on. An unvalidated brief reads just
+as authoritatively whether or not its figures are real, so the guard is a hard gate and
+the worst case is a plainer brief rather than a wrong one.
 """
 
 from __future__ import annotations

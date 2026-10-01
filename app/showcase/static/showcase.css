@@ -62,9 +62,7 @@ a:hover { text-decoration: underline; }
   z-index: 2;
 }
 
-/* --------------------------------------------------------------------------- */
-/* intro page                                                                   */
-/* --------------------------------------------------------------------------- */
+/* intro page */
 .hero { padding: 92px 0 56px; }
 
 .eyebrow {
@@ -182,9 +180,7 @@ h1 {
   font-family: var(--sans);
 }
 
-/* --------------------------------------------------------------------------- */
-/* console page                                                                 */
-/* --------------------------------------------------------------------------- */
+/* console page */
 .bar {
   position: sticky;
   top: 0;
@@ -400,9 +396,7 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .metric .note.in, .summary .meta.in { opacity: 1; transform: none; }
 
-/* --------------------------------------------------------------------------- */
-/* boot sequence                                                                */
-/* --------------------------------------------------------------------------- */
+/* boot sequence */
 /* Pure presentation, and the only part of the page that is. It plays before a stage's
    real output and then erases itself, so what remains on screen is all genuine. */
 .boot {
@@ -474,9 +468,7 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
   .metric .note, .summary .meta { opacity: 1; transform: none; transition: none; }
 }
 
-/* --------------------------------------------------------------------------- */
-/* generated prose (stage 06)                                                   */
-/* --------------------------------------------------------------------------- */
+/* generated prose (stage 06) */
 /* Set apart from the console output on purpose. Everything above it is a figure
    read from the warehouse; this is the one block a language model wrote, and it
    should not be mistaken for the rest. */
@@ -518,9 +510,7 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .prose-note.in { opacity: 1; transform: none; }
 
-/* --------------------------------------------------------------------------- */
-/* data viewer                                                                  */
-/* --------------------------------------------------------------------------- */
+/* data viewer */
 .sheet {
   position: fixed;
   inset: 0;
@@ -558,9 +548,7 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
   z-index: 1;
 }
 
-/* --------------------------------------------------------------------------- */
-/* ask-about-the-data dock                                                      */
-/* --------------------------------------------------------------------------- */
+/* ask-about-the-data dock */
 .dock { position: fixed; right: 22px; bottom: 22px; z-index: 15; }
 
 .dock-tab {

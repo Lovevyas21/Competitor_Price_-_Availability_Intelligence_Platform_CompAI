@@ -1,23 +1,11 @@
 """Set-based CDC for bulk loads.
 
-`cdc.apply_record` walks one record at a time, issuing ~5 statements each. Against a
-local Postgres that is fine (sub-millisecond round trips). Against a managed database
-it is pathological: measured at 298 ms RTT to Neon's us-east-2 region, a 7,922-record
-replay would take about 3.3 hours, and even a routine 25-SKU refresh would take an hour.
+`cdc.apply_record` issues about five statements per record. Fine locally; over a 298 ms
+link a 7,922-record replay works out at 3.3 hours. This stages the batch in a temp table
+and does the same work in a fixed number of round trips, whatever the batch size.
 
-This module applies a whole batch in a fixed, small number of round trips -- independent
-of batch size -- by staging the records in a temp table and doing the work in SQL.
-
-The semantics are deliberately identical to the row-by-row path:
-  * products and retailers upserted, never blanked
-  * SCD2 opens a version only when tracked attributes actually change, treating a null
-    incoming attribute as "no information"
-  * price events are insert-on-change with a 24h heartbeat, compared against the
-    *preceding* observation in time so backfilled history is not compared to the future
-  * idempotency keys still collapse duplicates
-
-The insert-on-change rule is expressed with a window function over the union of existing
-history and incoming rows, which is what makes it a single statement rather than a loop.
+Semantics match the row-by-row path exactly, heartbeat and idempotency included.
+`tests/integration/test_bulk_matches_rowwise.py` is what keeps the two equal.
 """
 
 from __future__ import annotations

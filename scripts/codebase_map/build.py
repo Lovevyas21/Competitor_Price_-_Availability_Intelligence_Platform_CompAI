@@ -43,9 +43,19 @@ def text_has(rel: str, pattern: str) -> bool:
 
 # --------------------------------------------------------------------------- terrain
 DISTRICTS = [
-    {"id": d[0], "name": d[1], "gx0": d[2], "gx1": d[3], "gy0": d[4], "gy1": d[5], "z": d[6],
-     "terrain": d[7], "blurb": d[8], "folders": d[9],
-     "labelAt": list(geo.DISTRICT_LABEL_AT.get(d[0], ((d[2] + d[3]) / 2, (d[4] + d[5]) / 2)))}
+    {
+        "id": d[0],
+        "name": d[1],
+        "gx0": d[2],
+        "gx1": d[3],
+        "gy0": d[4],
+        "gy1": d[5],
+        "z": d[6],
+        "terrain": d[7],
+        "blurb": d[8],
+        "folders": d[9],
+        "labelAt": list(geo.DISTRICT_LABEL_AT.get(d[0], ((d[2] + d[3]) / 2, (d[4] + d[5]) / 2))),
+    }
     for d in geo.DISTRICTS
 ]
 
@@ -95,11 +105,11 @@ for caller, callee, rx in geo.DISPATCH:
         problems.append(f"dispatch refers to unknown function: {caller} -> {callee}")
         continue
     _, f = all_funcs[caller]
-    src_lines = (ROOT / cm.path).read_text(encoding="utf-8").splitlines()[f.line - 1:f.end]
+    src_lines = (ROOT / cm.path).read_text(encoding="utf-8").splitlines()[f.line - 1 : f.end]
     text = "\n".join(src_lines)
     hit = re.search(rx, text)
     if hit:
-        dispatch_edges.append((caller, callee, f.line + text[:hit.start()].count("\n")))
+        dispatch_edges.append((caller, callee, f.line + text[: hit.start()].count("\n")))
     else:
         problems.append(f"dispatch evidence not found in {caller}: /{rx}/")
 
@@ -109,8 +119,12 @@ def kind_of(path: str) -> str:
         return "scheduler"
     if path.startswith("migrations/"):
         return "blueprint"
-    if path.startswith(("infra/", "scripts/")) or path in {"Dockerfile", "docker-compose.yml",
-                                                          "docker-compose.prod.yml", "aws.ps1"}:
+    if path.startswith(("infra/", "scripts/")) or path in {
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "aws.ps1",
+    }:
         return "infra"
     return "module"
 
@@ -131,10 +145,22 @@ def place(bid, path, gx, gy, w, d, kind, purpose, extra=None):
     dist = district_at(cx, cy)
     if dist is None:
         problems.append(f"{bid} sits outside every district at ({cx}, {cy})")
-    b = {"id": bid, "path": path, "name": path.rsplit("/", 1)[-1] if path else bid,
-         "district": dist["id"] if dist else None, "kind": kind,
-         "gx": gx, "gy": gy, "w": w, "d": d, "z0": dist["z"] if dist else 0,
-         "purpose": purpose, "funcs": [], "notes": [], "unverified": False}
+    b = {
+        "id": bid,
+        "path": path,
+        "name": path.rsplit("/", 1)[-1] if path else bid,
+        "district": dist["id"] if dist else None,
+        "kind": kind,
+        "gx": gx,
+        "gy": gy,
+        "w": w,
+        "d": d,
+        "z0": dist["z"] if dist else 0,
+        "purpose": purpose,
+        "funcs": [],
+        "notes": [],
+        "unverified": False,
+    }
     if extra:
         b.update(extra)
     buildings.append(b)
@@ -156,10 +182,20 @@ for path, (gx, gy, w, d, purpose) in geo.BUILDINGS.items():
         b["doc"] = m.doc
         for q, f in m.funcs.items():
             fid = f"{m.mod}:{q}"
-            b["funcs"].append({
-                "id": fid, "q": q, "line": f.line, "end": f.end, "kind": f.kind, "doc": f.doc,
-                "entry": f.entry, "touches": f.touches, "reads": f.reads, "writes": f.writes,
-            })
+            b["funcs"].append(
+                {
+                    "id": fid,
+                    "q": q,
+                    "line": f.line,
+                    "end": f.end,
+                    "kind": f.kind,
+                    "doc": f.doc,
+                    "entry": f.entry,
+                    "touches": f.touches,
+                    "reads": f.reads,
+                    "writes": f.writes,
+                }
+            )
 
 # Every app module must be on the map
 placed = {b["path"] for b in buildings}
@@ -174,7 +210,9 @@ for path, (gx, gy, w, d, purpose, (ref_file, rx)) in geo.PHANTOMS.items():
     ok = text_has(ref_file, rx)
     b = place(path, path, gx, gy, w, d, "phantom", purpose, {"loc": 0})
     b["notes"].append(f"Referenced in {ref_file}" if ok else "Reference not found either")
-    unverified.append({"what": path, "why": "referenced in " + ref_file + " but the file does not exist"})
+    unverified.append(
+        {"what": path, "why": "referenced in " + ref_file + " but the file does not exist"}
+    )
 
 # dbt nodes
 for name, (gx, gy, w, d) in geo.DBT.items():
@@ -182,9 +220,22 @@ for name, (gx, gy, w, d) in geo.DBT.items():
         problems.append(f"dbt node not found: {name}")
         continue
     info = dbt[name]
-    place(f"dbt:{name}", info["path"], gx, gy, w, d, "seed" if info["layer"] == "seed" else "dbt",
-          geo.DBT_PURPOSE.get(name, info["doc"]),
-          {"loc": info["loc"], "layer": info["layer"], "refs": info["refs"], "sources": info["sources"]})
+    place(
+        f"dbt:{name}",
+        info["path"],
+        gx,
+        gy,
+        w,
+        d,
+        "seed" if info["layer"] == "seed" else "dbt",
+        geo.DBT_PURPOSE.get(name, info["doc"]),
+        {
+            "loc": info["loc"],
+            "layer": info["layer"],
+            "refs": info["refs"],
+            "sources": info["sources"],
+        },
+    )
 for name in dbt:
     if name not in geo.DBT:
         problems.append(f"dbt node not placed: {name}")
@@ -192,14 +243,28 @@ for name in dbt:
 # Landmarks
 for lid, (name, gx, gy, w, d, shape, note, (ev_file, rx)) in geo.LANDMARKS.items():
     ok = text_has(ev_file, rx)
-    b = place(lid, "", gx, gy, w, d, "external" if lid.startswith("ext:") else "datastore", note,
-              {"name": name, "shape": shape, "evidence": f"{ev_file} /{rx}/", "loc": 0})
+    b = place(
+        lid,
+        "",
+        gx,
+        gy,
+        w,
+        d,
+        "external" if lid.startswith("ext:") else "datastore",
+        note,
+        {"name": name, "shape": shape, "evidence": f"{ev_file} /{rx}/", "loc": 0},
+    )
     if not ok:
         b["unverified"] = True
         problems.append(f"landmark evidence not found: {lid} in {ev_file}")
     if lid == "ext:metabase":
         b["unverified"] = True
-        unverified.append({"what": "Metabase", "why": "its dashboards and queries live inside Metabase, not in this repository"})
+        unverified.append(
+            {
+                "what": "Metabase",
+                "why": "its dashboards and queries live inside Metabase, not in this repository",
+            }
+        )
     if lid == "lm:postgres":
         b["tables"] = tables
 
@@ -218,17 +283,29 @@ rows = [32, 35, 38, 41]
 for i, t in enumerate(sorted(tests, key=test_rank)):
     gx, gy = cols[i % 5], rows[i // 5]
     target_ids = sorted({b["id"] for b in buildings if b.get("mod") in t["targets"]})
-    place(t["path"], t["path"], gx, gy, 1.4, 1.4, "test",
-          f"{t['tests']} tests ({t['suite']}), checking {', '.join(by_id[x]['name'] for x in target_ids) or 'shared settings'}.",
-          {"loc": loc_of(t["path"]), "proves": target_ids, "ntests": t["tests"]})
+    place(
+        t["path"],
+        t["path"],
+        gx,
+        gy,
+        1.4,
+        1.4,
+        "test",
+        f"{t['tests']} tests ({t['suite']}), checking {', '.join(by_id[x]['name'] for x in target_ids) or 'shared settings'}.",
+        {"loc": loc_of(t["path"]), "proves": target_ids, "ntests": t["tests"]},
+    )
 
 # Overlap check within a district
 for i, a in enumerate(buildings):
-    for b2 in buildings[i + 1:]:
+    for b2 in buildings[i + 1 :]:
         if a["district"] != b2["district"]:
             continue
-        if (a["gx"] < b2["gx"] + b2["w"] and b2["gx"] < a["gx"] + a["w"]
-                and a["gy"] < b2["gy"] + b2["d"] and b2["gy"] < a["gy"] + a["d"]):
+        if (
+            a["gx"] < b2["gx"] + b2["w"]
+            and b2["gx"] < a["gx"] + a["w"]
+            and a["gy"] < b2["gy"] + b2["d"]
+            and b2["gy"] < a["gy"] + a["d"]
+        ):
             problems.append(f"overlap: {a['id']} and {b2['id']}")
 
 # Heights: lines of code for code, fixed for landmarks
@@ -244,7 +321,9 @@ for b in buildings:
         "test": 1.2 + math.sqrt(b.get("ntests", 1)) * 0.5,
         "phantom": 0,
         "external": 3.2,
-        "datastore": {"lm:postgres": 5.5, "lm:raw": 6.5, "lm:redis": 3.5, "lm:dlq": 2.6}.get(b["id"], 3),
+        "datastore": {"lm:postgres": 5.5, "lm:raw": 6.5, "lm:redis": 3.5, "lm:dlq": 2.6}.get(
+            b["id"], 3
+        ),
     }[b["kind"]]
     b["h"] = round(b["h"], 2)
 
@@ -312,14 +391,22 @@ for b in buildings:
 # Findings worth drawing
 if "app/ingestion/cdc.py" in by_id and not called_by.get("app.ingestion.cdc:apply_record"):
     by_id["app/ingestion/cdc.py"]["notes"].append(
-        "apply_record() has no callers in app/: live ingestion uses bulk.py. Only the parity test runs it.")
+        "apply_record() has no callers in app/: live ingestion uses bulk.py. Only the parity test runs it."
+    )
 if "lm:dlq" in by_id:
-    readers = [fid for fid, (m, f) in all_funcs.items()
-               if "get_deadletter_store" in "".join(f.calls) and "dead_letter" not in fid]
+    readers = [
+        fid
+        for fid, (m, f) in all_funcs.items()
+        if "get_deadletter_store" in "".join(f.calls) and "dead_letter" not in fid
+    ]
     if not readers:
-        by_id["lm:dlq"]["notes"].append("Written by dead_letter(); no code in app/ reads it back. A dead end by design.")
+        by_id["lm:dlq"]["notes"].append(
+            "Written by dead_letter(); no code in app/ reads it back. A dead end by design."
+        )
 if "app/ai/matching.py" in by_id:
-    by_id["app/ai/matching.py"]["notes"].append("Reads products and product_versions directly, not a dbt mart.")
+    by_id["app/ai/matching.py"]["notes"].append(
+        "Reads products and product_versions directly, not a dbt mart."
+    )
 
 # --------------------------------------------------------------------------- routes
 anchors: dict[str, tuple[float, float, float]] = {}
@@ -410,8 +497,9 @@ if not fork_ok:
 
 # --------------------------------------------------------------------------- assemble
 try:
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-                            capture_output=True, text=True).stdout.strip()
+    commit = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True
+    ).stdout.strip()
 except OSError:
     commit = ""
 
@@ -431,8 +519,13 @@ counts = {
 }
 
 MAP = {
-    "meta": {"generated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"), "commit": commit,
-             "counts": counts, "unverified": unverified, "problems": problems},
+    "meta": {
+        "generated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+        "commit": commit,
+        "counts": counts,
+        "unverified": unverified,
+        "problems": problems,
+    },
     "districts": DISTRICTS,
     "buildings": buildings,
     "routes": routes,

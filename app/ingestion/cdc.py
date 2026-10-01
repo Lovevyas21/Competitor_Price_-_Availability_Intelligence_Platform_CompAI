@@ -1,18 +1,13 @@
 """Change data capture.
 
-Three guarantees this module exists to uphold:
+History is append-only. A late or corrected observation adds a row, never mutates one.
+Attribute changes close the open SCD2 version and open a new one, with a partial unique
+index as the backstop. An unchanged price is not re-recorded until the heartbeat window
+elapses, which keeps the event tables lean while still proving we looked.
 
-1. **History is never overwritten.** Price and stock tables are append-only. A late or
-   corrected observation adds a row; it never mutates one.
-2. **Exactly one current product version.** Attribute changes close the open SCD2 row
-   and open a new one. The DB's partial unique index is the backstop.
-3. **Insert-on-change, with a heartbeat.** An unchanged price is not re-recorded unless
-   the heartbeat window has elapsed, which keeps the event tables lean while still
-   proving "we looked, and it was still this price".
-
-Late-arriving data is handled by comparing against the observation that *precedes* the
-incoming one in time, not simply the newest row -- otherwise backfilling history would
-compare against the future and record spurious changes.
+Late data is compared against the observation that *precedes* it in time, not the newest
+row -- otherwise backfilling history compares against the future and records changes that
+never happened.
 """
 
 from __future__ import annotations
@@ -49,9 +44,7 @@ class CDCStats:
         return d
 
 
-# --------------------------------------------------------------------------- #
 # reference data
-# --------------------------------------------------------------------------- #
 def get_or_create_source(
     session: Session, name: str, base_url: str | None = None, auth_type: str = "none"
 ) -> int:
@@ -99,9 +92,7 @@ def ensure_partition(session: Session, parent: str, observed_at: datetime) -> st
     return f"{parent}_{month_start:%Y%m}"
 
 
-# --------------------------------------------------------------------------- #
 # products + SCD2
-# --------------------------------------------------------------------------- #
 def upsert_product(session: Session, source_id: int, record: NormalizedRecord) -> tuple[int, bool]:
     """Return (product_id, created). Identity fields are filled in but never blanked."""
     ident = record.identity
@@ -189,9 +180,7 @@ def _json(value: dict) -> str:
     return json.dumps(value, default=str)
 
 
-# --------------------------------------------------------------------------- #
 # events
-# --------------------------------------------------------------------------- #
 def _preceding_price(
     session: Session, product_id: int, retailer_id: int | None, observed_at: datetime
 ):
@@ -321,9 +310,7 @@ def record_stock_event(
         stats.stock_events_inserted += 1
 
 
-# --------------------------------------------------------------------------- #
 # entry point
-# --------------------------------------------------------------------------- #
 def apply_record(
     session: Session, source_id: int, record: NormalizedRecord, stats: CDCStats
 ) -> None:

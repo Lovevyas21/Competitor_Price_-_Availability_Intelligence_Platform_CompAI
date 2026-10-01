@@ -6,6 +6,11 @@ resource "aws_ecr_repository" "app" {
   name                 = var.project
   image_tag_mutability = "MUTABLE" # `latest` is re-pointed on each deploy
 
+  # Without this, `terraform destroy` fails the moment anything has been pushed:
+  # ECR refuses to delete a repository that still contains images. Correct for a
+  # registry holding production tags, wrong for one that exists to be torn down.
+  force_delete = true
+
   image_scanning_configuration {
     scan_on_push = true
   }

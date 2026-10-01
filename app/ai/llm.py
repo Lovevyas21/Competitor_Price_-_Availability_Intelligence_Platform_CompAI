@@ -1,26 +1,9 @@
-"""LLM construction and spend control.
+"""Building the LLM client, and keeping a free-tier key from running out.
 
-Written against a free-tier key, where the scarce resources are requests per day and
-tokens per request, and where exceeding either degrades the brief silently -- narration
-falls back to the deterministic renderer, which looks like success.
-
-Three levers, in order of how much they save:
-
-1. **Reasoning off.** Measured on `gemini-3.5-flash`: a short narration prompt cost 796
-   tokens with reasoning enabled and 105 with it disabled, for an equivalent answer --
-   697 of those tokens were "thoughts". The crew narrates a closed, already-validated
-   facts payload; there is no problem here to reason about, so this is close to free.
-
-2. **One call instead of three.** The full crew sends the same facts payload to an
-   analyst, an interpreter and a writer. That is three requests and three copies of the
-   payload for a brief the writer can produce alone.
-
-3. **A hard ceiling.** Rate and daily caps enforced through the same Redis-backed guards
-   the ingestion sources use, so the limit holds across every worker rather than
-   per-process.
-
-An output cap sits underneath all three: a brief that will not be read past a page has no
-business generating four.
+Reasoning off is most of the saving: the same narration prompt cost 796 tokens with it
+enabled and 105 with it disabled. One call instead of three covers the rest. Rate and
+daily caps go through the same Redis guards the ingestion sources use, so the ceiling
+holds across workers rather than per process.
 """
 
 from __future__ import annotations

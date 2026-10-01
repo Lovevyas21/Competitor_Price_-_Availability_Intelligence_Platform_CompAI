@@ -1,18 +1,12 @@
-"""Alert delivery channels.
+"""Alert delivery: Slack, SMTP, SES.
 
-One interface, three implementations. Adding a channel is a new class here; the alert
-cycle in `service.py` never learns about any of them individually.
+One interface, three implementations; the alert cycle never learns about any of them
+individually. Slack posts one message per undercut because chat is a stream. Email sends
+a single digest because a mailbox is not -- twenty separate emails about twenty undercuts
+is how alerting ends up filtered into a folder nobody opens.
 
-Two deliberate differences between chat and mail:
-
-* **Slack posts one message per undercut.** Chat is a stream; separate messages are
-  scannable and each can be replied to.
-* **Email sends one digest.** A mailbox is not a stream. Twenty separate emails about
-  twenty undercuts is how an alerting system gets filtered to a folder nobody opens.
-
-Nothing sends unless it is explicitly configured. An unconfigured channel reports
-`is_configured() == False` and is skipped, which is why a fresh checkout cannot email
-anyone by accident.
+Nothing sends unless explicitly configured, so a fresh checkout cannot message anyone by
+accident.
 """
 
 from __future__ import annotations
@@ -44,9 +38,7 @@ class AlertChannel(ABC):
         """Deliver a batch. Returns True only if the whole batch got through."""
 
 
-# --------------------------------------------------------------------------- #
 # Slack
-# --------------------------------------------------------------------------- #
 class SlackChannel(AlertChannel):
     name = "slack"
 
@@ -74,9 +66,7 @@ class SlackChannel(AlertChannel):
         return ok
 
 
-# --------------------------------------------------------------------------- #
 # Email
-# --------------------------------------------------------------------------- #
 def build_digest(messages: list[str], generated_at: datetime | None = None) -> EmailMessage:
     """Compose the digest. Split out so it can be asserted on without sending."""
     generated_at = generated_at or datetime.now(UTC)
@@ -192,9 +182,7 @@ class SesChannel(AlertChannel):
         return True
 
 
-# --------------------------------------------------------------------------- #
 # resolution
-# --------------------------------------------------------------------------- #
 def configured_channels(settings: Settings | None = None) -> list[AlertChannel]:
     """Every channel that is ready to send.
 

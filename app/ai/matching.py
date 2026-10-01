@@ -1,25 +1,17 @@
-"""Cross-retailer product matching (entity resolution).
+"""Cross-retailer product matching.
 
-The same physical product appears under different barcodes, titles and languages across
-retailers. Matching them is what makes "who is undercutting us" answerable beyond an
-exact UPC hit.
+The same product appears under different barcodes and titles at every retailer, so "who
+is undercutting us" needs more than an exact UPC hit.
 
-The policy, in priority order:
+Structured identifiers win outright: a UPC match is a fact, a cosine score is an opinion,
+and 0.95 similarity never overrides a barcode mismatch. Candidates are blocked by
+category and brand before the vector search, which suppresses the usual failure where two
+unrelated products with similar-shaped names score highly. Three bands rather than one
+cutoff -- 0.92 and above auto-matches, 0.80 to 0.92 goes to review, below that is
+rejected -- and every decision is stored with its method and score, so precision can be
+measured against reviewer verdicts instead of assumed.
 
-1. **Structured identifiers win outright.** An exact UPC/MPN match is a fact; an
-   embedding similarity is an opinion. Never let a 0.95 cosine override a UPC mismatch.
-2. **Blocking before vector search.** Candidates are restricted by category/brand first.
-   This cuts the comparison space and, more importantly, suppresses the classic failure
-   mode where two unrelated products with similarly-shaped names score highly.
-3. **Three bands, not a single cutoff** (from the build document):
-   `>= 0.92` auto-match, `0.80 - 0.92` human review, `< 0.80` rejected.
-
-Every decision is written to `product_matches` with its method and score, so precision
-and recall can be measured against reviewer verdicts later rather than guessed at.
-
-Embeddings use fastembed (ONNX) rather than sentence-transformers: it serves the same
-`all-MiniLM-L6-v2` 384-dim model without pulling in torch, which matters on a
-memory-constrained machine.
+fastembed (ONNX) rather than sentence-transformers: same all-MiniLM-L6-v2, no torch.
 """
 
 from __future__ import annotations
@@ -86,9 +78,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     return [vector.tolist() for vector in _model().embed(texts)]
 
 
-# --------------------------------------------------------------------------- #
 # embedding backfill
-# --------------------------------------------------------------------------- #
 _PENDING_SQL = """
 select pv.version_id, pv.product_id, pv.title, pv.brand, pv.category
 from product_versions pv
@@ -149,9 +139,7 @@ def embed_pending_products(
     return stats
 
 
-# --------------------------------------------------------------------------- #
 # candidate generation
-# --------------------------------------------------------------------------- #
 #: Nearest neighbours within the same category, excluding the product itself and
 #: anything already carrying the same UPC (those are handled as exact matches).
 #: `1 - (a <=> b)` converts pgvector cosine *distance* to cosine *similarity*.

@@ -29,9 +29,7 @@ MESSAGES = [
 ]
 
 
-# --------------------------------------------------------------------------- #
 # nothing is configured by default
-# --------------------------------------------------------------------------- #
 def test_no_channels_when_nothing_is_configured():
     """A default checkout must not be able to message anyone."""
     assert configured_channels(Settings()) == []
@@ -72,9 +70,7 @@ def test_empty_batch_sends_nothing():
     smtp.assert_not_called()
 
 
-# --------------------------------------------------------------------------- #
 # digest construction
-# --------------------------------------------------------------------------- #
 def test_digest_subject_counts_the_alerts():
     digest = build_digest(MESSAGES, generated_at=datetime(2026, 9, 2, tzinfo=UTC))
     assert "2 competitor undercuts" in digest["Subject"]
@@ -97,9 +93,7 @@ def test_digest_explains_the_staleness_policy():
     assert "older than 7 days" in build_digest(MESSAGES).get_content()
 
 
-# --------------------------------------------------------------------------- #
 # email sending
-# --------------------------------------------------------------------------- #
 @pytest.fixture
 def smtp_settings():
     return Settings(
@@ -153,9 +147,7 @@ def test_smtp_failure_is_reported_not_raised(smtp_settings):
         assert EmailChannel(smtp_settings).send_batch(MESSAGES) is False
 
 
-# --------------------------------------------------------------------------- #
 # channel resolution
-# --------------------------------------------------------------------------- #
 def test_ses_wins_over_smtp_when_both_configured():
     """Sending the same digest twice is worse than picking one path."""
     both = Settings(
@@ -204,9 +196,7 @@ def test_ses_sends_through_boto3():
     assert call["Destination"]["ToAddresses"] == ["b@example.com"]
 
 
-# --------------------------------------------------------------------------- #
 # dry run
-# --------------------------------------------------------------------------- #
 def test_dry_run_records_nothing():
     """Regression: the first implementation inserted alert rows during a dry run.
 

@@ -36,9 +36,7 @@ app = FastAPI(
 router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
-# --------------------------------------------------------------------------- #
 # response models
-# --------------------------------------------------------------------------- #
 class Product(BaseModel):
     product_id: int
     external_id: str
@@ -109,9 +107,7 @@ class Health(BaseModel):
     )
 
 
-# --------------------------------------------------------------------------- #
 # endpoints
-# --------------------------------------------------------------------------- #
 @app.get("/health", response_model=Health, tags=["ops"])
 def health(db: Session = Depends(get_db)) -> Health:
     try:

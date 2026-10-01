@@ -17,9 +17,7 @@ from app.ai.matching import (
 )
 
 
-# --------------------------------------------------------------------------- #
 # embedded text
-# --------------------------------------------------------------------------- #
 def test_combines_title_brand_and_category():
     assert build_text("Nutella", "Ferrero", "spreads") == "Nutella | Ferrero | spreads"
 
@@ -49,9 +47,7 @@ def test_brand_and_category_add_discriminating_context():
     assert a != b
 
 
-# --------------------------------------------------------------------------- #
 # threshold policy
-# --------------------------------------------------------------------------- #
 def test_thresholds_match_the_build_document():
     assert AUTO_MATCH_THRESHOLD == 0.92
     assert REVIEW_THRESHOLD == 0.80

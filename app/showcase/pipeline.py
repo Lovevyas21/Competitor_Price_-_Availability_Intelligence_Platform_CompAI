@@ -1,18 +1,14 @@
-"""The five stages the showcase walks through, and the real work behind each one.
+"""The stages the showcase walks through, and the real work behind each one.
 
-Every number this module emits is read from the warehouse at the moment you press run.
-Nothing here is scripted, cached or seeded for the demo -- if the database is empty the
-console says so, at length, rather than performing a success.
+Every number is read from the warehouse at the moment you press run. Nothing is scripted
+or seeded for the demo -- if the database is empty the console says so rather than
+performing a success.
 
-That distinction matters enough to be a design rule: **the pacing is theatre, the data is
-not.** Stages are timed with a real clock and reported in real milliseconds. The
-line-by-line reveal that makes it look cinematic happens in the browser, after the
-numbers have already arrived (see `static/showcase.js`). The server never sleeps to look
-busy. A stage that renders slowly is a stage the browser is still typing out; a stage
-that *reports* 900 ms genuinely took 900 ms.
+The pacing is theatre; the data is not. Stages are timed with a real clock and reported
+in real milliseconds, and the line-by-line reveal happens in the browser after the
+numbers have already arrived. The server never sleeps to look busy.
 
-Each stage is a generator of events. Yielding rather than returning is what lets the
-console fill progressively instead of appearing all at once.
+Each stage is a generator, which is what lets the console fill progressively.
 """
 
 from __future__ import annotations
@@ -32,9 +28,7 @@ from app.core.settings import get_settings
 Event = dict[str, Any]
 
 
-# --------------------------------------------------------------------------- #
 # event helpers
-# --------------------------------------------------------------------------- #
 def line(text_: str, cls: str = "") -> Event:
     return {"t": "line", "text": text_, "cls": cls}
 
@@ -65,9 +59,7 @@ def _scalar(session: Session, sql: str, **params) -> Any:
     return session.execute(text(sql), params).scalar()
 
 
-# --------------------------------------------------------------------------- #
 # stage 1 -- connect
-# --------------------------------------------------------------------------- #
 def stage_connect(session: Session) -> Iterator[Event]:
     """Prove the warehouse is actually there before claiming anything about it."""
     yield line("opening connection to the warehouse", "dim")
@@ -111,9 +103,7 @@ def stage_connect(session: Session) -> Iterator[Event]:
     yield metric("Monthly partitions", partitions, "created on demand as observations arrive")
 
 
-# --------------------------------------------------------------------------- #
 # stage 2 -- extract
-# --------------------------------------------------------------------------- #
 def stage_extract(session: Session) -> Iterator[Event]:
     """What actually landed: the observations, and who they came from."""
     yield line("reading normalised observations", "dim")
@@ -175,9 +165,7 @@ def stage_extract(session: Session) -> Iterator[Event]:
     )
 
 
-# --------------------------------------------------------------------------- #
 # stage 3 -- resolve
-# --------------------------------------------------------------------------- #
 def stage_resolve(session: Session) -> Iterator[Event]:
     """Deciding which of their products are our products."""
     yield line("resolving competitor listings against our catalogue", "dim")
@@ -246,9 +234,7 @@ def stage_resolve(session: Session) -> Iterator[Event]:
         )
 
 
-# --------------------------------------------------------------------------- #
 # stage 4 -- compare
-# --------------------------------------------------------------------------- #
 def stage_compare(session: Session) -> Iterator[Event]:
     """Where the money question gets answered: who is cheaper than us, and by how much."""
     yield line("comparing matched pairs against our own catalogue", "dim")
@@ -307,9 +293,7 @@ def stage_compare(session: Session) -> Iterator[Event]:
     )
 
 
-# --------------------------------------------------------------------------- #
 # stage 5 -- decide
-# --------------------------------------------------------------------------- #
 def stage_decide(session: Session) -> Iterator[Event]:
     """A detection is not yet an alert. This is the part that decides what to send."""
     yield line("applying the freshness gate", "dim")
@@ -376,9 +360,7 @@ def stage_decide(session: Session) -> Iterator[Event]:
         )
 
 
-# --------------------------------------------------------------------------- #
 # stage 6 -- narrate
-# --------------------------------------------------------------------------- #
 def stage_narrate(session: Session) -> Iterator[Event]:
     """The only stage that calls a language model, and the only one that has to prove
     it is allowed to be believed.
@@ -454,9 +436,7 @@ def stage_narrate(session: Session) -> Iterator[Event]:
     )
 
 
-# --------------------------------------------------------------------------- #
 # live fetch
-# --------------------------------------------------------------------------- #
 #: Deliberately small. This runs from a button in a browser, so it must finish while
 #: someone is watching, and it is a demonstration of the ingest path rather than a
 #: backfill -- the scheduled Celery sweep is what fills the warehouse.
@@ -569,9 +549,7 @@ def _snapshot() -> dict:
         )[0]
 
 
-# --------------------------------------------------------------------------- #
 # orchestration
-# --------------------------------------------------------------------------- #
 STAGES: list[dict] = [
     {
         "id": "connect",

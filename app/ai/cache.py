@@ -1,18 +1,14 @@
 """Narration cache, keyed by the facts a brief was written from.
 
-The weekly brief gets regenerated far more often than the facts change: someone reloads
-the page, a task retries, a demo runs twice. On a free-tier key each of those is a real
-request against a small daily allowance, spent to produce text identical to the text
-already produced.
+The brief is regenerated far more often than the facts change: a page reload, a task
+retry, a demo run twice. On a free-tier key each of those spends a real request to
+produce text identical to text already produced.
 
-Keying on a hash of the facts payload rather than on time is what makes this safe. The
-brief is a function of the facts, so identical facts justify identical prose, and the
-moment a single price moves the key changes and the model is asked again. There is no
-window in which a stale brief can be served for fresh data.
+Hashing the facts rather than keying on elapsed time is what makes it safe. The brief is
+a function of the facts, so the moment one price moves the key changes and the model is
+asked again; there is no window where a stale brief is served for fresh data.
 
-Redis is already a dependency for the rate limiter and Celery, so this adds no
-infrastructure. A missing or unreachable Redis is not an error: the cache degrades to
-always-miss, which costs a request but never a wrong answer.
+An unreachable Redis degrades to always-miss. That costs a request, never an answer.
 """
 
 from __future__ import annotations

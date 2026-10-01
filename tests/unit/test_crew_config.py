@@ -45,9 +45,7 @@ def _with(settings: Settings):
     return patch.object(crew, "get_settings", return_value=settings)
 
 
-# --------------------------------------------------------------------------- #
 # nothing configured
-# --------------------------------------------------------------------------- #
 def test_no_model_is_not_an_error_state_but_is_refused():
     with _with(_settings(llm_model=None)), pytest.raises(crew.CrewUnavailable) as exc:
         crew._require_llm()
@@ -63,9 +61,7 @@ def test_model_without_a_key_explains_which_variable_to_set():
     assert "GEMINI_API_KEY" in str(exc.value)
 
 
-# --------------------------------------------------------------------------- #
 # the .env -> os.environ bridge
-# --------------------------------------------------------------------------- #
 def test_configured_key_is_exported_where_litellm_looks():
     settings = _settings(llm_model="gemini/gemini-3.5-flash", gemini_api_key="k-123")
     with _with(settings):
@@ -115,9 +111,7 @@ def test_an_unknown_provider_prefix_is_passed_through_untouched():
         assert crew._require_llm() == "ollama/llama3"
 
 
-# --------------------------------------------------------------------------- #
 # retrying transient provider failures
-# --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "message",
     [
@@ -172,9 +166,7 @@ def test_retries_are_bounded():
     assert crew_obj.kickoff.call_count == crew.MAX_ATTEMPTS
 
 
-# --------------------------------------------------------------------------- #
 # unattended operation
-# --------------------------------------------------------------------------- #
 def test_crewai_is_stopped_from_prompting_the_terminal(monkeypatch):
     """The brief also runs as a Celery task, where a prompt on stdin is a hang."""
     for name in crew._QUIET_DEFAULTS:

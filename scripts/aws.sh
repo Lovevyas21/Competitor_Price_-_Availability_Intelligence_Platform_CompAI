@@ -34,9 +34,7 @@ need aws
 
 account() { aws sts get-caller-identity --query Account --output text; }
 
-# --------------------------------------------------------------------------- #
 # status
-# --------------------------------------------------------------------------- #
 cmd_status() {
   local acct; acct="$(account)"
   bold "account $acct  region $REGION"
@@ -109,9 +107,7 @@ cost_so_far() {
     || warn "Cost Explorer unavailable (it can take 24h to enable on a new account)"
 }
 
-# --------------------------------------------------------------------------- #
 # up
-# --------------------------------------------------------------------------- #
 cmd_up() {
   step "Persistent stack (bronze, ECR, secrets, budget)"
   terraform -chdir="$PERSISTENT" init -input=false >/dev/null
@@ -134,9 +130,7 @@ cmd_up() {
   warn "this now costs ~\$0.035/hour. Run './scripts/aws.sh down' when finished."
 }
 
-# --------------------------------------------------------------------------- #
 # deploy
-# --------------------------------------------------------------------------- #
 cmd_deploy() {
   local bucket instance
   bucket="$(terraform -chdir="$PERSISTENT" output -raw bronze_bucket)"
@@ -192,9 +186,7 @@ cmd_deploy() {
   ok "deployed"
 }
 
-# --------------------------------------------------------------------------- #
 # open -- a tunnel, because nothing is published
-# --------------------------------------------------------------------------- #
 cmd_open() {
   local instance; instance="$(terraform -chdir="$EPHEMERAL" output -raw app_instance_id)"
   command -v session-manager-plugin >/dev/null || {
@@ -210,9 +202,7 @@ cmd_open() {
     --parameters '{"portNumber":["8000"],"localPortNumber":["8000"]}'
 }
 
-# --------------------------------------------------------------------------- #
 # down
-# --------------------------------------------------------------------------- #
 cmd_down() {
   step "Destroying the ephemeral stack"
   terraform -chdir="$EPHEMERAL" init -input=false >/dev/null
@@ -239,9 +229,7 @@ cmd_down() {
   echo "  Bring it back with './scripts/aws.sh up' -- the warehouse rebuilds from bronze."
 }
 
-# --------------------------------------------------------------------------- #
 # nuke
-# --------------------------------------------------------------------------- #
 cmd_nuke() {
   bold "This destroys the PERSISTENT stack as well."
   echo "  Bronze payloads, the image repository and the hand-entered API keys all go."
@@ -268,10 +256,18 @@ for key in ("Versions", "DeleteMarkers"):
         items = json.loads(out) if out and out != "null" else []
         if not items:
             break
+        # Through a file, not an argument: a page of 500 versions serialises to tens of
+        # kilobytes and Windows caps a command line at 32767 characters, so passing it
+        # inline fails with "The filename or extension is too long".
+        import tempfile, os
+        fd, path = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(fd, "w") as fh:
+            json.dump({"Objects": items, "Quiet": True}, fh)
         subprocess.run(
             ["aws", "s3api", "delete-objects", "--bucket", bucket, "--region", region,
-             "--delete", json.dumps({"Objects": items, "Quiet": True})],
+             "--delete", f"file://{path}"],
             capture_output=True, text=True)
+        os.unlink(path)
         print(f"  removed {len(items)} {key.lower()}")
 PY
   step "Destroying the persistent stack"

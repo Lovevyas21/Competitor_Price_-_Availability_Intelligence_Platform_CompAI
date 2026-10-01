@@ -1,16 +1,11 @@
-"""Celery tasks.
+"""Celery tasks, and what happens when they fail.
 
-Failure policy, in layers:
-
-  * **Transport errors** (`httpx` timeouts, 5xx) auto-retry with exponential backoff and
-    jitter. Jitter matters: without it, a fan-out of 500 SKUs that all fail on an
-    upstream blip would retry in lockstep and hammer the API again.
-  * **Rate limiting** retries after the limiter's own `retry_after`, so the task waits
-    exactly as long as the bucket needs rather than a fixed guess.
-  * **Quota exhaustion** does *not* retry -- the quota resets tomorrow, so burning
-    retries today is pointless. The task dead-letters immediately.
-  * **Anything still failing after max retries** is written to the dead-letter store
-    with its context, so it can be inspected and replayed.
+Transport errors retry with exponential backoff and jitter. The jitter matters: without
+it a fan-out of 500 SKUs failing on one upstream blip retries in lockstep and hammers the
+API again. Rate limiting waits exactly as long as the bucket asks for. Quota exhaustion
+does not retry at all -- the quota resets tomorrow, so retries today are wasted. Anything
+still failing after that goes to the dead-letter store with its context, to be inspected
+and replayed.
 """
 
 from __future__ import annotations
@@ -59,9 +54,7 @@ def dead_letter(reason: str, context: dict[str, Any], payload: Any = None) -> st
     return location
 
 
-# --------------------------------------------------------------------------- #
 # per-SKU fetch -- the fan-out unit
-# --------------------------------------------------------------------------- #
 @shared_task(
     bind=True,
     name="app.ingestion.tasks.fetch_sku",
@@ -160,9 +153,7 @@ def fetch_sku(self, source: str, external_id: str) -> dict:
         client.close()
 
 
-# --------------------------------------------------------------------------- #
 # scheduling / fan-out
-# --------------------------------------------------------------------------- #
 @shared_task(name="app.ingestion.tasks.enqueue_tier", acks_late=True)
 def enqueue_tier(tier: int) -> dict:
     """Fan out per-SKU fetches for every active seed at this tier."""
@@ -209,9 +200,7 @@ def ingest_seeds_task(source: str, max_products: int = 25) -> dict:
     return result.summary()
 
 
-# --------------------------------------------------------------------------- #
 # maintenance
-# --------------------------------------------------------------------------- #
 @shared_task(name="app.ingestion.tasks.ensure_future_partitions", acks_late=True)
 def ensure_future_partitions(months_ahead: int = 3) -> dict:
     """Pre-create upcoming monthly partitions.

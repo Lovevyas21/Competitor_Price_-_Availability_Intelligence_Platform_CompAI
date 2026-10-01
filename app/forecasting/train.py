@@ -1,22 +1,12 @@
-"""Nightly per-SKU price forecasting.
+"""Nightly per-SKU price forecasting, with statsforecast.
 
-Model choice follows the build document: **statsforecast** (AutoETS / AutoARIMA) as the
-per-SKU baseline, for speed and built-in prediction intervals.
+A naive baseline always runs alongside the real models. Retail prices are close to a
+random walk, so anything that cannot beat "tomorrow looks like today" is not earning its
+keep, and without the baseline you would never find out. Accuracy comes from
+rolling-origin backtesting rather than in-sample fit, which flatters everything equally.
 
-Two decisions worth stating, because they are what separate a forecast you can act on
-from a number on a dashboard:
-
-* **A naive baseline always runs.** `SeasonalNaive` (here, last-value) is the honest
-  benchmark. Retail prices are close to a random walk, so a sophisticated model that
-  cannot beat "tomorrow looks like today" is not earning its keep -- and without the
-  baseline you would never know.
-
-* **Accuracy is measured by backtesting, not by fit.** `cross_validation` refits on
-  successive windows and scores predictions the model never saw. In-sample error would
-  flatter every model and be useless for choosing between them.
-
-The champion is selected per series on backtested MAPE, and falls back to the baseline
-whenever it fails to beat it.
+The champion is chosen per series on backtested MAPE and falls back to the baseline
+whenever it loses.
 """
 
 from __future__ import annotations
@@ -159,9 +149,7 @@ def forecast_all(dataset: pd.DataFrame, horizon: int = DEFAULT_HORIZON) -> pd.Da
     return predictions.reset_index() if predictions.index.name == "unique_id" else predictions
 
 
-# --------------------------------------------------------------------------- #
 # persistence
-# --------------------------------------------------------------------------- #
 _INSERT_FORECAST = """
 insert into forecasts
   (product_id, model, horizon_days, yhat, yhat_lower, yhat_upper, forecast_for, trained_at)

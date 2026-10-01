@@ -24,9 +24,7 @@ from app.core.settings import Settings
 from app.showcase import pipeline, routes
 
 
-# --------------------------------------------------------------------------- #
 # it must not be public by accident
-# --------------------------------------------------------------------------- #
 def test_enabled_in_dev_by_default():
     assert routes.is_enabled(Settings(env="dev"))
 
@@ -52,9 +50,7 @@ def test_mount_is_skipped_when_disabled():
     app.mount.assert_not_called()
 
 
-# --------------------------------------------------------------------------- #
 # stage wiring
-# --------------------------------------------------------------------------- #
 def test_every_stage_is_complete_and_unique():
     ids = [s["id"] for s in pipeline.STAGES]
     assert len(ids) == len(set(ids))
@@ -71,9 +67,7 @@ def test_console_rail_lists_exactly_the_real_stages():
     assert html.count("stage-item") == len(pipeline.STAGES)
 
 
-# --------------------------------------------------------------------------- #
 # failure handling
-# --------------------------------------------------------------------------- #
 def _broken_session() -> MagicMock:
     session = MagicMock()
     session.execute.side_effect = ProgrammingError("select 1", {}, Exception("boom"))
@@ -127,9 +121,7 @@ def test_only_runs_the_requested_stage():
     assert [e["id"] for e in events if e["t"] == "stage"] == ["resolve"]
 
 
-# --------------------------------------------------------------------------- #
 # SSE framing
-# --------------------------------------------------------------------------- #
 def test_events_are_framed_as_sse():
     frames = list(routes._sse(iter([{"t": "line", "text": "hello"}])))
     assert frames == ['data: {"t": "line", "text": "hello"}\n\n']
@@ -154,9 +146,7 @@ def test_newlines_in_text_cannot_break_the_frame(event):
     assert frame.endswith("\n\n")
 
 
-# --------------------------------------------------------------------------- #
 # the narrate stage and the live-fetch controls
-# --------------------------------------------------------------------------- #
 def test_narrate_is_the_last_stage():
     """It reads what the earlier stages computed, so it cannot run before them."""
     assert pipeline.STAGES[-1]["id"] == "narrate"

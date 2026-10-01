@@ -50,9 +50,7 @@ def _run(model_says: str, settings: Settings | None = None) -> chat.ChatAnswer:
         return chat.answer_question(MagicMock(), "who undercuts us most?")
 
 
-# --------------------------------------------------------------------------- #
 # the refusal path
-# --------------------------------------------------------------------------- #
 def test_an_invented_figure_is_refused_not_shown():
     """The whole point. A number not in the facts must never reach the reader."""
     answer = _run("EDEKA undercuts us by 91.4%, costing us 12000 EUR this quarter.")
@@ -76,9 +74,7 @@ def test_a_qualitative_answer_needs_no_numbers():
     assert answer.checked == 0
 
 
-# --------------------------------------------------------------------------- #
 # input handling
-# --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("question", ["", "   ", "\n"])
 def test_an_empty_question_costs_nothing(question):
     with patch.object(chat, "build_llm") as build:
@@ -103,9 +99,7 @@ def test_no_model_configured_says_so_plainly():
     assert answer.ok is False
 
 
-# --------------------------------------------------------------------------- #
 # failure paths -- all of which must return, never raise
-# --------------------------------------------------------------------------- #
 def test_a_spent_allowance_is_reported_without_blaming_the_data():
     llm = MagicMock()
     with (

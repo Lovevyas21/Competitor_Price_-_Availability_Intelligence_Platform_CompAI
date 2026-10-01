@@ -1,17 +1,12 @@
-"""CrewAI crew for narrating the weekly brief.
+"""CrewAI narration for the weekly brief.
 
-Role split follows the build document: an analyst reads the numbers, a forecast
-interpreter explains direction and confidence, a writer composes the brief.
-
-One deliberate departure from the obvious design: **the writer is given a facts payload,
-not a database tool.** The build document suggests a read-only SQL tool for the analyst,
-and `tools.py` provides one for exploration -- but the drafting path deliberately does
-not use it. An agent that can query freely can also summarise loosely, and its output is
-then unverifiable. Handing it a closed set of numbers makes `guard.validate_brief` a
+The writer is handed a facts payload, not a database tool. The build document suggests a
+read-only SQL tool and `tools.py` provides one for exploration, but the drafting path
+does not use it: an agent that can query freely can also summarise loosely, and its
+output is then unverifiable. A closed set of numbers makes `guard.validate_brief` a
 decidable check rather than a guess.
 
-CrewAI and an LLM key are both optional. Without them the brief renders deterministically
-(see `brief.py`), which is the default.
+CrewAI and a key are both optional. Without them `brief.py` renders deterministically.
 """
 
 from __future__ import annotations

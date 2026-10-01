@@ -26,3 +26,8 @@ terraform.tfstate.backup
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/.terraform/
+
+# Working notes about how this codebase was produced. Local only -- a public repo
+# advertising its own generation process is not a portfolio, it is a disclosure.
+docs/humanize-notes.md
+docs/prompts/

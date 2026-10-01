@@ -39,9 +39,7 @@ def recent_dates(n: int, step_days: int = 1):
     return [today - timedelta(days=step_days * i) for i in range(n - 1, -1, -1)]
 
 
-# --------------------------------------------------------------------------- #
 # SeriesKey
-# --------------------------------------------------------------------------- #
 def test_series_key_round_trips():
     key = SeriesKey(product_id=12, retailer_id=34, currency="EUR")
     assert SeriesKey.parse(key.unique_id) == key
@@ -53,9 +51,7 @@ def test_series_key_handles_missing_retailer():
     assert SeriesKey.parse(key.unique_id).retailer_id is None
 
 
-# --------------------------------------------------------------------------- #
 # dataset construction
-# --------------------------------------------------------------------------- #
 def test_gaps_are_forward_filled_onto_a_daily_grid():
     dates = recent_dates(3, step_days=5)  # 5-day gaps
     out = to_regular_daily(make_frame(dates, [10.0, 12.0, 11.0]), min_observations=3)
@@ -121,9 +117,7 @@ def test_empty_input_produces_empty_output_with_schema():
     assert list(out.columns) == ["unique_id", "ds", "y", "is_observed"]
 
 
-# --------------------------------------------------------------------------- #
 # MAPE
-# --------------------------------------------------------------------------- #
 def test_mape_is_zero_for_perfect_predictions():
     assert mape(np.array([10.0, 20.0]), np.array([10.0, 20.0])) == pytest.approx(0.0)
 
@@ -142,9 +136,7 @@ def test_mape_is_none_when_every_actual_is_zero():
     assert mape(np.array([0.0, 0.0]), np.array([1.0, 2.0])) is None
 
 
-# --------------------------------------------------------------------------- #
 # champion selection
-# --------------------------------------------------------------------------- #
 def _scores(rows):
     return pd.DataFrame(rows)
 

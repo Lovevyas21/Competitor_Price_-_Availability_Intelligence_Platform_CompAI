@@ -1,17 +1,13 @@
 """Question answering over the warehouse figures.
 
-Same contract as the weekly brief, for the same reason: **the model is handed a closed
-set of numbers, never a database connection.** It cannot run a query, so it cannot
-quietly widen the question, and every figure it writes back can be checked against the
-payload it was given. `guard.validate_brief` then does exactly that, and an answer
-containing a number the warehouse cannot account for is refused rather than shown.
+Same contract as the brief: the model gets a closed set of numbers, never a database
+connection. It cannot run a query, so it cannot quietly widen the question, and every
+figure it writes back is checked against the payload it was given. An answer containing a
+number the warehouse cannot account for is refused rather than shown.
 
-That refusal is the point. In a pricing context a confident sentence with an invented
-figure is worse than no answer at all -- someone will act on it. The worst case here is
-"I cannot answer that from the data", which is a true statement.
-
-The same free-tier controls apply as elsewhere: reasoning off, one call, a short output
-cap, and a daily allowance shared through Redis.
+That refusal is the point. In a pricing context a confident sentence carrying an invented
+figure is worse than no answer, because someone acts on it. The worst case here is "I
+cannot answer that from the data", which is true.
 """
 
 from __future__ import annotations

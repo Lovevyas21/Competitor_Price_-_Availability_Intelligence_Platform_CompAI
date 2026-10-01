@@ -171,9 +171,7 @@ def ingest_source(
     return result
 
 
-# --------------------------------------------------------------------------- #
 # seed-driven ingestion (deep per-SKU history)
-# --------------------------------------------------------------------------- #
 def seed_from_source(source_name: str, limit: int = 50, tier: int = 1) -> list[tuple[str, int]]:
     """Populate `seed_products` with the SKUs whose history is richest.
 

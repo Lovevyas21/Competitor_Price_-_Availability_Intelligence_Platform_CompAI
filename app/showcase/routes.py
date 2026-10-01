@@ -1,15 +1,11 @@
-"""Serving layer for the showcase.
+"""Serving layer for the showcase: the pages, and the stream that feeds them.
 
-Three routes: an intro page, the console page, and the stream that feeds it.
+Server-Sent Events rather than one JSON response, because the point is that results
+appear as they are produced. A single body arrives complete and leaves nothing to reveal.
 
-The stream is Server-Sent Events rather than one JSON response, because the whole point
-is that results appear as they are produced. A single response body would arrive complete
-and the console would have nothing left to reveal.
-
-**This blueprint is not mounted in production by default.** It reads real mart data and,
-unlike `/products` and friends, carries no API key check -- a demo you have to
-authenticate into is not much of a demo. So it follows `env`: on in dev, off in prod
-unless `showcase_enabled=true` is set deliberately. See `is_enabled`.
+Not mounted in production by default: it reads real mart data and carries no API key
+check, so it follows `env` -- on in dev, off in prod unless `showcase_enabled` says
+otherwise. See `is_enabled`.
 """
 
 from __future__ import annotations
@@ -53,9 +49,7 @@ def is_enabled(settings: Settings | None = None) -> bool:
     return s.env == "dev"
 
 
-# --------------------------------------------------------------------------- #
 # pages
-# --------------------------------------------------------------------------- #
 @router.get("", include_in_schema=False)
 @router.get("/", include_in_schema=False)
 def intro() -> FileResponse:
@@ -67,9 +61,7 @@ def console() -> FileResponse:
     return FileResponse(TEMPLATES / "console.html")
 
 
-# --------------------------------------------------------------------------- #
 # stream
-# --------------------------------------------------------------------------- #
 def _sse(events: Iterator[dict]) -> Iterator[str]:
     """Frame events as SSE.
 

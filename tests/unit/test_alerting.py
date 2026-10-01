@@ -31,9 +31,7 @@ def row(**overrides):
     return base
 
 
-# --------------------------------------------------------------------------- #
 # fingerprinting / dedupe identity
-# --------------------------------------------------------------------------- #
 def test_same_undercut_has_a_stable_fingerprint():
     assert _fingerprint(row()) == _fingerprint(row())
 
@@ -60,9 +58,7 @@ def test_fingerprint_has_no_newline_so_it_survives_message_encoding():
     assert "\n" not in _fingerprint(row())
 
 
-# --------------------------------------------------------------------------- #
 # message
-# --------------------------------------------------------------------------- #
 def test_message_states_who_what_and_how_much():
     message = format_message(row())
     assert "E.Leclerc" in message
@@ -80,12 +76,10 @@ def test_message_surfaces_evidence_age():
     assert "2d ago" in format_message(row(days_stale=2))
 
 
-# --------------------------------------------------------------------------- #
 # Slack delivery
 #
 # Slack posting moved from service.py into SlackChannel when email was added; these
 # assertions follow it rather than being deleted, since the behaviour still matters.
-# --------------------------------------------------------------------------- #
 SLACK = SlackChannel("http://hook")
 
 

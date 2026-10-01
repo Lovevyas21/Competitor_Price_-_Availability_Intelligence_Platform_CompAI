@@ -24,9 +24,7 @@ def _settings(**kw) -> Settings:
     return Settings(_env_file=None, **kw)
 
 
-# --------------------------------------------------------------------------- #
 # thinking config -- the single biggest saving
-# --------------------------------------------------------------------------- #
 def test_thinking_is_disabled_by_default():
     """Regression: CrewAI auto-enables reasoning for every Gemini >= 2.5.
 
@@ -69,9 +67,7 @@ def test_output_cap_is_configurable():
     assert fake_llm.call_args.kwargs["max_tokens"] == 400
 
 
-# --------------------------------------------------------------------------- #
 # budget
-# --------------------------------------------------------------------------- #
 def test_budget_is_registered_from_settings():
     limits = llm.configure_budget(_settings(llm_requests_per_minute=6, llm_daily_request_limit=50))
     assert limits.daily_quota == 50
@@ -121,9 +117,7 @@ def test_limits_can_be_registered_at_runtime():
     assert ratelimit.limits_for("llm-test").daily_quota == 2
 
 
-# --------------------------------------------------------------------------- #
 # narration cache
-# --------------------------------------------------------------------------- #
 class _Facts:
     def __init__(self, payload):
         self._payload = payload
@@ -182,9 +176,7 @@ def test_cached_body_is_stored_with_the_configured_ttl():
     assert args[1] == 3600
 
 
-# --------------------------------------------------------------------------- #
 # the cache short-circuit in generate_brief
-# --------------------------------------------------------------------------- #
 def test_a_cache_hit_never_reaches_the_model():
     """The saving that matters most: a brief regenerated on unchanged facts is free."""
     from app.ai import brief

@@ -14,9 +14,7 @@ from app.ai.facts import WeeklyFacts
 from app.ai.guard import extract_numbers, validate_brief
 
 
-# --------------------------------------------------------------------------- #
 # number extraction
-# --------------------------------------------------------------------------- #
 def test_extracts_plain_and_decimal_numbers():
     assert extract_numbers("price 2.85 and 12") == [2.85, 12.0]
 
@@ -46,9 +44,7 @@ def test_negative_numbers_are_captured():
     assert -33.73 in extract_numbers("gap of -33.73%")
 
 
-# --------------------------------------------------------------------------- #
 # validation
-# --------------------------------------------------------------------------- #
 def test_brief_using_only_known_numbers_passes():
     result = validate_brief("Undercut of 33.73% at 1.69 EUR", {33.73, 1.69})
     assert result.ok
@@ -89,9 +85,7 @@ def test_empty_brief_trivially_passes():
     assert validate_brief("", set()).ok
 
 
-# --------------------------------------------------------------------------- #
 # facts -> allowed numbers
-# --------------------------------------------------------------------------- #
 def _facts(**overrides) -> WeeklyFacts:
     base = {
         "generated_at": "2026-09-01",

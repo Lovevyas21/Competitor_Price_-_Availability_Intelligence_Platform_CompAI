@@ -28,7 +28,9 @@ TOUCHES = {
         r"_get_json\(|httpx\.(get|post|Client)|self\._http\.|smtplib\.SMTP|send_email\("
         r"|\bllm\.call\(|\.kickoff\("
     ),
-    "redis": re.compile(r"self\._redis|redis\.Redis|_client\(s?\)\.|self\._bucket\(|register_script"),
+    "redis": re.compile(
+        r"self\._redis|redis\.Redis|_client\(s?\)\.|self\._bucket\(|register_script"
+    ),
     "raw": re.compile(
         r"store\.put\(|\.put_object\(|\.get_object\(|write_bytes\(|read_bytes\("
         r"|get_bronze_store\(\)\.put|store\.iter_payloads\("
@@ -128,7 +130,11 @@ def extract_dbt() -> dict[str, dict]:
     for p in sorted((ROOT / "dbt" / "models").rglob("*.sql")):
         sql = p.read_text(encoding="utf-8")
         comment = next(
-            (ln.strip().lstrip("-").strip() for ln in sql.splitlines() if ln.strip().startswith("--")),
+            (
+                ln.strip().lstrip("-").strip()
+                for ln in sql.splitlines()
+                if ln.strip().startswith("--")
+            ),
             "",
         )
         models[p.stem] = {
@@ -153,7 +159,8 @@ def extract_dbt() -> dict[str, dict]:
 
 def extract() -> dict[str, Module]:
     paths = sorted(
-        p for p in (ROOT / "app").rglob("*.py")
+        p
+        for p in (ROOT / "app").rglob("*.py")
         if p.name != "__init__.py" and "__pycache__" not in p.parts
     )
     modules = {".".join(p.relative_to(ROOT).with_suffix("").parts) for p in paths}
@@ -178,15 +185,21 @@ def _read_module(p: Path, modules: set[str], known: set[str]) -> Module:
     # with the tables CANDIDATES_SQL reads.
     consts = {
         t.id: ast.get_source_segment(src, n.value) or ""
-        for n in tree.body if isinstance(n, ast.Assign)
-        for t in n.targets if isinstance(t, ast.Name) and t.id.isupper()
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        for t in n.targets
+        if isinstance(t, ast.Name) and t.id.isupper()
     }
 
     def add(node, qual, kind, cls_methods=()):
         seg = ast.get_source_segment(src, node) or ""
         f = Func(
-            name=node.name, qual=qual, line=node.lineno, end=node.end_lineno or node.lineno,
-            kind=kind, doc=_first_line(ast.get_docstring(node)),
+            name=node.name,
+            qual=qual,
+            line=node.lineno,
+            end=node.end_lineno or node.lineno,
+            kind=kind,
+            doc=_first_line(ast.get_docstring(node)),
             entry=_entry_reason(node, mod),
         )
         if kind != "class":
@@ -226,7 +239,9 @@ def _read_module(p: Path, modules: set[str], known: set[str]) -> Module:
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
             add(n, n.name, "fn")
         elif isinstance(n, ast.ClassDef):
-            methods = [x.name for x in n.body if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            methods = [
+                x.name for x in n.body if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ]
             add(n, n.name, "class")
             for x in n.body:
                 if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
@@ -238,7 +253,7 @@ def _read_module(p: Path, modules: set[str], known: set[str]) -> Module:
 
 def extract_beat() -> list[dict]:
     src = (ROOT / "app" / "celery_app.py").read_text(encoding="utf-8")
-    block = src[src.index("beat_schedule"):]
+    block = src[src.index("beat_schedule") :]
     rx = r'"([a-z0-9-]+)":\s*\{\s*"task":\s*"([^"]+)",\s*"schedule":\s*(crontab\([^)]*\))'
     return [{"name": a, "task": b, "schedule": c} for a, b, c in re.findall(rx, block)]
 
@@ -253,9 +268,19 @@ def extract_tests() -> list[dict]:
                 targets.add(n.module)
                 for a in n.names:
                     targets.add(f"{n.module}.{a.name}")
-        count = sum(1 for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name.startswith("test_"))
-        out.append({"path": p.relative_to(ROOT).as_posix(), "suite": p.parent.name,
-                    "targets": sorted(targets), "tests": count})
+        count = sum(
+            1
+            for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")
+        )
+        out.append(
+            {
+                "path": p.relative_to(ROOT).as_posix(),
+                "suite": p.parent.name,
+                "targets": sorted(targets),
+                "tests": count,
+            }
+        )
     return out
 
 
@@ -267,5 +292,7 @@ if __name__ == "__main__":
     for m in extract().values():
         for f in m.funcs.values():
             if f.touches or f.reads or f.writes:
-                print(f"{m.path:30} {f.qual:30} {','.join(f.touches):14} "
-                      f"R:{','.join(f.reads)[:55]:55} W:{','.join(f.writes)}")
+                print(
+                    f"{m.path:30} {f.qual:30} {','.join(f.touches):14} "
+                    f"R:{','.join(f.reads)[:55]:55} W:{','.join(f.writes)}"
+                )

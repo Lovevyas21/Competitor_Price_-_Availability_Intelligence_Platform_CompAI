@@ -60,6 +60,28 @@ def _scalar(session: Session, sql: str, **params) -> Any:
 
 
 # stage 1 -- connect
+def _count_bronze_objects(settings) -> int:
+    """Objects in the bronze bucket, or 0 if it cannot be reached.
+
+    Capped: this runs behind a web request, and a bucket with a million keys should not
+    turn the first stage of a demo into a full listing.
+    """
+    try:
+        import boto3  # noqa: PLC0415
+
+        client = boto3.client("s3", endpoint_url=settings.bronze_s3_endpoint_url or None)
+        total = 0
+        for page in client.get_paginator("list_objects_v2").paginate(
+            Bucket=settings.bronze_s3_bucket,
+            Prefix="bronze/",
+            PaginationConfig={"MaxItems": 50_000},
+        ):
+            total += page.get("KeyCount", 0)
+        return total
+    except Exception:  # noqa: BLE001 - a count is not worth failing the stage over
+        return 0
+
+
 def stage_connect(session: Session) -> Iterator[Event]:
     """Prove the warehouse is actually there before claiming anything about it."""
     yield line("opening connection to the warehouse", "dim")
@@ -83,14 +105,24 @@ def stage_connect(session: Session) -> Iterator[Event]:
             [[s["name"], s["base_url"], s["auth_type"] or "none"] for s in sources],
         )
 
-    bronze = Path(settings.bronze_local_path)
-    payloads = sum(1 for _ in bronze.rglob("*")) if bronze.exists() else 0
-    yield metric(
-        "Raw payloads on disk",
-        f"{payloads:,}",
+    # Counted where bronze actually lives. Reading the local path regardless of backend
+    # reported a confident zero on a deployment storing every payload in object storage,
+    # which reads as "nothing was kept" -- the opposite of true.
+    note = (
         "bronze layer -- every response kept before parsing, so the warehouse "
-        "can be rebuilt without re-calling anyone",
+        "can be rebuilt without re-calling anyone"
     )
+    if settings.bronze_backend == "s3":
+        yield metric("Bronze store", f"s3://{settings.bronze_s3_bucket}", note)
+        yield metric(
+            "Raw payloads",
+            f"{_count_bronze_objects(settings):,}",
+            "objects under the bronze/ prefix",
+        )
+    else:
+        bronze = Path(settings.bronze_local_path)
+        payloads = sum(1 for _ in bronze.rglob("*")) if bronze.exists() else 0
+        yield metric("Raw payloads on disk", f"{payloads:,}", note)
 
     partitions = _scalar(
         session,

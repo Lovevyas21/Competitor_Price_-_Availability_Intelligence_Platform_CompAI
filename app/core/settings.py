@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     bronze_local_path: str = "./data/bronze"
     deadletter_local_path: str = "./data/deadletter"
     bronze_s3_bucket: str | None = None
+    # Points boto3 at a non-AWS S3 implementation. Railway Buckets, MinIO and R2 all
+    # speak the same protocol; leaving it unset means AWS.
+    bronze_s3_endpoint_url: str | None = None
+
+    # Railway (and most PaaS) assign a port and route to it. Binding a hardcoded 8000
+    # means the proxy reaches nothing.
+    port: int = 8000
 
     # Source credentials -- all optional, keyless sources ignore them.
     bestbuy_api_key: str | None = None

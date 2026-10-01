@@ -82,14 +82,21 @@ class LocalBronzeStore(BronzeStore):
 
 
 class S3BronzeStore(BronzeStore):
-    """Phase-6 backend. Imports boto3 lazily so dev installs stay slim."""
+    """Any S3-compatible object store. boto3 is imported lazily so dev installs stay slim.
 
-    def __init__(self, bucket: str, prefix: str = "bronze") -> None:
+    `endpoint_url` is what makes this portable: unset it points at AWS, set it points at
+    Railway Buckets, MinIO or R2. The protocol is the same, so the move off AWS cost one
+    argument rather than a rewrite.
+    """
+
+    def __init__(
+        self, bucket: str, prefix: str = "bronze", endpoint_url: str | None = None
+    ) -> None:
         import boto3  # noqa: PLC0415
 
         self.bucket = bucket
         self.prefix = prefix.strip("/")
-        self._client = boto3.client("s3")
+        self._client = boto3.client("s3", endpoint_url=endpoint_url or None)
 
     def _key(self, source: str, observed_at: datetime, key: str) -> str:
         return f"{self.prefix}/{bronze_object_path(source, observed_at, key)}"
@@ -130,7 +137,9 @@ def get_bronze_store(settings: Settings | None = None) -> BronzeStore:
     if settings.bronze_backend == "s3":
         if not settings.bronze_s3_bucket:
             raise ValueError("BRONZE_BACKEND=s3 requires BRONZE_S3_BUCKET to be set")
-        return S3BronzeStore(settings.bronze_s3_bucket)
+        return S3BronzeStore(
+            settings.bronze_s3_bucket, endpoint_url=settings.bronze_s3_endpoint_url
+        )
     return LocalBronzeStore(settings.bronze_local_path)
 
 

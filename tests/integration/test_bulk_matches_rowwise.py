@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -110,7 +108,7 @@ def test_both_paths_collapse_the_exact_duplicate():
     assert len(bulk_events) == len(set(bulk_events))
 
 
-def test_both_paths_keep_one_current_version_per_product():
+def test_one_current_version():
     _, versions = _run(_bulk)
     current = [v for v in versions if v[2]]
     assert len(current) == len({v[0] for v in versions})

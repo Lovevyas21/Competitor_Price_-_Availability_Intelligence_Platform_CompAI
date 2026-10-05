@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from unittest.mock import patch
 
 import httpx
@@ -28,7 +26,7 @@ def test_same_undercut_has_a_stable_fingerprint():
     assert _fingerprint(row()) == _fingerprint(row())
 
 
-def test_a_deeper_cut_is_a_different_alert():
+def test_deeper_cut_new_alert():
     assert _fingerprint(row()) != _fingerprint(row(competitor_price="2.49"))
 
 
@@ -40,11 +38,11 @@ def test_different_products_are_different_alerts():
     assert _fingerprint(row()) != _fingerprint(row(upc="0000000000001"))
 
 
-def test_same_number_in_a_different_currency_is_a_different_alert():
+def test_currency_changes_fingerprint():
     assert _fingerprint(row()) != _fingerprint(row(currency="SEK"))
 
 
-def test_fingerprint_has_no_newline_so_it_survives_message_encoding():
+def test_fingerprint_single_line():
     assert "\n" not in _fingerprint(row())
 
 
@@ -56,7 +54,7 @@ def test_message_states_who_what_and_how_much():
     assert "2.99" in message and "3.75" in message
 
 
-def test_message_reports_the_percentage_as_a_magnitude():
+def test_message_percentage():
     assert "-20.3%" not in format_message(row())
 
 

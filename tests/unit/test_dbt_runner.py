@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import subprocess
 from unittest.mock import patch
 
@@ -27,7 +25,7 @@ def test_passes_extra_args_through():
     assert argv[1:] == ["build", "--select", "marts"]
 
 
-def test_supplies_credentials_and_profiles_dir_via_env():
+def test_env_has_credentials():
     with patch("app.transform.dbt_runner.subprocess.run", return_value=_completed()) as run:
         run_dbt("build")
     env = run.call_args.kwargs["env"]

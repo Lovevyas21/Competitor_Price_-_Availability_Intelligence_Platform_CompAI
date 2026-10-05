@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -47,17 +45,19 @@ def _scalar(session: Session, sql: str, **params) -> Any:
 def _count_bronze_objects(settings) -> int:
     try:
         import boto3
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError:
+        return 0
 
-        client = boto3.client("s3", endpoint_url=settings.bronze_s3_endpoint_url or None)
-        total = 0
-        for page in client.get_paginator("list_objects_v2").paginate(
-            Bucket=settings.bronze_s3_bucket,
-            Prefix="bronze/",
-            PaginationConfig={"MaxItems": 50_000},
-        ):
-            total += page.get("KeyCount", 0)
-        return total
-    except Exception:
+    client = boto3.client("s3", endpoint_url=settings.bronze_s3_endpoint_url or None)
+    pages = client.get_paginator("list_objects_v2").paginate(
+        Bucket=settings.bronze_s3_bucket,
+        Prefix="bronze/",
+        PaginationConfig={"MaxItems": 50_000},
+    )
+    try:
+        return sum(page.get("KeyCount", 0) for page in pages)
+    except (BotoCoreError, ClientError):
         return 0
 
 
@@ -84,7 +84,7 @@ def stage_connect(session: Session) -> Iterator[Event]:
         )
 
     note = (
-        "bronze layer -- every response kept before parsing, so the warehouse "
+        "bronze layer: every response kept before parsing, so the warehouse "
         "can be rebuilt without re-calling anyone"
     )
     if settings.bronze_backend == "s3":
@@ -127,7 +127,7 @@ def stage_extract(session: Session) -> Iterator[Event]:
     )[0]
 
     if not counts["events"]:
-        yield line("no price events in the warehouse -- run an ingest first", "err")
+        yield line("no price events in the warehouse, run an ingest first", "err")
         yield line("make ingest   (or: python -m app.cli ingest --days 90)", "dim")
         return
 
@@ -137,7 +137,7 @@ def stage_extract(session: Session) -> Iterator[Event]:
     yield metric(
         "Currencies",
         counts["currencies"],
-        "currency is part of the grain everywhere -- prices are never compared across it",
+        "currency is part of the grain everywhere, prices are never compared across it",
     )
     yield metric("History span", f"{counts['first_seen']} to {counts['last_seen']}")
 
@@ -190,7 +190,7 @@ def stage_resolve(session: Session) -> Iterator[Event]:
         """,
     )
     if not bands:
-        yield line("no candidate matches yet -- run the matcher", "warn")
+        yield line("no candidate matches yet, run the matcher", "warn")
         return
 
     yield table(
@@ -204,12 +204,12 @@ def stage_resolve(session: Session) -> Iterator[Event]:
     yield metric(
         "Queued for review",
         f"{pending:,}",
-        "0.80-0.92 -- a suggestion, not a decision; a person confirms these",
+        "0.80-0.92: a suggestion, not a decision; a person confirms these",
         cls="warn",
     )
     yield line(
         "the middle band is deliberate. Auto-approving it would inflate coverage "
-        "and quietly corrupt every price comparison downstream",
+        "and corrupt every price comparison downstream",
         "dim",
     )
 
@@ -242,7 +242,7 @@ def stage_compare(session: Session) -> Iterator[Event]:
 
     gaps = _scalar(session, "select count(*) from analytics_marts.mart_price_gap_vs_own")
     if not gaps:
-        yield line("price gap mart is empty -- rebuild the marts (make dbt-build)", "err")
+        yield line("price gap mart is empty, rebuild the marts (make dbt-build)", "err")
         return
 
     yield metric("Comparable pairs", f"{gaps:,}", "same product, same currency, both sides priced")
@@ -334,7 +334,7 @@ def stage_decide(session: Session) -> Iterator[Event]:
         yield metric(
             "Delivery channels live",
             "none configured",
-            "nothing sends until a webhook, SMTP host or SES region is set -- "
+            "nothing sends until a webhook, SMTP host or SES region is set, so "
             "a fresh checkout cannot message anyone by accident",
             cls="warn",
         )
@@ -365,7 +365,7 @@ def stage_narrate(session: Session) -> Iterator[Event]:
 
     settings = get_settings()
     if not settings.llm_model:
-        yield line("no model configured -- the brief renders deterministically", "warn")
+        yield line("no model configured, brief renders deterministically", "warn")
         yield line(
             "that is the default: no key, no cost, and no chance of a fabricated number",
             "dim",
@@ -386,7 +386,7 @@ def stage_narrate(session: Session) -> Iterator[Event]:
 
     labels = {
         "llm": ("written by the model, just now", "ok"),
-        "llm-cached": ("unchanged facts -- served from cache, no request made", "ok"),
+        "llm-cached": ("unchanged facts, served from cache, no request made", "ok"),
         "deterministic": ("model unavailable or rejected; deterministic brief stands in", "warn"),
     }
     label, cls = labels.get(result.source, (result.source, ""))
@@ -409,7 +409,7 @@ def stage_narrate(session: Session) -> Iterator[Event]:
         else:
             yield metric(
                 "Numeric guard",
-                f"REJECTED -- {len(guard.unsupported)} unsupported",
+                f"REJECTED: {len(guard.unsupported)} unsupported",
                 f"not in the facts: {', '.join(str(u) for u in guard.unsupported[:5])}",
                 cls="warn",
             )
@@ -420,7 +420,7 @@ def stage_narrate(session: Session) -> Iterator[Event]:
         title="Weekly brief",
         note=(
             "Generated from the figures above. Reasoning is disabled and the crew runs as a "
-            "single call -- one brief costs about 2,400 tokens instead of 12,500."
+            "single call: one brief costs about 2,400 tokens instead of 12,500."
         ),
     )
 
@@ -467,7 +467,7 @@ def _report_fetch(result, before: dict) -> Iterator[Event]:
     yield metric(
         "New price events",
         f"+{after['events'] - before['events']:,}",
-        "insert-on-change: an unchanged price is not a new row, so this is genuinely new "
+        "insert-on-change: an unchanged price is not a new row, so this is new "
         "information rather than a count of what was downloaded",
     )
     yield metric("New products", f"+{after['products'] - before['products']:,}")
@@ -501,7 +501,7 @@ def _report_fetch(result, before: dict) -> Iterator[Event]:
         )
 
     yield line(
-        "marts are not rebuilt by this button -- run `make dbt-build` (or wait for the "
+        "marts are not rebuilt by this button. Run `make dbt-build` (or wait for the "
         "scheduled sweep) before the undercut figures reflect these rows",
         "dim",
     )

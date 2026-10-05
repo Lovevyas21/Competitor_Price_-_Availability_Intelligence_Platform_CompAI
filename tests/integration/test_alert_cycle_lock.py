@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,14 +32,14 @@ def two_sessions(engine):
     b.close()
 
 
-def test_the_second_cycle_is_refused_while_the_first_holds_the_lock(two_sessions):
+def test_second_cycle_blocked_by_lock(two_sessions):
     first, second = two_sessions
 
     assert _acquire_cycle_lock(first) is True
     assert _acquire_cycle_lock(second) is False
 
 
-def test_the_lock_is_released_when_the_transaction_ends(two_sessions):
+def test_lock_released_on_commit(two_sessions):
     first, second = two_sessions
 
     assert _acquire_cycle_lock(first) is True
@@ -52,17 +50,17 @@ def test_the_lock_is_released_when_the_transaction_ends(two_sessions):
     assert _acquire_cycle_lock(second) is True
 
 
-def test_the_same_session_may_reacquire(two_sessions):
+def test_same_session_reacquires(two_sessions):
     first, _ = two_sessions
     assert _acquire_cycle_lock(first) is True
     assert _acquire_cycle_lock(first) is True
 
 
-def test_the_lock_key_is_pinned():
+def test_lock_key_pinned():
     assert ALERT_CYCLE_LOCK_KEY == 0x_A1E7_C7C1
 
 
-def test_a_locked_out_cycle_writes_nothing_and_says_so(engine):
+def test_locked_cycle_writes_nothing(engine):
     factory = sessionmaker(bind=engine)
     holder = factory()
     try:
@@ -88,7 +86,7 @@ def test_a_locked_out_cycle_writes_nothing_and_says_so(engine):
         holder.close()
 
 
-def test_a_dry_run_is_not_blocked_by_a_running_cycle(engine):
+def test_dry_run_ignores_lock(engine):
     factory = sessionmaker(bind=engine)
     holder = factory()
     try:
@@ -111,7 +109,7 @@ def test_a_dry_run_is_not_blocked_by_a_running_cycle(engine):
         holder.close()
 
 
-def test_the_lock_does_not_leak_into_other_work(engine):
+def test_lock_scoped_to_transaction(engine):
     factory = sessionmaker(bind=engine)
     holder, other = factory(), factory()
     try:

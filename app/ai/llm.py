@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.core.logging import get_logger
 from app.core.settings import Settings, get_settings
 from app.ingestion.ratelimit import (

@@ -61,6 +61,6 @@ def test_negative_price_rejected_at_model_level():
         make_record(price="-1")
 
 
-def test_implausible_price_rejected_at_model_level():
+def test_implausible_price():
     with pytest.raises(ValueError, match="implausibly large"):
         make_record(price="99999999999")

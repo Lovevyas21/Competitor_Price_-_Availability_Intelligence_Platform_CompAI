@@ -42,7 +42,7 @@ def test_managed_flag_reflects_override():
     assert not Settings().is_managed_database
 
 
-def test_a_password_with_percent_encoding_survives_alembic():
+def test_percent_in_password():
     import configparser
 
     from app.core.settings import Settings

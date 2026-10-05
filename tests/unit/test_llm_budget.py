@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,7 +22,7 @@ def test_thinking_can_be_turned_back_on():
     assert llm._gemini_thinking_config(enabled=True).include_thoughts is True
 
 
-def test_build_llm_passes_the_gemini_thinking_parameter():
+def test_build_llm_thinking():
     fake_llm = MagicMock()
     with patch.dict("sys.modules", {"crewai": MagicMock(LLM=fake_llm)}):
         llm.build_llm("gemini/gemini-3.5-flash", _settings())
@@ -53,7 +51,7 @@ def test_budget_is_registered_from_settings():
     assert limits.requests_per_minute == 6
 
 
-def test_a_whole_run_is_reserved_up_front():
+def test_reserve_whole_run():
     limiter = MagicMock()
     limiter.consume_daily.return_value = 3
     with patch.object(llm, "get_rate_limiter", return_value=limiter):
@@ -62,7 +60,7 @@ def test_a_whole_run_is_reserved_up_front():
     limiter.consume_daily.assert_called_once_with(llm.LLM_SOURCE, count=3)
 
 
-def test_exhausted_daily_allowance_refuses_the_run():
+def test_daily_limit():
     limiter = MagicMock()
     limiter.consume_daily.side_effect = QuotaExhausted("llm", 200)
     with (
@@ -73,7 +71,7 @@ def test_exhausted_daily_allowance_refuses_the_run():
     assert "daily allowance" in str(exc.value)
 
 
-def test_rate_limit_refuses_the_run_with_a_retry_hint():
+def test_rate_limited():
     limiter = MagicMock()
     limiter.acquire.side_effect = RateLimited("llm", 12.0)
     with (
@@ -105,13 +103,13 @@ def test_same_facts_produce_the_same_fingerprint():
     assert cache.facts_fingerprint(a, "m") == cache.facts_fingerprint(b, "m")
 
 
-def test_a_changed_price_changes_the_fingerprint():
+def test_price_change_new_fingerprint():
     a = _Facts({"undercuts": 108})
     b = _Facts({"undercuts": 109})
     assert cache.facts_fingerprint(a, "m") != cache.facts_fingerprint(b, "m")
 
 
-def test_the_model_is_part_of_the_key():
+def test_model_in_key():
     facts = _Facts({"undercuts": 108})
     assert cache.facts_fingerprint(facts, "gemini/a") != cache.facts_fingerprint(facts, "gemini/b")
 
@@ -123,7 +121,7 @@ def test_cache_returns_a_previous_narration():
         assert cache.get("fp", _settings()) == "# Brief"
 
 
-def test_an_unreachable_cache_is_a_miss_not_an_error():
+def test_cache_unreachable():
     with patch.object(cache, "_client", side_effect=OSError("redis down")):
         assert cache.get("fp", _settings()) is None
         cache.put("fp", "body", _settings())
@@ -138,7 +136,7 @@ def test_caching_can_be_switched_off():
     client.setex.assert_not_called()
 
 
-def test_cached_body_is_stored_with_the_configured_ttl():
+def test_cache_ttl():
     client = MagicMock()
     with patch.object(cache, "_client", return_value=client):
         cache.put("fp", "body", _settings(llm_cache_ttl_seconds=3600))
@@ -147,7 +145,7 @@ def test_cached_body_is_stored_with_the_configured_ttl():
     assert args[1] == 3600
 
 
-def test_a_cache_hit_never_reaches_the_model():
+def test_cache_hit_skips_model():
     from app.ai import brief
 
     facts = MagicMock()
@@ -167,7 +165,7 @@ def test_a_cache_hit_never_reaches_the_model():
     narrate.assert_not_called()
 
 
-def test_a_cache_hit_that_no_longer_validates_is_not_served():
+def test_stale_cache_hit():
     from app.ai import brief
 
     facts = MagicMock()
@@ -188,7 +186,7 @@ def test_a_cache_hit_that_no_longer_validates_is_not_served():
     assert result.source == "llm"
 
 
-def test_a_refused_budget_falls_back_rather_than_failing():
+def test_budget_fallback():
     from app.ai import brief
 
     facts = MagicMock()

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from app.clients.base import SourceClient
 from app.clients.fakestore import FakeStoreClient
 from app.clients.openprices import OpenPricesClient

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import gzip
 import json
 from abc import ABC, abstractmethod
@@ -8,10 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from app.core.logging import get_logger
 from app.core.settings import Settings, get_settings
-
-log = get_logger(__name__)
 
 
 def bronze_object_path(source: str, observed_at: datetime, key: str) -> str:

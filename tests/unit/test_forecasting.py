@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import timedelta
 
 import numpy as np
@@ -38,7 +36,7 @@ def test_series_key_handles_missing_retailer():
     assert SeriesKey.parse(key.unique_id).retailer_id is None
 
 
-def test_gaps_are_forward_filled_onto_a_daily_grid():
+def test_forward_fill():
     dates = recent_dates(3, step_days=5)
     out = to_regular_daily(make_frame(dates, [10.0, 12.0, 11.0]), min_observations=3)
     assert len(out) == 11
@@ -63,7 +61,7 @@ def test_stale_series_is_excluded():
     assert out.empty
 
 
-def test_stale_series_is_kept_when_the_filter_is_disabled():
+def test_stale_series_kept_without_filter():
     old = [pd.Timestamp("2024-01-01") + timedelta(days=i) for i in range(15)]
     out = to_regular_daily(
         make_frame(old, [10.0] * 15), min_observations=3, max_staleness_days=None
@@ -71,14 +69,14 @@ def test_stale_series_is_kept_when_the_filter_is_disabled():
     assert not out.empty
 
 
-def test_grid_is_extended_to_today_so_the_horizon_starts_now():
+def test_grid_extends_to_today():
     dates = recent_dates(12, step_days=1)[:-3]
     out = to_regular_daily(make_frame(dates, [5.0] * 9), min_observations=3)
     today = pd.Timestamp.utcnow().tz_localize(None).normalize()
     assert out["ds"].max() >= today
 
 
-def test_same_day_duplicates_collapse_to_the_last_value():
+def test_same_day_keeps_last():
     today = pd.Timestamp.utcnow().tz_localize(None).normalize()
     dates = [today - timedelta(days=1), today, today]
     out = to_regular_daily(make_frame(dates, [1.0, 2.0, 3.0]), min_observations=2)
@@ -93,7 +91,7 @@ def test_separate_currencies_are_separate_series():
     assert out["unique_id"].nunique() == 2
 
 
-def test_empty_input_produces_empty_output_with_schema():
+def test_empty_input():
     out = to_regular_daily(pd.DataFrame(), min_observations=3)
     assert out.empty
     assert list(out.columns) == ["unique_id", "ds", "y", "is_observed"]
@@ -107,7 +105,7 @@ def test_mape_computes_percentage_error():
     assert mape(np.array([100.0]), np.array([110.0])) == pytest.approx(10.0)
 
 
-def test_mape_skips_zero_actuals_instead_of_returning_inf():
+def test_mape_skips_zeros():
     result = mape(np.array([0.0, 100.0]), np.array([5.0, 110.0]))
     assert result == pytest.approx(10.0)
 
@@ -140,7 +138,7 @@ def test_baseline_wins_ties():
     assert pick_champions(scores)["1|1|EUR"] == BASELINE_MODEL
 
 
-def test_baseline_wins_when_the_challenger_is_worse():
+def test_baseline_wins():
     scores = _scores(
         [
             {"unique_id": "1|1|EUR", "model": "AutoARIMA", "mape": 12.0},

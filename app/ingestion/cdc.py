@@ -1,16 +1,12 @@
-from __future__ import annotations
-
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.logging import get_logger
 from app.ingestion.idempotency import idempotency_key
 from app.models.domain import NormalizedRecord
-
-log = get_logger(__name__)
 
 HEARTBEAT = timedelta(hours=24)
 
@@ -148,8 +144,6 @@ def apply_scd2_version(session: Session, product_id: int, record: NormalizedReco
 
 
 def _json(value: dict) -> str:
-    import json
-
     return json.dumps(value, default=str)
 
 

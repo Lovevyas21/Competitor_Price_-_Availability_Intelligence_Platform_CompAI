@@ -16,7 +16,7 @@ def test_different_bucket_yields_different_key():
     assert idempotency_key("openprices", "123", BASE) != idempotency_key("openprices", "123", later)
 
 
-def test_retailer_discriminator_prevents_collision():
+def test_retailer_in_key():
     a = idempotency_key("openprices", "123", BASE, discriminator="Carrefour")
     b = idempotency_key("openprices", "123", BASE, discriminator="Lidl")
     assert a != b

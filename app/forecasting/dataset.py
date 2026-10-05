@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 import pandas as pd
@@ -40,7 +38,7 @@ class SeriesKey:
         return f"{self.product_id}|{self.retailer_id or 0}|{self.currency}"
 
     @classmethod
-    def parse(cls, unique_id: str) -> SeriesKey:
+    def parse(cls, unique_id: str) -> "SeriesKey":
         product_id, retailer_id, currency = unique_id.split("|")
         return cls(
             product_id=int(product_id),

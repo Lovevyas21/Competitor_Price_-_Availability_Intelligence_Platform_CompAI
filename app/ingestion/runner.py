@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -179,7 +177,7 @@ def seed_from_source(source_name: str, limit: int = 50, tier: int = 1) -> list[t
                     "source": source_name,
                     "external_id": external_id,
                     "tier": tier,
-                    "note": f"{count} observations upstream" + (f" -- {label}" if label else ""),
+                    "note": f"{count} observations upstream" + (f" ({label})" if label else ""),
                 },
             )
 

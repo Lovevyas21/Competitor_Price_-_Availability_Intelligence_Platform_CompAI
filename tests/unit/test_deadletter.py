@@ -39,7 +39,7 @@ def test_dead_letters_are_partitioned_by_source(dlq_store):
     assert list(root.glob("source=ebay/*"))
 
 
-def test_distinct_reasons_do_not_overwrite_each_other(dlq_store):
+def test_reasons_kept_separate(dlq_store):
     _, root = dlq_store
     ctx = {"source": "openprices", "external_id": "123"}
     tasks.dead_letter("validation_failed", ctx)

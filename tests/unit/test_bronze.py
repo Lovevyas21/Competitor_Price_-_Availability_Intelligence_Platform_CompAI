@@ -49,7 +49,7 @@ def test_s3_backend_requires_bucket():
         get_bronze_store(settings)
 
 
-def test_iter_payloads_returns_everything_for_that_day(tmp_path):
+def test_iter_payloads_day(tmp_path):
     store = LocalBronzeStore(tmp_path)
     store.put("openprices", OBSERVED, "k1", {"id": 1})
     store.put("openprices", OBSERVED, "k2", {"id": 2})
@@ -57,7 +57,7 @@ def test_iter_payloads_returns_everything_for_that_day(tmp_path):
     assert sorted(p["id"] for p in payloads) == [1, 2]
 
 
-def test_iter_payloads_is_scoped_to_source_and_day(tmp_path):
+def test_iter_payloads_scope(tmp_path):
     store = LocalBronzeStore(tmp_path)
     other_day = OBSERVED.replace(day=28)
     store.put("openprices", OBSERVED, "k1", {"id": 1})
@@ -66,6 +66,6 @@ def test_iter_payloads_is_scoped_to_source_and_day(tmp_path):
     assert [p["id"] for p in store.iter_payloads("openprices", OBSERVED)] == [1]
 
 
-def test_iter_payloads_on_missing_day_is_empty_not_an_error(tmp_path):
+def test_iter_payloads_missing_day(tmp_path):
     store = LocalBronzeStore(tmp_path)
     assert list(store.iter_payloads("openprices", OBSERVED)) == []

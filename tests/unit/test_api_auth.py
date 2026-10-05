@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 from fastapi import HTTPException
 
@@ -7,7 +5,7 @@ from app.api.deps import require_api_key
 from app.core.settings import Settings
 
 
-def test_no_key_configured_allows_anonymous_access():
+def test_no_key_allows_anonymous():
     require_api_key(x_api_key=None, settings=Settings(api_key=None))
 
 
@@ -15,7 +13,7 @@ def test_correct_key_is_accepted():
     require_api_key(x_api_key="secret", settings=Settings(api_key="secret"))
 
 
-def test_missing_key_is_rejected_when_one_is_configured():
+def test_missing_key_rejected():
     with pytest.raises(HTTPException) as exc:
         require_api_key(x_api_key=None, settings=Settings(api_key="secret"))
     assert exc.value.status_code == 401

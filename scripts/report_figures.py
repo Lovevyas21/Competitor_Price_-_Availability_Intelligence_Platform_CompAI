@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 ACCENT = "#0e6b59"
 MUTED = "#7b8a86"
 

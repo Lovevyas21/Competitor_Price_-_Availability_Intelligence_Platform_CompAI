@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import os
 import time
@@ -67,9 +65,7 @@ def _require_llm() -> str:
     settings = get_settings()
     model = getattr(settings, "llm_model", None)
     if not model:
-        raise CrewUnavailable(
-            "no LLM configured; set LLM_MODEL (and the provider key) to enable narration"
-        )
+        raise CrewUnavailable("LLM_MODEL not set")
 
     for prefix, (field, env_vars) in PROVIDER_KEYS.items():
         if not model.startswith(prefix):
@@ -80,10 +76,7 @@ def _require_llm() -> str:
             for env_var in env_vars:
                 os.environ[env_var] = key
         elif not any(os.environ.get(v) for v in env_vars):
-            raise CrewUnavailable(
-                f"LLM_MODEL is {model!r} but no credential is set; "
-                f"add {env_vars[0]} to .env to enable narration"
-            )
+            raise CrewUnavailable(f"no API key for {model}, set {env_vars[0]}")
         break
 
     return model

@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_api_key
@@ -93,9 +92,7 @@ class MatchReviewRow(BaseModel):
 class Health(BaseModel):
     status: str
     database: str
-    auth_enabled: bool = Field(
-        description="False means the API is unauthenticated -- surfaced so it cannot go unnoticed."
-    )
+    auth_enabled: bool = Field(description="False means the API is unauthenticated.")
 
 
 @app.get("/health", response_model=Health, tags=["ops"])
@@ -103,7 +100,7 @@ def health(db: Session = Depends(get_db)) -> Health:
     try:
         db.execute(text("select 1"))
         database = "ok"
-    except Exception:
+    except SQLAlchemyError:
         database = "unavailable"
     return Health(
         status="ok" if database == "ok" else "degraded",

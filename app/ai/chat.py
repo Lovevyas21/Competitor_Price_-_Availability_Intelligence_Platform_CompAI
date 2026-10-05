@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass, field
 
@@ -100,7 +98,7 @@ def answer_question(session: Session, question: str, period_days: int = 7) -> Ch
         log.warning("chat.budget_exhausted", error=str(exc))
         return ChatAnswer(
             f"The daily model allowance is spent ({exc}). The figures on this page are "
-            "unaffected -- they come from the warehouse, not the model.",
+            "unaffected, they come from the warehouse, not the model.",
             ok=False,
             source="unavailable",
         )

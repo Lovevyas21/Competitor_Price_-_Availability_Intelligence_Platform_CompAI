@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from unittest.mock import MagicMock, patch
 
@@ -42,7 +40,7 @@ def test_every_stage_is_complete_and_unique():
         assert callable(stage["fn"])
 
 
-def test_console_rail_lists_exactly_the_real_stages():
+def test_console_stages():
     html = (routes.TEMPLATES / "console.html").read_text(encoding="utf-8")
     for stage in pipeline.STAGES:
         assert f'data-stage="{stage["id"]}"' in html
@@ -55,7 +53,7 @@ def _broken_session() -> MagicMock:
     return session
 
 
-def test_a_failing_stage_does_not_end_the_run():
+def test_failing_stage_continues():
     session = _broken_session()
     scope = MagicMock()
     scope.__enter__.return_value = session
@@ -68,7 +66,7 @@ def test_a_failing_stage_does_not_end_the_run():
     assert any(e.get("cls") == "err" for e in events if e["t"] == "line")
 
 
-def test_a_failing_stage_rolls_back_so_later_stages_still_work():
+def test_failed_stage_rolls_back():
     session = _broken_session()
     scope = MagicMock()
     scope.__enter__.return_value = session
@@ -79,7 +77,7 @@ def test_a_failing_stage_rolls_back_so_later_stages_still_work():
     assert session.rollback.call_count == len(pipeline.STAGES)
 
 
-def test_an_unreachable_database_reports_rather_than_raising():
+def test_db_unreachable():
     with patch.object(pipeline, "session_scope", side_effect=OSError("connection refused")):
         events = list(pipeline.run_pipeline())
 
@@ -125,7 +123,7 @@ def test_narrate_is_the_last_stage():
     assert pipeline.STAGES[-1]["id"] == "narrate"
 
 
-def test_narrate_says_so_when_no_model_is_configured():
+def test_narrate_without_model():
     from app.core.settings import Settings
 
     with patch.object(
@@ -137,7 +135,7 @@ def test_narrate_says_so_when_no_model_is_configured():
     assert not any(e["t"] == "prose" for e in events)
 
 
-def test_the_console_offers_the_fetch_and_chat_controls():
+def test_console_has_fetch_and_chat():
     html = (routes.TEMPLATES / "console.html").read_text(encoding="utf-8")
     for control in ('id="fetch"', 'id="data"', 'id="dock-form"', 'id="dock-input"'):
         assert control in html
@@ -149,11 +147,11 @@ def test_hidden_panels_are_actually_hidden():
     assert ".dock-panel[hidden]" in css
 
 
-def test_the_fetch_limit_is_small_enough_to_watch():
+def test_fetch_limit():
     assert pipeline.FETCH_LIMIT <= 100
 
 
-def test_a_failed_fetch_still_closes_the_stream():
+def test_failed_fetch_closes_stream():
     with patch("app.ingestion.runner.ingest_source", side_effect=OSError("upstream refused")):
         events = list(pipeline.run_fetch(10))
 

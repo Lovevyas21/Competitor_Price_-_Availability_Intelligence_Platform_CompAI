@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 
 from app.ai.matching import (
@@ -14,7 +12,7 @@ def test_combines_title_brand_and_category():
     assert build_text("Nutella", "Ferrero", "spreads") == "Nutella | Ferrero | spreads"
 
 
-def test_missing_fields_are_dropped_not_rendered_as_none():
+def test_missing_fields_dropped():
     assert build_text("Nutella", None, None) == "Nutella"
 
 
@@ -31,7 +29,7 @@ def test_entirely_empty_input_yields_empty_string():
     assert build_text("", "  ", None) == ""
 
 
-def test_brand_and_category_add_discriminating_context():
+def test_brand_and_category_in_text():
     a = build_text("Baguette", "Leclerc", "bread")
     b = build_text("Baguette", "Intermarche", "bread")
     assert a != b

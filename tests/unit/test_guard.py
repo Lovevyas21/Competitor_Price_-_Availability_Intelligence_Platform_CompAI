@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 
 from app.ai.facts import WeeklyFacts
@@ -14,7 +12,7 @@ def test_long_integers_are_not_split():
     assert extract_numbers("Products tracked: 1309") == [1309.0]
 
 
-def test_long_integer_with_trailing_letter_is_not_split():
+def test_integer_with_suffix():
     assert extract_numbers("stale (5885d old)") == [5885.0]
 
 
@@ -62,7 +60,7 @@ def test_multiple_violations_are_all_reported():
     assert sorted(result.unsupported) == [11.11, 22.22]
 
 
-def test_checked_count_excludes_skipped_small_integers():
+def test_checked_count():
     result = validate_brief("5 items at 2.85 each", {2.85})
     assert result.checked == 1
 
@@ -98,7 +96,7 @@ def test_booleans_are_not_treated_as_numbers():
     assert 1.0 not in facts.all_numbers() or 1309 in facts.all_numbers()
 
 
-def test_a_brief_quoting_a_product_name_passes_the_guard():
+def test_product_name_in_brief():
     facts = _facts()
     assert validate_brief("Beurre 60% M.G. fell to 1.69", facts.all_numbers()).ok
 

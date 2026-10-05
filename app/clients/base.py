@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import Any
@@ -12,11 +10,8 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-from app.core.logging import get_logger
 from app.core.settings import Settings, get_settings
 from app.models.domain import NormalizedRecord
-
-log = get_logger(__name__)
 
 RETRYABLE = (httpx.TransportError, httpx.HTTPStatusError)
 

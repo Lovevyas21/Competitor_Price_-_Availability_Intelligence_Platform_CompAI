@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from datetime import UTC
 
@@ -72,9 +70,6 @@ insert into retailers (source_id, name, country)
 select :sid, retailer_name, max(retailer_country)
 from _stg
 where retailer_name is not null
--- Group rather than SELECT DISTINCT: one retailer name can arrive with differing
--- country values (often null vs set), and ON CONFLICT rejects a command that proposes
--- the same conflict key twice.
 group by retailer_name
 on conflict (source_id, name) do update set
   country = coalesce(excluded.country, retailers.country)

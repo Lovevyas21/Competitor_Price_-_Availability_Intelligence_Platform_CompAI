@@ -41,12 +41,12 @@ def test_normalize_happy_path(client):
     assert rec.retailer_name == "Carrefour Lyon"
 
 
-def test_canonical_title_wins_over_contributor_text(client):
+def test_canonical_title_preferred(client):
     rec = client.normalize(price_row())
     assert rec.attributes.title == "Nutella"
 
 
-def test_falls_back_to_row_name_when_canonical_missing(client):
+def test_row_name_fallback(client):
     rec = client.normalize(price_row(product={"product_name": None, "brands": None}))
     assert rec.attributes.title == "nutella pot 750g"
 
@@ -69,7 +69,7 @@ def test_no_usable_timestamp_is_skipped(client):
     assert client.normalize(price_row(date=None, created=None)) is None
 
 
-def test_malformed_date_falls_back_rather_than_raising(client):
+def test_bad_date_fallback(client):
     rec = client.normalize(price_row(date="not-a-date"))
     assert rec is not None
     assert rec.price.observed_at.year == 2026

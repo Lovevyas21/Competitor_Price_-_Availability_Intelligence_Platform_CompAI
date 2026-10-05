@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,7 +37,7 @@ def _run(model_says: str, settings: Settings | None = None) -> chat.ChatAnswer:
         return chat.answer_question(MagicMock(), "who undercuts us most?")
 
 
-def test_an_invented_figure_is_refused_not_shown():
+def test_invented_figure_refused():
     answer = _run("EDEKA undercuts us by 91.4%, costing us 12000 EUR this quarter.")
     assert answer.ok is False
     assert answer.source == "refused"
@@ -47,7 +45,7 @@ def test_an_invented_figure_is_refused_not_shown():
     assert answer.unsupported
 
 
-def test_a_grounded_answer_is_returned_with_its_check_count():
+def test_grounded_answer():
     answer = _run("EDEKA is cheapest at 3.29 EUR, a gap of -42.58%. There are 108 undercuts.")
     assert answer.ok is True
     assert answer.source == "llm"
@@ -55,21 +53,21 @@ def test_a_grounded_answer_is_returned_with_its_check_count():
     assert answer.unsupported == []
 
 
-def test_a_qualitative_answer_needs_no_numbers():
+def test_qualitative_answer():
     answer = _run("The data does not contain a figure for that.")
     assert answer.ok is True
     assert answer.checked == 0
 
 
 @pytest.mark.parametrize("question", ["", "   ", "\n"])
-def test_an_empty_question_costs_nothing(question):
+def test_empty_question(question):
     with patch.object(chat, "build_llm") as build:
         answer = chat.answer_question(MagicMock(), question)
     assert answer.ok is False
     build.assert_not_called()
 
 
-def test_an_overlong_question_is_refused_before_it_is_sent():
+def test_question_too_long():
     with patch.object(chat, "build_llm") as build:
         answer = chat.answer_question(MagicMock(), "x" * (chat.MAX_QUESTION_CHARS + 1))
     assert answer.ok is False
@@ -84,7 +82,7 @@ def test_no_model_configured_says_so_plainly():
     assert answer.ok is False
 
 
-def test_a_spent_allowance_is_reported_without_blaming_the_data():
+def test_budget_spent():
     llm = MagicMock()
     with (
         patch.object(chat, "get_settings", return_value=_settings()),
@@ -101,7 +99,7 @@ def test_a_spent_allowance_is_reported_without_blaming_the_data():
     llm.call.assert_not_called()
 
 
-def test_a_provider_outage_does_not_surface_a_stack_trace():
+def test_provider_outage():
     llm = MagicMock()
     llm.call.side_effect = RuntimeError("503 UNAVAILABLE high demand")
     with (
@@ -119,13 +117,13 @@ def test_a_provider_outage_does_not_surface_a_stack_trace():
     assert "Traceback" not in answer.answer
 
 
-def test_the_prompt_forbids_inventing_and_confines_the_scope():
+def test_prompt_limits_scope():
     assert "ABSOLUTE CONSTRAINT" in chat.SYSTEM_PROMPT
     assert "only this dataset" in chat.SYSTEM_PROMPT
     assert "{facts_json}" in chat.SYSTEM_PROMPT
 
 
-def test_the_answer_serialises_for_the_api():
+def test_answer_serialises():
     answer = chat.ChatAnswer("hello", checked=3)
     assert answer.as_dict() == {
         "answer": "hello",

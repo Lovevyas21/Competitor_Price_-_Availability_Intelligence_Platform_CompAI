@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -131,9 +129,7 @@ join lateral (
     where pv.is_current
       and pv.embedding is not null
       and pv.product_id <> b.product_id
-      -- Blocking: same category (or both unknown) keeps comparisons meaningful.
       and pv.category is not distinct from b.category
-      -- Exact-identifier pairs are recorded separately, with method 'exact_upc'.
       and (p2.upc is null or b.upc is null or p2.upc <> b.upc)
     order by pv.embedding <=> b.embedding
     limit :top_k
@@ -161,8 +157,6 @@ values (:a, :b, :confidence, :method, :status, now())
 on conflict (product_id_a, product_id_b) do update set
     confidence = excluded.confidence,
     method     = excluded.method
--- A human decision is final: never let a re-run flip an approved or rejected pair
--- back to pending.
 where product_matches.status = 'pending'
 """
 

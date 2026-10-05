@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
@@ -70,7 +68,7 @@ def test_digest_subject_is_singular_for_one_alert():
     assert "1 competitor undercut " in digest["Subject"] + " "
 
 
-def test_digest_body_contains_every_message_numbered():
+def test_digest_body():
     body = build_digest(MESSAGES).get_content()
     assert "1. " + MESSAGES[0] in body
     assert "2. " + MESSAGES[1] in body

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import shutil
 import subprocess
@@ -468,9 +466,6 @@ def build_html() -> str:
               text-transform:uppercase; color:var(--ink-mute); }}
   .meta dd {{ margin:.15rem 0 0; font-weight:600; font-size:9.5pt; }}
 
-  /* Tables may span a page boundary, but never split a row. Without this a long
-     table that does not fit is pushed whole to the next page, leaving the previous
-     one half empty. The header repeats on each page it continues onto. */
   table {{ border-collapse:collapse; width:100%; font-size:9pt; margin:.8rem 0;
            break-inside:auto; page-break-inside:auto; }}
   tr {{ break-inside:avoid; page-break-inside:avoid; }}

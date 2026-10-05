@@ -1,12 +1,3 @@
-"""Alert delivery channels.
-
-The first thing tested is not that delivery works, but that it does *not* happen when
-nothing is configured. This code messages real people; a fresh checkout emailing someone
-because a default leaked through would be the worst possible bug in it.
-
-No test here opens a socket: SMTP, SES and HTTP are all mocked.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -29,15 +20,13 @@ MESSAGES = [
 ]
 
 
-# nothing is configured by default
 def test_no_channels_when_nothing_is_configured():
-    """A default checkout must not be able to message anyone."""
     assert configured_channels(Settings()) == []
 
 
 def test_email_needs_host_sender_and_recipient():
     partial = Settings(smtp_host="smtp.example.com", alert_email_from="a@example.com")
-    assert not EmailChannel(partial).is_configured()  # no recipient
+    assert not EmailChannel(partial).is_configured()
 
     complete = Settings(
         smtp_host="smtp.example.com",
@@ -70,7 +59,6 @@ def test_empty_batch_sends_nothing():
     smtp.assert_not_called()
 
 
-# digest construction
 def test_digest_subject_counts_the_alerts():
     digest = build_digest(MESSAGES, generated_at=datetime(2026, 9, 2, tzinfo=UTC))
     assert "2 competitor undercuts" in digest["Subject"]
@@ -89,11 +77,9 @@ def test_digest_body_contains_every_message_numbered():
 
 
 def test_digest_explains_the_staleness_policy():
-    """A reader must know the digest is not the whole picture."""
     assert "older than 7 days" in build_digest(MESSAGES).get_content()
 
 
-# email sending
 @pytest.fixture
 def smtp_settings():
     return Settings(
@@ -107,7 +93,6 @@ def smtp_settings():
 
 
 def test_email_sends_one_digest_not_one_per_alert(smtp_settings):
-    """Twenty emails about twenty undercuts is how alerting gets muted."""
     with patch("app.alerting.channels.smtplib.SMTP") as smtp:
         client = smtp.return_value.__enter__.return_value
         assert EmailChannel(smtp_settings).send_batch(MESSAGES) is True
@@ -133,7 +118,6 @@ def test_email_uses_tls_and_authenticates(smtp_settings):
 
 
 def test_email_without_credentials_skips_login(smtp_settings):
-    """An internal relay often needs no authentication."""
     anonymous = smtp_settings.model_copy(update={"smtp_username": None, "smtp_password": None})
     with patch("app.alerting.channels.smtplib.SMTP") as smtp:
         client = smtp.return_value.__enter__.return_value
@@ -142,14 +126,11 @@ def test_email_without_credentials_skips_login(smtp_settings):
 
 
 def test_smtp_failure_is_reported_not_raised(smtp_settings):
-    """A dead mail server must not take the alert cycle down with it."""
     with patch("app.alerting.channels.smtplib.SMTP", side_effect=OSError("connection refused")):
         assert EmailChannel(smtp_settings).send_batch(MESSAGES) is False
 
 
-# channel resolution
 def test_ses_wins_over_smtp_when_both_configured():
-    """Sending the same digest twice is worse than picking one path."""
     both = Settings(
         ses_region="ap-south-1",
         smtp_host="smtp.example.com",
@@ -196,13 +177,7 @@ def test_ses_sends_through_boto3():
     assert call["Destination"]["ToAddresses"] == ["b@example.com"]
 
 
-# dry run
 def test_dry_run_records_nothing():
-    """Regression: the first implementation inserted alert rows during a dry run.
-
-    Those rows then suppressed the genuine alerts for a full cooldown, so previewing
-    the cycle silenced it. A dry run must write nothing at all.
-    """
     from app.alerting import service
 
     candidates = [
@@ -236,6 +211,6 @@ def test_dry_run_records_nothing():
     ):
         stats = service.run_alert_cycle(dry_run=True)
 
-    assert stats["created"] == 1  # reported...
-    session.execute.assert_not_called()  # ...but nothing written
+    assert stats["created"] == 1
+    session.execute.assert_not_called()
     deliver.assert_not_called()

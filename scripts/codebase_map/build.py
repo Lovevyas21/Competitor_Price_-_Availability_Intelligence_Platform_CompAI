@@ -1,12 +1,3 @@
-"""Join the parsed repository with the surveyed geography, check it, and render the map.
-
-    python scripts/codebase_map/build.py
-
-Writes docs/codebase-map.html. Prints a verification report: anything the geography
-claims that the source does not support is listed, and marked unverified on the map
-rather than silently drawn.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import extract  # noqa: E402
-import geography as geo  # noqa: E402
+import extract
+import geography as geo
 
 ROOT = extract.ROOT
 TEMPLATE = Path(__file__).parent / "template.html"
@@ -41,7 +32,6 @@ def text_has(rel: str, pattern: str) -> bool:
     return re.search(pattern, text_of(rel)) is not None
 
 
-# --------------------------------------------------------------------------- terrain
 DISTRICTS = [
     {
         "id": d[0],
@@ -72,7 +62,6 @@ def z_at(gx: float, gy: float) -> float:
     return d["z"] if d else 0
 
 
-# --------------------------------------------------------------------------- code
 mods = extract.extract()
 dbt = extract.extract_dbt()
 tables = extract.extract_tables()
@@ -88,7 +77,6 @@ def mod_of_fid(fid: str) -> str:
 
 
 def canonical(fid: str) -> str | None:
-    """Resolve a call target to a known function id; classes resolve to __init__/class."""
     if fid in all_funcs:
         return fid
     mod, _, q = fid.partition(":")
@@ -97,7 +85,6 @@ def canonical(fid: str) -> str | None:
     return None
 
 
-# Dispatch edges (verified by the literal call text in the caller's file)
 dispatch_edges: list[tuple[str, str, int]] = []
 for caller, callee, rx in geo.DISPATCH:
     cm = mods.get(mod_of_fid(caller))
@@ -168,7 +155,6 @@ def place(bid, path, gx, gy, w, d, kind, purpose, extra=None):
     return b
 
 
-# Python modules and other files
 for path, (gx, gy, w, d, purpose) in geo.BUILDINGS.items():
     if not extract.exists(path):
         problems.append(f"building path does not exist: {path}")
@@ -197,13 +183,11 @@ for path, (gx, gy, w, d, purpose) in geo.BUILDINGS.items():
                 }
             )
 
-# Every app module must be on the map
 placed = {b["path"] for b in buildings}
 for m in mods.values():
     if m.path not in placed:
         problems.append(f"module not placed on the map: {m.path}")
 
-# Phantoms
 for path, (gx, gy, w, d, purpose, (ref_file, rx)) in geo.PHANTOMS.items():
     if extract.exists(path):
         problems.append(f"phantom actually exists (draw it as a building): {path}")
@@ -214,7 +198,6 @@ for path, (gx, gy, w, d, purpose, (ref_file, rx)) in geo.PHANTOMS.items():
         {"what": path, "why": "referenced in " + ref_file + " but the file does not exist"}
     )
 
-# dbt nodes
 for name, (gx, gy, w, d) in geo.DBT.items():
     if name not in dbt:
         problems.append(f"dbt node not found: {name}")
@@ -240,7 +223,6 @@ for name in dbt:
     if name not in geo.DBT:
         problems.append(f"dbt node not placed: {name}")
 
-# Landmarks
 for lid, (name, gx, gy, w, d, shape, note, (ev_file, rx)) in geo.LANDMARKS.items():
     ok = text_has(ev_file, rx)
     b = place(
@@ -268,7 +250,6 @@ for lid, (name, gx, gy, w, d, shape, note, (ev_file, rx)) in geo.LANDMARKS.items
     if lid == "lm:postgres":
         b["tables"] = tables
 
-# Tests: arranged in geographic order of what they test
 district_order = [d["id"] for d in DISTRICTS]
 mod_district = {b.get("mod"): b["district"] for b in buildings if b.get("mod")}
 
@@ -295,7 +276,6 @@ for i, t in enumerate(sorted(tests, key=test_rank)):
         {"loc": loc_of(t["path"]), "proves": target_ids, "ntests": t["tests"]},
     )
 
-# Overlap check within a district
 for i, a in enumerate(buildings):
     for b2 in buildings[i + 1 :]:
         if a["district"] != b2["district"]:
@@ -308,7 +288,6 @@ for i, a in enumerate(buildings):
         ):
             problems.append(f"overlap: {a['id']} and {b2['id']}")
 
-# Heights: lines of code for code, fixed for landmarks
 for b in buildings:
     loc = b.get("loc", 0)
     b["h"] = {
@@ -327,8 +306,7 @@ for b in buildings:
     }[b["kind"]]
     b["h"] = round(b["h"], 2)
 
-# --------------------------------------------------------------------------- call graph
-calls: dict[str, dict[str, int]] = {}  # callee -> line of the call
+calls: dict[str, dict[str, int]] = {}
 for fid, (_, f) in all_funcs.items():
     for c in f.calls:
         cc = canonical(c)
@@ -373,7 +351,6 @@ for b in buildings:
         fn["io"] = io_targets(fid, f)
         fn["out"] = any(mod_of_fid(c) != m.mod for c in fn["calls"]) or bool(fn["io"])
 
-# Building-level links: non-core cross-module calls
 links = set()
 for a, bs in calls.items():
     for b2 in bs:
@@ -388,7 +365,6 @@ for b in buildings:
     if b.get("mod"):
         b["importsCore"] = sorted(i for i in mods[b["mod"]].imports if i.startswith("app.core"))
 
-# Findings worth drawing
 if "app/ingestion/cdc.py" in by_id and not called_by.get("app.ingestion.cdc:apply_record"):
     by_id["app/ingestion/cdc.py"]["notes"].append(
         "apply_record() has no callers in app/: live ingestion uses bulk.py. Only the parity test runs it."
@@ -408,7 +384,6 @@ if "app/ai/matching.py" in by_id:
         "Reads products and product_versions directly, not a dbt mart."
     )
 
-# --------------------------------------------------------------------------- routes
 anchors: dict[str, tuple[float, float, float]] = {}
 for b in buildings:
     anchors[b["id"]] = (b["gx"] + b["w"] / 2, b["gy"] + b["d"] / 2, b["z0"])
@@ -460,7 +435,6 @@ for r in geo.ROUTES:
         problems.append(f"route {r['id']} evidence failed: {failed}")
         unverified.append({"what": f"route {r['name']} ({r['id']})", "why": "; ".join(failed)})
 
-# dbt lineage edges
 lineage = []
 for name, info in dbt.items():
     for parent in info["refs"]:
@@ -471,7 +445,6 @@ for name, info in dbt.items():
     for src in info["sources"]:
         lineage.append({"from": "lm:postgres", "to": f"dbt:{name}", "table": src})
 
-# Journey references
 route_ids = {r["id"] for r in routes}
 for nid, n in geo.JOURNEY["nodes"].items():
     if n["at"] not in anchors:
@@ -495,7 +468,6 @@ fork_ok = text_has(*geo.FORK["evidence"])
 if not fork_ok:
     problems.append("THE FORK evidence not found: raw put() before normalize()")
 
-# --------------------------------------------------------------------------- assemble
 try:
     commit = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True
@@ -541,7 +513,7 @@ MAP = {
 
 html = TEMPLATE.read_text(encoding="utf-8")
 payload = json.dumps(MAP, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
-html = html.replace("/*__MAP__*/null", payload)
+html = html.replace('"__MAP__"', payload)
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(html, encoding="utf-8")
 

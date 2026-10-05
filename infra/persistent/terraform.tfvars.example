@@ -1,17 +1,7 @@
-# Copy to terraform.tfvars and adjust. Never commit the real file.
-#
-# Applied once and left alone. `project` and `environment` must match the ephemeral
-# stack, which finds this stack's resources by deriving their names from them.
-
 region      = "ap-south-1"
 project     = "cpi"
 environment = "prod"
 
-# Budget and alarm notifications. The SNS subscription needs confirming by email once;
-# it lives in this stack so a teardown never unsubscribes you.
 alert_email = "you@example.com"
 
-# Ceiling in USD. Sized against a credit balance, not a salary: with demo-only running,
-# spend should be a few dollars, so this is loose enough not to nag and tight enough to
-# catch an instance somebody forgot to destroy.
 monthly_budget_usd = 20

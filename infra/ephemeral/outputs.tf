@@ -13,14 +13,10 @@ output "db_endpoint" {
   value       = aws_db_instance.pg.address
 }
 
-# The password is never output, even marked sensitive: it would still be written to
-# state and printable with `terraform output -json`. Read it from SSM instead.
 output "how_to_get_credentials" {
   value = "aws ssm get-parameter --name ${aws_ssm_parameter.db_url.name} --with-decryption"
 }
 
-# The ISP on the operator's network blocks outbound 5432, and this database has no
-# public address by design. Both problems have the same answer.
 output "how_to_reach_the_database" {
   value = join(" ", [
     "aws ssm start-session --target ${aws_instance.app.id}",

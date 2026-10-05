@@ -1,5 +1,3 @@
--- The most recent known price per product / retailer / currency, with its age.
--- `days_stale` is what the freshness SLA is measured against.
 with daily as (select * from {{ ref('int_price_daily') }}),
 
 ranked as (

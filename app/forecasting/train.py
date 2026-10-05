@@ -1,14 +1,3 @@
-"""Nightly per-SKU price forecasting, with statsforecast.
-
-A naive baseline always runs alongside the real models. Retail prices are close to a
-random walk, so anything that cannot beat "tomorrow looks like today" is not earning its
-keep, and without the baseline you would never find out. Accuracy comes from
-rolling-origin backtesting rather than in-sample fit, which flatters everything equally.
-
-The champion is chosen per series on backtested MAPE and falls back to the baseline
-whenever it loses.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -25,9 +14,7 @@ from app.forecasting.dataset import build_dataset
 log = get_logger(__name__)
 
 DEFAULT_HORIZON = 7
-#: Prediction interval, in percent. 80 is the usual planning band.
 CONFIDENCE_LEVEL = 80
-#: Backtest windows. More windows is a steadier estimate but costs refits.
 CV_WINDOWS = 3
 
 BASELINE_MODEL = "SeasonalNaive"
@@ -54,8 +41,7 @@ class TrainingStats:
 
 
 def _models(season_length: int = 7):
-    """Champion candidates plus the baseline they must beat."""
-    from statsforecast.models import AutoARIMA, AutoETS, SeasonalNaive  # noqa: PLC0415
+    from statsforecast.models import AutoARIMA, AutoETS, SeasonalNaive
 
     return [
         AutoETS(season_length=season_length),
@@ -65,11 +51,6 @@ def _models(season_length: int = 7):
 
 
 def mape(actual: np.ndarray, predicted: np.ndarray) -> float | None:
-    """Mean absolute percentage error, ignoring zero actuals.
-
-    A zero price makes the percentage undefined rather than infinite; dropping those
-    points is preferable to letting one free item produce an inf that poisons the mean.
-    """
     actual = np.asarray(actual, dtype=float)
     predicted = np.asarray(predicted, dtype=float)
     usable = actual != 0
@@ -79,15 +60,7 @@ def mape(actual: np.ndarray, predicted: np.ndarray) -> float | None:
 
 
 def backtest(dataset: pd.DataFrame, horizon: int = DEFAULT_HORIZON) -> pd.DataFrame:
-    """Rolling-origin cross-validation. Returns per-series, per-model MAPE.
-
-    **Scored only on genuinely observed days.** The daily grid is forward-filled so the
-    models see a regular frequency, but a filled day just repeats the previous price --
-    scoring those rows would mean grading every model largely on "did it copy the last
-    value", which flatters all of them and makes the naive baseline look near-perfect.
-    Filtering to observed points measures whether a model actually anticipated a change.
-    """
-    from statsforecast import StatsForecast  # noqa: PLC0415
+    from statsforecast import StatsForecast
 
     fit_frame = dataset[["unique_id", "ds", "y"]]
     sf = StatsForecast(models=_models(), freq="D", n_jobs=1)
@@ -120,7 +93,6 @@ def backtest(dataset: pd.DataFrame, horizon: int = DEFAULT_HORIZON) -> pd.DataFr
 
 
 def pick_champions(scores: pd.DataFrame) -> dict[str, str]:
-    """Lowest backtested MAPE wins; ties and failures fall back to the baseline."""
     if scores.empty:
         return {}
 
@@ -130,7 +102,6 @@ def pick_champions(scores: pd.DataFrame) -> dict[str, str]:
         best = ranked.iloc[0]
         baseline = group[group["model"] == BASELINE_MODEL]
 
-        # Only displace the baseline on a genuine improvement.
         if not baseline.empty and best["mape"] >= float(baseline.iloc[0]["mape"]):
             champions[unique_id] = BASELINE_MODEL
         else:
@@ -139,8 +110,7 @@ def pick_champions(scores: pd.DataFrame) -> dict[str, str]:
 
 
 def forecast_all(dataset: pd.DataFrame, horizon: int = DEFAULT_HORIZON) -> pd.DataFrame:
-    """Fit on full history and predict `horizon` days ahead, with intervals."""
-    from statsforecast import StatsForecast  # noqa: PLC0415
+    from statsforecast import StatsForecast
 
     sf = StatsForecast(models=_models(), freq="D", n_jobs=1)
     predictions = sf.forecast(
@@ -149,7 +119,6 @@ def forecast_all(dataset: pd.DataFrame, horizon: int = DEFAULT_HORIZON) -> pd.Da
     return predictions.reset_index() if predictions.index.name == "unique_id" else predictions
 
 
-# persistence
 _INSERT_FORECAST = """
 insert into forecasts
   (product_id, model, horizon_days, yhat, yhat_lower, yhat_upper, forecast_for, trained_at)
@@ -172,11 +141,6 @@ select * from unnest(
 def persist_accuracy(
     session: Session, scores: pd.DataFrame, horizon: int, evaluated_at: datetime
 ) -> int:
-    """Store every model's backtested MAPE, not just the winner's.
-
-    Keeping the losers is what makes champion selection auditable later, and it is how
-    you notice a model quietly degrading across runs.
-    """
     if scores.empty:
         return 0
 
@@ -206,7 +170,6 @@ def persist_forecasts(
     horizon: int,
     trained_at: datetime,
 ) -> int:
-    """Write only the champion model's predictions per series."""
     if predictions.empty:
         return 0
 
@@ -238,7 +201,6 @@ def persist_forecasts(
         cols["model"].append(model)
         cols["horizon_days"].append(horizon)
         cols["yhat"].append(_clean(row[model]))
-        # Intervals are optional: a model may not produce them for a given series.
         lo, hi = model + lo_suffix, model + hi_suffix
         cols["yhat_lower"].append(_clean(row[lo]) if lo in predictions.columns else None)
         cols["yhat_upper"].append(_clean(row[hi]) if hi in predictions.columns else None)
@@ -253,7 +215,6 @@ def persist_forecasts(
 
 
 def train_and_forecast(session: Session, horizon: int = DEFAULT_HORIZON) -> TrainingStats:
-    """Full nightly run: build dataset, backtest, pick champions, forecast, persist."""
     stats = TrainingStats()
     dataset = build_dataset(session)
 

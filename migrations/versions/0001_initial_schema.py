@@ -1,9 +1,3 @@
-"""initial schema
-
-Revision ID: 0001
-Revises:
-"""
-
 from alembic import op
 
 revision = "0001"
@@ -51,7 +45,6 @@ def upgrade() -> None:
     op.execute("create index ix_products_tier on products(tier)")
     op.execute("create index ix_products_upc on products(upc) where upc is not null")
 
-    # SCD Type 2 dimension for product attributes.
     op.execute("""
         create table product_versions (
           version_id bigserial primary key,
@@ -69,7 +62,6 @@ def upgrade() -> None:
         "where is_current"
     )
 
-    # Append-only event tables, range-partitioned by observed_at (monthly).
     op.execute("""
         create table price_events (
           event_id bigserial,
@@ -106,7 +98,6 @@ def upgrade() -> None:
     )
     op.execute("create index ix_stock_events_product on stock_events(product_id, observed_at desc)")
 
-    # Helper: create a monthly partition on demand (called by a Celery task in phase 2).
     op.execute("""
         create or replace function ensure_month_partition(parent text, month_start date)
         returns void language plpgsql as $func$
@@ -123,7 +114,6 @@ def upgrade() -> None:
         end $func$
     """)
 
-    # Seed partitions: previous, current, next month.
     for tbl in ("price_events", "stock_events"):
         op.execute(f"""
             select ensure_month_partition('{tbl}', d::date) from generate_series(
@@ -194,7 +184,6 @@ def upgrade() -> None:
         )
     """)
 
-    # Seed-SKU config table (which products to track, at what cadence).
     op.execute("""
         create table seed_products (
           seed_id bigserial primary key,

@@ -1,13 +1,3 @@
-"""Generate the project report (HTML) and render it to PDF.
-
-    python scripts/build_report.py            # HTML + PDF
-    python scripts/build_report.py --html     # HTML only
-
-Figures live in report_figures.py as hand-authored inline SVG so they render identically
-in a browser and in the PDF. Measured numbers live in FACTS below; update FACTS from the
-live system and re-run rather than editing generated output.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -18,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from report_figures import (  # noqa: E402
+from report_figures import (
     fig_ai,
     fig_architecture,
     fig_aws,
@@ -84,7 +74,6 @@ VOLATILE = [
     ("Mais doux en grains", "Centre Commercial E.Leclerc", "0.50", "0.345", "high", "8"),
 ]
 
-# (technology, where it is used in this system, what it replaces / why)
 STACK = [
     (
         "Celery + Celery Beat",
@@ -183,7 +172,6 @@ STACK = [
     ),
 ]
 
-# (field, where it appears, plain-English meaning)
 LEGEND_PRICE = [
     (
         "observed_at",

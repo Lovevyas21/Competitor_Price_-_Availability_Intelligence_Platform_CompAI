@@ -1,12 +1,3 @@
-"""Read the repository and describe what is actually in it.
-
-Everything the map says about code -- files, functions, who calls whom, what each
-function touches, which tables it reads and writes -- comes from here, parsed out of the
-source. Nothing in this module is typed in by hand. The hand-drawn part (where things
-sit, what the routes are called) lives in geography.py, and build.py refuses to render
-any of it that this module cannot find.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -16,9 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Matched against a function's own source. Direct I/O only: a function that *calls*
-# something which reads the database is not itself marked as reading it -- that shows up
-# as a call instead.
 TOUCHES = {
     "db": re.compile(
         r"session\.execute|session_scope\(|\bdb\.execute|conn\.execute|Depends\(get_db\)"
@@ -48,11 +36,11 @@ class Func:
     qual: str
     line: int
     end: int
-    kind: str  # fn | method | class
+    kind: str
     doc: str
     entry: str | None = None
     touches: list[str] = field(default_factory=list)
-    calls: list[str] = field(default_factory=list)  # "module:qual", in source order
+    calls: list[str] = field(default_factory=list)
     call_lines: dict[str, int] = field(default_factory=dict)
     reads: list[str] = field(default_factory=list)
     writes: list[str] = field(default_factory=list)
@@ -93,7 +81,6 @@ def _entry_reason(node: ast.AST, mod: str) -> str | None:
 
 
 def _resolve_imports(tree: ast.Module, modules: set[str]) -> dict[str, str]:
-    """Local name -> 'module:symbol', or 'module:' when the name is a module."""
     names: dict[str, str] = {}
     for n in ast.walk(tree):
         if isinstance(n, ast.ImportFrom) and n.module and n.module.startswith("app"):
@@ -122,10 +109,6 @@ def extract_tables() -> list[str]:
 
 
 def extract_dbt() -> dict[str, dict]:
-    """dbt models and seeds, their layer, and their ref()/source() edges.
-
-    dbt/dbt_packages is vendored third-party code and is deliberately not read.
-    """
     models: dict[str, dict] = {}
     for p in sorted((ROOT / "dbt" / "models").rglob("*.sql")):
         sql = p.read_text(encoding="utf-8")
@@ -181,8 +164,6 @@ def _read_module(p: Path, modules: set[str], known: set[str]) -> Module:
     imported = _resolve_imports(tree, modules)
     m.imports = {v.split(":")[0] for v in imported.values()} - {mod}
     top_names = {n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
-    # Module-level SQL constants, so a function that runs CANDIDATES_SQL is credited
-    # with the tables CANDIDATES_SQL reads.
     consts = {
         t.id: ast.get_source_segment(src, n.value) or ""
         for n in tree.body
@@ -228,7 +209,6 @@ def _read_module(p: Path, modules: set[str], known: set[str]) -> Module:
                 pos = (c.lineno, c.col_offset)
                 if target not in found or pos < found[target]:
                     found[target] = pos
-            # Source order, not alphabetical: a trace is a sequence.
             f.calls = sorted(found, key=found.get)
             f.call_lines = {t: pos[0] for t, pos in found.items()}
             used = "".join(v for k, v in consts.items() if re.search(rf"\b{k}\b", seg))

@@ -1,9 +1,3 @@
--- Out-of-stock rate per product / retailer.
---
--- Currently returns zero rows: neither keyless source (Fake Store, Open Prices) reports
--- availability, so `stock_events` is empty. The model is written against the real schema
--- so it starts producing numbers the moment a stock-bearing source -- Best Buy or
--- Digi-Key -- is connected, rather than being invented later under time pressure.
 with stock as (select * from {{ ref('stg_stock_events') }}),
 
 products as (select * from {{ ref('stg_products') }}),
@@ -15,7 +9,6 @@ daily as (
         product_id,
         retailer_id,
         observed_date,
-        -- A day counts as out of stock if any observation that day said so.
         bool_or(not coalesce(in_stock, true)) as was_out_of_stock
     from stock
     group by product_id, retailer_id, observed_date

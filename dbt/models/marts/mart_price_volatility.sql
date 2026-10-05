@@ -1,11 +1,3 @@
--- Price dispersion per product / retailer / currency.
---
--- Coefficient of variation (stddev / mean) is the headline number rather than raw
--- stddev: it is unitless, so a 0.35 EUR baguette and a 3.57 EUR jar of spread can be
--- ranked against each other. Raw stddev is kept alongside for absolute context.
---
--- Series with fewer than `min_observations_for_volatility` points are excluded --
--- dispersion over two points is noise, not a signal.
 with daily as (select * from {{ ref('int_price_daily') }}),
 
 stats as (
@@ -51,7 +43,6 @@ select
     round(mean_price, 2)                                      as mean_price,
     round(coalesce(stddev_price, 0), 4)                       as stddev_price,
     round(max_price - min_price, 2)                           as price_range,
-    -- nullif guards a zero mean (a genuinely free item) rather than dividing by zero.
     round(coalesce(stddev_price, 0) / nullif(mean_price, 0), 4) as coefficient_of_variation,
     case
         when coalesce(stddev_price, 0) / nullif(mean_price, 0) >= 0.20 then 'high'

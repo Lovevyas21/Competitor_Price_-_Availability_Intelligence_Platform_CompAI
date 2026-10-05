@@ -1,8 +1,3 @@
-# Networking: EC2 in a public subnet, RDS in private subnets with no route to the
-# internet. There is deliberately no NAT gateway -- it would cost roughly $32/month,
-# more than the rest of this stack combined, and nothing in a private subnet needs
-# outbound internet. The workers run on the public-subnet instance.
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -25,8 +20,6 @@ resource "aws_subnet" "public" {
   tags = { Name = "${var.project}-public-a" }
 }
 
-# Two private subnets in different AZs: an RDS subnet group requires it even when the
-# instance itself is Single-AZ.
 resource "aws_subnet" "private" {
   count             = length(var.availability_zones)
   vpc_id            = aws_vpc.main.id
@@ -52,7 +45,6 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# --- security groups -------------------------------------------------------
 resource "aws_security_group" "app" {
   name        = "${var.project}-app"
   description = "Application host: outbound only, plus optional SSH."
@@ -68,7 +60,6 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
   ip_protocol       = "-1"
 }
 
-# Only created when an explicit CIDR is supplied. No default open SSH.
 resource "aws_vpc_security_group_ingress_rule" "app_ssh" {
   for_each = toset(var.ssh_ingress_cidrs)
 
@@ -88,8 +79,6 @@ resource "aws_security_group" "db" {
   tags = { Name = "${var.project}-db" }
 }
 
-# Source is the app security group, not a CIDR: the rule keeps holding if the
-# instance is replaced and its address changes.
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
   description                  = "PostgreSQL from the application host only"

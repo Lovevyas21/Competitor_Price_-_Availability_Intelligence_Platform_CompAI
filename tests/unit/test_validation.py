@@ -31,7 +31,6 @@ def test_valid_batch_passes():
 
 
 def test_empty_batch_fails_loudly():
-    """A source silently returning nothing is a failure, not a no-op."""
     with pytest.raises(IngestionBatchFailed, match="empty"):
         validate_price_batch([], source="test")
 

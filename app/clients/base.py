@@ -1,10 +1,3 @@
-"""Common source-client interface.
-
-Every source -- keyless dev sources now, Best Buy / eBay / Digi-Key later -- implements
-`SourceClient`. The ingestion runner only ever talks to this interface, so adding a real
-retail API is a new file, not a change to the pipeline.
-"""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -29,15 +22,13 @@ RETRYABLE = (httpx.TransportError, httpx.HTTPStatusError)
 
 
 class SourceUnavailable(RuntimeError):
-    """Raised when a source cannot be used (missing credentials, upstream down)."""
+    pass
 
 
 class SourceClient(ABC):
-    #: Stable source name; matches `sources.name` in Postgres.
     name: str
     base_url: str
     auth_type: str = "none"
-    #: Default retailer this source's listings belong to.
     default_retailer: str = "unknown"
     country: str | None = None
 
@@ -50,7 +41,6 @@ class SourceClient(ABC):
             follow_redirects=True,
         )
 
-    # -- lifecycle -------------------------------------------------------------
     def close(self) -> None:
         self._client.close()
 
@@ -60,12 +50,9 @@ class SourceClient(ABC):
     def __exit__(self, *exc) -> None:
         self.close()
 
-    # -- capability check ------------------------------------------------------
     def is_available(self) -> bool:
-        """Keyless sources are always available; keyed sources check credentials."""
         return True
 
-    # -- transport -------------------------------------------------------------
     @retry(
         retry=retry_if_exception_type(RETRYABLE),
         stop=stop_after_attempt(4),
@@ -77,36 +64,20 @@ class SourceClient(ABC):
         resp.raise_for_status()
         return resp.json()
 
-    # -- contract --------------------------------------------------------------
     @abstractmethod
     def fetch_raw(self, external_id: str) -> Any:
-        """Fetch one product's raw payload. Raw is persisted before parsing."""
+        pass
 
     @abstractmethod
     def normalize(self, raw: Any) -> NormalizedRecord | None:
-        """Parse a raw payload into the normalized model. None = skip this record."""
+        pass
 
     def iter_raw(self, raw: Any) -> Iterator[Any]:
-        """Split one fetch_raw payload into individual observation payloads.
-
-        Most sources return one product per fetch, so the default yields the payload
-        unchanged. Sources whose per-SKU endpoint returns a *history* (many dated
-        observations for one product) override this.
-        """
         yield raw
 
     def top_external_ids(self, limit: int = 50) -> list[tuple[str, int, str | None]]:
-        """Candidate SKUs worth tracking, richest history first.
-
-        Returns (external_id, observation_count, label). Sources that cannot rank their
-        catalogue return an empty list and are seeded manually instead.
-        """
         return []
 
     @abstractmethod
     def discover(self, limit: int | None = None) -> Iterator[tuple[str, Any]]:
-        """Yield (external_id, raw_payload) pairs for seeding / bulk refresh.
-
-        Sources with a listing endpoint return many products per HTTP call, which is
-        far cheaper than per-SKU fetches against a quota.
-        """
+        pass

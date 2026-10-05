@@ -17,8 +17,6 @@ def test_bronze_defaults_to_local_backend():
 
 
 def test_override_url_is_pinned_to_psycopg3():
-    """Providers hand out postgres:// or postgresql://; both route to psycopg2 by
-    default, which this project does not use."""
     s = Settings(database_url_override="postgres://u:p@host/db?sslmode=require")
     assert s.database_url.startswith("postgresql+psycopg://")
     assert s.database_url.endswith("?sslmode=require")
@@ -45,13 +43,6 @@ def test_managed_flag_reflects_override():
 
 
 def test_a_password_with_percent_encoding_survives_alembic():
-    """Regression: alembic.ini is parsed by configparser, which reads `%` as
-    interpolation syntax and raises before it ever connects.
-
-    Only environments whose password needs URL-encoding are affected, so this passed
-    every local run -- the development password is plain -- and failed on the first
-    real deploy, where RDS generates a password encoding to `%7B...%3A...%25`.
-    """
     import configparser
 
     from app.core.settings import Settings
@@ -61,7 +52,6 @@ def test_a_password_with_percent_encoding_survives_alembic():
 
     parser = configparser.ConfigParser()
     parser.add_section("alembic")
-    # What migrations/env.py does.
     parser.set("alembic", "sqlalchemy.url", settings.alembic_url.replace("%", "%%"))
 
     assert parser.get("alembic", "sqlalchemy.url") == settings.alembic_url

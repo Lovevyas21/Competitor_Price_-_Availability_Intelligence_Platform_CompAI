@@ -1,12 +1,3 @@
-"""Hand-authored SVG figures for the project report.
-
-All figures are inline SVG rather than a diagramming library: they must render
-identically in a browser and in the PDF produced by headless Chrome, and they must
-inherit the page's text colour so a single source works on light and dark grounds.
-
-Each function returns a complete <figure> element with a caption.
-"""
-
 from __future__ import annotations
 
 ACCENT = "#0e6b59"
@@ -50,7 +41,6 @@ def _box(x, y, w, h, title, lines, accent=False, dashed=False):
     return "".join(out)
 
 
-# 1. high-level architecture
 def fig_architecture(num: int) -> str:
     s = [
         '<svg viewBox="0 0 920 400" role="img" aria-label="High level architecture. Public price APIs feed a scheduled ingestion layer. Raw payloads go to object storage before parsing; normalized rows go to PostgreSQL with change data capture. dbt builds tested marts. Forecasting, product matching and the AI brief read the marts, and results are served through an API, a BI dashboard, a review interface and alerts.">',
@@ -136,7 +126,6 @@ def fig_architecture(num: int) -> str:
     )
 
 
-# 2. ingestion module
 def fig_ingestion(num: int) -> str:
     steps = [
         ("1", "Schedule fires", "Beat enqueues a tier refresh onto the broker"),
@@ -170,7 +159,6 @@ def fig_ingestion(num: int) -> str:
                 f'<line x1="30" y1="{y + 13}" x2="30" y2="{y + 39}" stroke="currentColor" stroke-width="1" opacity=".35"/>'
             )
         y += 52
-    # failure branches
     s.append(
         '<rect x="470" y="30" width="420" height="86" rx="4" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 3" opacity=".6"/>'
     )
@@ -206,7 +194,6 @@ def fig_ingestion(num: int) -> str:
     )
 
 
-# 3. CDC decision
 def fig_cdc(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 220" role="img" aria-label="Change data capture decision. An incoming observation is compared with the preceding observation for the same product and retailer. If the price differs, or the twenty-four hour heartbeat has elapsed, a new row is appended. Otherwise it is skipped. Existing rows are never modified.">',
@@ -248,7 +235,6 @@ def fig_cdc(num: int) -> str:
     )
 
 
-# 4. entity relationship diagram
 ENTITIES = {
     "SOURCES": (14, 96, [("source_id", "PK"), ("name", "UK"), ("base_url", ""), ("auth_type", "")]),
     "RETAILERS": (
@@ -448,7 +434,6 @@ def fig_er(num: int) -> str:
     )
 
 
-# 5. dbt lineage
 def fig_dbt(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 420" role="img" aria-label="dbt model lineage. Six staging views read the serving tables. Three intermediate views build the shared join, a daily grain and a latest-price view. Five marts answer business questions and are the only thing downstream consumers read.">',
@@ -540,7 +525,6 @@ def fig_dbt(num: int) -> str:
     )
 
 
-# 6. ML forecasting
 def fig_forecast(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 400" role="img" aria-label="Forecasting pipeline. Daily price series are read from a mart, resampled to a regular daily grid, and filtered for length and recency. Three models are fitted: AutoETS, AutoARIMA and a SeasonalNaive baseline. Rolling origin cross validation scores each on unseen windows, the lowest error model is selected per series, and forecasts with prediction intervals plus the accuracy of every model are written back to the database.">',
@@ -633,7 +617,6 @@ def fig_forecast(num: int) -> str:
     )
 
 
-# 7. vector matching
 def fig_matching(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 430" role="img" aria-label="Product matching pipeline. Product title, brand and category are combined and embedded into a 384 dimension vector stored in PostgreSQL with pgvector. Exact barcode matches are accepted outright. Otherwise candidates are restricted by category, an approximate nearest neighbour search over an HNSW index produces similarity scores, and the score is banded: at or above 0.92 accepted automatically, between 0.80 and 0.92 sent for human review in Streamlit, below 0.80 rejected.">',
@@ -716,7 +699,6 @@ def fig_matching(num: int) -> str:
     )
 
 
-# 8. AI brief
 def fig_ai(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 400" role="img" aria-label="Weekly brief generation. A facts builder queries the marts and produces a closed set of numbers. Three CrewAI agents, an analyst, a forecast interpreter and a writer, receive that payload and produce prose. A numeric guard checks every number in the prose against the facts. If all numbers are supported the narrated brief is published; if any number is unsupported the narrated version is discarded and a deterministic rendering of the same facts is published instead.">',
@@ -801,7 +783,6 @@ def fig_ai(num: int) -> str:
     )
 
 
-# 9. UI surfaces
 def fig_ui(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 460" role="img" aria-label="User interface surfaces. The Metabase dashboard shows scorecards, an undercut table, a volatility leaderboard, price trend charts and forecast accuracy. The Streamlit review screen shows candidate product pairs for approval. The REST API exposes seven endpoints. Alerts are delivered to Slack or email. The weekly brief is a written document. All five surfaces read from the marts.">',
@@ -810,7 +791,6 @@ def fig_ui(num: int) -> str:
     ]
     s.append(_box(360, 20, 180, 54, "dbt marts", ["single source for all UI"], accent=True))
 
-    # dashboard mock
     s.append(
         '<rect x="12" y="110" width="420" height="230" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>'
     )
@@ -855,7 +835,6 @@ def fig_ui(num: int) -> str:
         + '" stroke-width="1.6" opacity=".8"/>'
     )
 
-    # review + api + alerts + brief
     s.append(
         '<rect x="460" y="110" width="200" height="112" rx="5" fill="none" stroke="currentColor" stroke-width="1.4"/>'
     )
@@ -935,7 +914,6 @@ def fig_ui(num: int) -> str:
     )
 
 
-# 10. AWS deployment
 def fig_aws(num: int) -> str:
     s = [
         '<svg viewBox="0 0 900 470" role="img" aria-label="AWS deployment architecture in the Mumbai region. A virtual private cloud contains a public subnet holding an EC2 application host running the API, worker and scheduler containers, and two private subnets in different availability zones holding the RDS PostgreSQL instance. The application host reads secrets from SSM Parameter Store, writes raw payloads to S3, and sends logs and metrics to CloudWatch. The database has no public address and accepts connections only from the application security group.">',

@@ -1,31 +1,6 @@
-<#
-.SYNOPSIS
-  Allow Windows -> WSL access to the local Postgres and Redis ports.
-
-.DESCRIPTION
-  With `networkingMode=mirrored` in .wslconfig, traffic from Windows into the WSL VM is
-  policed by the Hyper-V firewall. That is a different firewall from Windows Firewall,
-  and its DefaultInboundAction is Block -- so a service listening correctly on
-  0.0.0.0:5432 inside WSL still refuses connections from Windows.
-
-  This script adds two narrow inbound rules (TCP 5432 and 6379) for the WSL VM only.
-
-  It deliberately does NOT set `-DefaultInboundAction Allow` on the VM, which is the
-  usual advice online: that opens every port on the VM to the host, which is far more
-  than this project needs.
-
-  Requires an elevated (Administrator) PowerShell. Safe to run more than once.
-
-.NOTES
-  See docs/adr/ADR-006-local-database-runtime.md for the reasoning.
-#>
-
-#Requires -RunAsAdministrator
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Fixed GUID Microsoft assigns to the WSL VM creator.
 $WslVmCreatorId = '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}'
 
 $rules = @(

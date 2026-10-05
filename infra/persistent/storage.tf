@@ -1,8 +1,3 @@
-# S3 bronze layer: every raw API payload, before parsing.
-#
-# This bucket is the reason losing the database is survivable -- the warehouse is
-# rebuilt from it with `cpi replay`, no upstream traffic and no quota spend.
-
 resource "aws_s3_bucket" "bronze" {
   bucket = "${var.project}-bronze-${data.aws_caller_identity.current.account_id}"
 
@@ -28,7 +23,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "bronze" {
   }
 }
 
-# Versioning protects the audit trail from an accidental overwrite of a raw payload.
 resource "aws_s3_bucket_versioning" "bronze" {
   bucket = aws_s3_bucket.bronze.id
 
@@ -40,8 +34,6 @@ resource "aws_s3_bucket_versioning" "bronze" {
 resource "aws_s3_bucket_lifecycle_configuration" "bronze" {
   bucket = aws_s3_bucket.bronze.id
 
-  # Raw JSON is written once and read rarely -- only on replay. Tiering it keeps the
-  # bill flat as history accumulates.
   rule {
     id     = "tier-old-payloads"
     status = "Enabled"
@@ -71,7 +63,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "bronze" {
       prefix = "deadletter/"
     }
 
-    # Dead letters are for debugging; keeping them for a year has no value.
     expiration {
       days = 90
     }

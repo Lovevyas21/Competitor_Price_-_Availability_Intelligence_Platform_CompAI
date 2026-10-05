@@ -1,6 +1,3 @@
-# Least privilege: the instance role may read this project's parameters and write to
-# this project's bucket. Nothing else -- no wildcard resources anywhere.
-
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -20,9 +17,6 @@ resource "aws_iam_role" "app" {
 }
 
 data "aws_iam_policy_document" "app" {
-  # Bronze: read and write objects, but never delete them and never reconfigure the
-  # bucket. Bronze is the audit trail and the disaster-recovery source; the application
-  # has no business removing from it.
   statement {
     sid       = "BronzeObjectAccess"
     actions   = ["s3:GetObject", "s3:PutObject"]
@@ -35,13 +29,6 @@ data "aws_iam_policy_document" "app" {
     resources = [data.aws_s3_bucket.bronze.arn]
   }
 
-  # Only this project's parameters, in this environment.
-  #
-  # Two ARNs, not one, and the difference is not cosmetic. `GetParameter` acts on each
-  # parameter, so it needs `/cpi/prod/*`. `GetParametersByPath` acts on the *path node*
-  # `/cpi/prod` itself, which `/cpi/prod/*` does not match -- a trailing wildcard covers
-  # the children, never the parent. Granting only the wildcard produces an AccessDenied
-  # naming a resource that looks like it is obviously covered.
   statement {
     sid     = "ReadOwnParameters"
     actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
@@ -57,10 +44,6 @@ data "aws_iam_policy_document" "app" {
     resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:alias/aws/ssm"]
   }
 
-  # ECR. Split across two statements because `GetAuthorizationToken` is an account-level
-  # action that AWS only accepts against `*` -- scoping it to the repository silently
-  # denies every login. Everything that touches image content is scoped to this one
-  # repository.
   statement {
     sid       = "EcrLogin"
     actions   = ["ecr:GetAuthorizationToken"]
@@ -98,7 +81,6 @@ resource "aws_iam_role_policy" "app" {
   policy = data.aws_iam_policy_document.app.json
 }
 
-# SSM Session Manager gives shell access with no SSH port and no key material.
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   role       = aws_iam_role.app.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"

@@ -1,8 +1,3 @@
--- Rows worth alerting on: a competitor is at or below our price, on fresh data.
---
--- Severity is driven by how deep the undercut is, and staleness is surfaced rather than
--- filtered out -- an undercut computed from a three-week-old observation should not be
--- presented with the same confidence as one from today.
 with gaps as (select * from {{ ref('mart_price_gap_vs_own') }})
 
 select

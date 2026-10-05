@@ -1,15 +1,3 @@
-"""Celery application: broker config, queues, and Beat schedules.
-
-Why Celery Beat rather than Airflow/Dagster: this workload is periodic API polling with
-task fan-out, which Beat handles with far less operational weight. The trade-off is no
-DAG lineage, no asset-aware backfills, and no managed retry UI -- the point at which an
-orchestrator earns its keep. See ADR-005.
-
-Delivery semantics are deliberately **at-least-once**: `acks_late=True` means a task is
-acknowledged only after it completes, so a worker crash re-runs the task rather than
-losing it. Duplicate work is safe because every event carries an idempotency key.
-"""
-
 from __future__ import annotations
 
 from celery import Celery
@@ -29,11 +17,8 @@ app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
-    # At-least-once delivery. Safe here because ingestion is idempotent.
     task_acks_late=True,
     task_reject_on_worker_lost=True,
-    # Small prefetch: these tasks are long and I/O-bound, so hoarding messages just
-    # delays work that an idle worker could pick up.
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=200,
     task_track_started=True,
@@ -61,66 +46,50 @@ app.autodiscover_tasks(["app.ingestion"])
 
 @setup_logging.connect
 def _configure_celery_logging(**_kwargs):
-    """Use structlog for worker logs instead of Celery's default formatter."""
     configure_logging(settings.log_level, pretty=settings.env == "dev")
 
 
 app.conf.beat_schedule = {
-    # Tier-1 SKUs: high-volatility, refreshed every 6 hours.
     "tier1-every-6h": {
         "task": "app.ingestion.tasks.enqueue_tier",
         "schedule": crontab(minute=0, hour="*/6"),
         "args": (1,),
     },
-    # Tier-2: daily, off-peak.
     "tier2-daily": {
         "task": "app.ingestion.tasks.enqueue_tier",
         "schedule": crontab(minute=30, hour=2),
         "args": (2,),
     },
-    # Tier-3: weekly.
     "tier3-weekly": {
         "task": "app.ingestion.tasks.enqueue_tier",
         "schedule": crontab(minute=0, hour=4, day_of_week=0),
         "args": (3,),
     },
-    # Broad discovery sweep -- cheap, keeps catalogue coverage growing.
     "discover-daily": {
         "task": "app.ingestion.tasks.ingest_source_task",
         "schedule": crontab(minute=15, hour=1),
         "args": ("openprices", 300),
     },
-    # Rebuild marts after the daily sweep has landed. Downstream consumers -- the API,
-    # the dashboard and the nightly forecast -- all read marts, so they are refreshed
-    # before any of those run.
     "marts-daily": {
         "task": "app.ingestion.tasks.build_marts",
         "schedule": crontab(minute=45, hour=1),
     },
-    # Forecasts train after the marts are rebuilt -- they read mart_price_trend.
     "nightly-train": {
         "task": "app.ingestion.tasks.train_forecasts",
         "schedule": crontab(minute=0, hour=3),
     },
-    # Alerting runs after every tier-1 ingestion cycle, so an undercut surfaces within
-    # one cycle of appearing (the SLA in the build document).
     "alerts-every-6h": {
         "task": "app.ingestion.tasks.evaluate_alerts",
         "schedule": crontab(minute=20, hour="*/6"),
     },
-    # Matching after the daily sweep: new products need embeddings before they can be
-    # matched, and the review queue should be current when someone opens it.
     "matches-daily": {
         "task": "app.ingestion.tasks.refresh_matches",
         "schedule": crontab(minute=15, hour=2),
     },
-    # Weekly brief, Monday morning, after the nightly train has run.
     "weekly-brief": {
         "task": "app.ingestion.tasks.generate_brief",
         "schedule": crontab(minute=0, hour=6, day_of_week=1),
     },
-    # Create next month's partitions well before they are needed. Without this,
-    # the first write after a month boundary fails with "no partition found".
     "partitions-monthly": {
         "task": "app.ingestion.tasks.ensure_future_partitions",
         "schedule": crontab(minute=0, hour=0, day_of_month=25),

@@ -1,8 +1,3 @@
-/* Showcase styling.
-   Committed to a single dark console look rather than following the OS theme: the whole
-   point of the page is that it reads like a terminal, and a light-mode terminal would be
-   a different design, not the same one recoloured. */
-
 :root {
   --bg: #0a0e14;
   --bg-panel: #0e141c;
@@ -36,8 +31,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* A faint scanline wash. Kept very low contrast -- it should read as texture, not as an
-   effect competing with the text on top of it. */
 body::before {
   content: "";
   position: fixed;
@@ -62,7 +55,6 @@ a:hover { text-decoration: underline; }
   z-index: 2;
 }
 
-/* intro page */
 .hero { padding: 92px 0 56px; }
 
 .eyebrow {
@@ -180,7 +172,6 @@ h1 {
   font-family: var(--sans);
 }
 
-/* console page */
 .bar {
   position: sticky;
   top: 0;
@@ -243,7 +234,6 @@ h1 {
   .rail { position: static !important; }
 }
 
-/* stage rail ---------------------------------------------------------------- */
 .rail { position: sticky; top: 76px; }
 .rail-title {
   font-size: 10.5px;
@@ -281,7 +271,6 @@ h1 {
 .stage-item[data-state="done"] .stage-name { color: var(--fg-bright); }
 .stage-ms { color: var(--fg-dim); font-size: 11px; }
 
-/* console ------------------------------------------------------------------- */
 .console {
   background: var(--bg-panel);
   border: 1px solid var(--line);
@@ -376,8 +365,6 @@ td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* One entrance, shared by everything the renderer appends. The easing is a gentle
-   decelerate rather than `ease`, so blocks settle instead of snapping into place. */
 @keyframes riseIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
@@ -387,8 +374,6 @@ td {
 }
 tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 
-/* Notes and the summary meta fade in a beat after the number they explain, so the eye
-   lands on the figure first. */
 .metric .note, .summary .meta {
   opacity: 0;
   transform: translateY(3px);
@@ -396,9 +381,6 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .metric .note.in, .summary .meta.in { opacity: 1; transform: none; }
 
-/* boot sequence */
-/* Pure presentation, and the only part of the page that is. It plays before a stage's
-   real output and then erases itself, so what remains on screen is all genuine. */
 .boot {
   margin: 14px 0 18px;
   max-width: 460px;
@@ -459,19 +441,12 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .summary .meta { color: var(--fg-dim); font-size: 12.5px; margin-top: 4px; }
 
-/* Anyone who has asked their OS to stop animating things gets the data with no
-   theatre at all -- the reveal is decoration, and decoration is what this setting
-   is about. */
 @media (prefers-reduced-motion: reduce) {
   .cursor, .stage-item[data-state="running"] .stage-dot { animation: none; }
   .stage-head, .ln, .metric, table, .summary, .boot, tbody tr { animation: none; }
   .metric .note, .summary .meta { opacity: 1; transform: none; transition: none; }
 }
 
-/* generated prose (stage 06) */
-/* Set apart from the console output on purpose. Everything above it is a figure
-   read from the warehouse; this is the one block a language model wrote, and it
-   should not be mistaken for the rest. */
 .prose {
   margin: 16px 0 8px;
   border: 1px solid var(--line);
@@ -510,7 +485,6 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .prose-note.in { opacity: 1; transform: none; }
 
-/* data viewer */
 .sheet {
   position: fixed;
   inset: 0;
@@ -548,7 +522,6 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
   z-index: 1;
 }
 
-/* ask-about-the-data dock */
 .dock { position: fixed; right: 22px; bottom: 22px; z-index: 15; }
 
 .dock-tab {
@@ -613,7 +586,6 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 .chat.you { align-self: flex-end; background: var(--bg-raise); color: var(--fg-bright); }
 .chat.bot { align-self: flex-start; background: #101a24; color: var(--fg); }
 .chat.bot.pending { color: var(--fg-dim); }
-/* A refused answer must not look like a normal one. */
 .chat.bot.refused { border-left: 2px solid var(--warn); color: var(--warn); }
 .chat.bot.warn { border-left: 2px solid var(--fg-dim); color: var(--fg-dim); }
 .chat-tag {
@@ -637,8 +609,6 @@ tbody tr { animation: riseIn 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 }
 .dock-form input:focus { outline: none; border-color: var(--accent); }
 
-/* `display: flex` on these panels beats the browser's default `[hidden] { display: none }`,
-   so both would render while still marked hidden. Restated explicitly. */
 .sheet[hidden],
 .dock-panel[hidden],
 .dock-tab[hidden] {

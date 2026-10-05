@@ -1,6 +1,3 @@
-# `project` and `environment` must match the persistent stack: this stack finds the
-# bronze bucket, the alerts topic and the secrets path by deriving their names from
-# these, rather than through a shared state file.
 variable "project" {
   type    = string
   default = "cpi"
@@ -28,7 +25,6 @@ variable "availability_zones" {
   default     = ["ap-south-1a", "ap-south-1b"]
 }
 
-# --- compute ---------------------------------------------------------------
 variable "instance_type" {
   description = "Graviton is roughly 20% cheaper than the x86 equivalent."
   type        = string
@@ -51,7 +47,6 @@ variable "key_pair_name" {
   default     = null
 }
 
-# --- database --------------------------------------------------------------
 variable "db_instance_class" {
   description = <<-EOT
     db.t3.micro rather than the cheaper Graviton db.t4g.micro, which is not a preference
@@ -105,10 +100,6 @@ variable "db_backup_retention_days" {
   default     = 1
 }
 
-# --- teardown behaviour ----------------------------------------------------
-# See the comment in database.tf. These default to destroy-friendly because this stack
-# exists to be torn down between demos, and because bronze in the persistent stack makes
-# the database reproducible rather than precious.
 variable "db_deletion_protection" {
   description = "true blocks `terraform destroy` entirely. Set true for anything holding irreproducible data."
   type        = bool

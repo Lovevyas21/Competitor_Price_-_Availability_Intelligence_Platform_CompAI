@@ -1,7 +1,3 @@
--- Daily price series per product / retailer / currency, with day-over-day change.
---
--- This is the table the forecasting pipeline reads in phase 4 and the shape charts want,
--- so the window logic lives here once rather than being re-derived by each consumer.
 with daily as (select * from {{ ref('int_price_daily') }}),
 
 with_lag as (

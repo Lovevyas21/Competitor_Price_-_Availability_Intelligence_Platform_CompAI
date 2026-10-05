@@ -1,18 +1,3 @@
-"""Undercut alerting.
-
-The rule itself lives in `mart_undercut_alerts` (dbt), not here -- keeping the business
-logic in SQL means it is tested by dbt alongside the marts, and the same definition backs
-the API, the dashboard and the alert.
-
-This module is responsible for the parts SQL cannot do:
-
-* **Deduplication.** The alert cycle runs every 6 hours, but an undercut that persists
-  for a week is one piece of news, not 28. An alert is re-sent only if the competitor
-  price actually moved, or after a cooldown.
-* **Delivery**, with the send recorded so a crash mid-cycle cannot silently drop or
-  duplicate a notification.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,11 +14,8 @@ log = get_logger(__name__)
 
 ALERT_TYPE = "undercut"
 
-#: Re-notify about an unchanged, still-active undercut only this often.
 COOLDOWN = timedelta(days=1)
 
-#: Alerts computed from evidence older than this are recorded but not delivered --
-#: waking someone for a three-week-old observation is noise.
 MAX_ALERTABLE_STALENESS_DAYS = 7
 
 CANDIDATES_SQL = """
@@ -45,7 +27,6 @@ from analytics_marts.mart_undercut_alerts
 order by gap_pct
 """
 
-#: The most recent alert per product/retailer, used for dedupe.
 LAST_ALERT_SQL = """
 select distinct on (product_id, message)
        product_id, message, created_at, sent_at
@@ -55,9 +36,6 @@ order by product_id, message, created_at desc
 """
 
 
-#: Advisory-lock key for the alert cycle. Arbitrary, but must never change: it is the
-#: identity of the lock, and two deployments disagreeing about it would not exclude
-#: each other. Derived from the alert type so it reads as deliberate rather than magic.
 ALERT_CYCLE_LOCK_KEY = 0x_A1E7_C7C1
 
 
@@ -78,24 +56,6 @@ class AlertCycleStats:
 
 
 def _acquire_cycle_lock(session: Session) -> bool:
-    """Claim the right to run an alert cycle, or report that someone else has it.
-
-    Deduplication reads the existing fingerprints and then inserts. That is safe in one
-    process and wrong in two: both cycles read "nothing recorded", both insert, and the
-    same undercut is sent to a human twice. Nothing in the schema prevents it, and it
-    only appears once the scheduler is scaled or restarted mid-cycle -- so it is exactly
-    the class of bug that survives every local test and surfaces in production.
-
-    A unique index on the fingerprint would be the obvious fix and is the wrong one: the
-    same fingerprint is *supposed* to reappear once the cooldown expires, so a uniqueness
-    constraint would permanently silence legitimate re-alerts instead of preventing
-    concurrent ones. The exclusion needed is between runs, not between rows.
-
-    `try` rather than a blocking acquire: if a cycle is already running, this one has
-    nothing to add -- the other will see the same candidates. Waiting would only queue
-    up a duplicate pass. Transaction-scoped, so the lock is released on commit *or*
-    rollback and a crashed cycle cannot wedge the schedule.
-    """
     held = session.execute(
         text("select pg_try_advisory_xact_lock(:key)"),
         {"key": ALERT_CYCLE_LOCK_KEY},
@@ -104,12 +64,6 @@ def _acquire_cycle_lock(session: Session) -> bool:
 
 
 def _fingerprint(row) -> str:
-    """Identity of an undercut *at a price*.
-
-    The competitor price is part of the fingerprint deliberately: the same retailer
-    dropping further is genuinely new information and should alert again, while an
-    unchanged undercut should not.
-    """
     return f"{row['retailer_name']}|{row['upc']}|{row['currency']}|{row['competitor_price']}"
 
 
@@ -127,7 +81,6 @@ def load_candidates(session: Session) -> list[dict]:
 
 
 def existing_fingerprints(session: Session) -> dict[str, datetime]:
-    """Fingerprint -> when we last created an alert for it."""
     rows = session.execute(text(LAST_ALERT_SQL), {"type": ALERT_TYPE}).mappings().all()
     out: dict[str, datetime] = {}
     for row in rows:
@@ -139,12 +92,6 @@ def existing_fingerprints(session: Session) -> dict[str, datetime]:
 
 
 def deliver(messages: list[str], channels: list[AlertChannel] | None = None) -> dict:
-    """Send a batch to every configured channel.
-
-    Returns per-channel outcomes. Delivery counts as successful if *any* channel accepted
-    the batch -- the alert reached a human, which is the point. A channel that fails is
-    logged and retried next cycle, because `sent_at` stays null.
-    """
     channels = configured_channels() if channels is None else channels
     if not channels:
         log.warning("alert.no_channel_configured", pending=len(messages))
@@ -154,20 +101,10 @@ def deliver(messages: list[str], channels: list[AlertChannel] | None = None) -> 
 
 
 def run_alert_cycle(dry_run: bool = False) -> dict:
-    """Evaluate undercuts, record new alerts, deliver the deliverable ones.
-
-    `dry_run=True` reports what a real cycle would do and writes nothing: no alert rows,
-    no delivery. That is worth stating because the obvious implementation -- recording
-    the alerts and skipping only the send -- has a nasty side effect: the recorded rows
-    suppress the genuine alerts for a full cooldown, so previewing the cycle silences it.
-    """
     stats = AlertCycleStats()
     now = datetime.now(UTC)
 
     with session_scope() as session:
-        # A dry run writes nothing, so it needs no exclusion -- and taking the lock would
-        # mean a preview could be refused because a real cycle was running, or worse,
-        # hold the lock against one.
         if not dry_run and not _acquire_cycle_lock(session):
             stats.skipped_locked = True
             log.info("alert.cycle_skipped", reason="another cycle holds the lock")
@@ -190,9 +127,6 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
             stored = f"{message}\n#{fingerprint}"
 
             if dry_run:
-                # A dry run must change nothing. Recording the alert here would not only
-                # surprise the operator, it would suppress the real alert for a full
-                # cooldown -- a "preview" that silences the thing it previewed.
                 stats.created += 1
                 if int(row["days_stale"]) > MAX_ALERTABLE_STALENESS_DAYS:
                     stats.suppressed_stale += 1
@@ -215,7 +149,6 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
             stats.created += 1
 
             if int(row["days_stale"]) > MAX_ALERTABLE_STALENESS_DAYS:
-                # Recorded for the record and the API, but not pushed at anyone.
                 stats.suppressed_stale += 1
                 continue
 
@@ -229,15 +162,11 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
     stats.channels = results
 
     if not results:
-        # Nothing configured. The alerts stay recorded with sent_at null, so they are
-        # visible on the API and get delivered once a channel is set up.
         log.info("alert.cycle_done", **stats.as_dict())
         return stats.as_dict()
 
     if any(results.values()):
         stats.delivered = len(to_deliver)
-        # Marked only after a channel accepted the batch, so a total failure is retried
-        # next cycle rather than being silently lost.
         with session_scope() as session:
             session.execute(
                 text("update alerts set sent_at = now() where alert_id = any(:ids)"),

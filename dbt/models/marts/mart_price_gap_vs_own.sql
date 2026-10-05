@@ -1,11 +1,3 @@
--- Competitor price versus our own catalogue price, per retailer.
---
--- Matching is on UPC/barcode, never on name: an exact structured identifier is the only
--- match we trust without human review (embedding-based matching lands in phase 5).
---
--- The join is scoped to a matching currency. Subtracting a SEK price from a EUR price
--- would produce a number that looks authoritative and means nothing, so cross-currency
--- rows are simply not produced.
 with latest as (select * from {{ ref('int_price_latest') }}),
 
 own as (
@@ -36,7 +28,6 @@ select
     l.latest_price                        as competitor_price,
     round(l.latest_price - o.our_price, 2) as gap_abs,
     round(100.0 * (l.latest_price - o.our_price) / nullif(o.our_price, 0), 2) as gap_pct,
-    -- Negative gap = competitor is cheaper = they are undercutting us.
     case
         when l.latest_price < o.our_price * {{ var('undercut_threshold') }} then true
         else false

@@ -1,18 +1,3 @@
-"""Turn stored price history into forecastable series.
-
-Two things make retail price data awkward for time-series models, and both are handled
-here rather than being left to surprise the model:
-
-1. **Observations are irregular.** A crowd-sourced price appears when someone records it,
-   not daily. statsforecast expects a regular frequency, so each series is resampled to a
-   daily grid and forward-filled -- a price is assumed to hold until it is next observed,
-   which is how shelf prices actually behave.
-
-2. **Series are short and uneven.** A model fitted on four points will happily produce a
-   confident forecast that means nothing, so series below a minimum length are excluded
-   outright rather than forecast badly.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,15 +10,10 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-#: Below this many observed points, a fitted model is noise dressed as a forecast.
 MIN_OBSERVATIONS = 10
 
-#: Cap how far back to pull. Very old prices say little about next week.
 MAX_HISTORY_DAYS = 730
 
-#: A series whose last observation is older than this is not forecast at all.
-#: Extrapolating 7 days past a series that ended 18 months ago produces "forecasts"
-#: dated in the past -- confidently wrong, and worse than no forecast.
 MAX_STALENESS_DAYS = 30
 
 SERIES_SQL = """
@@ -51,8 +31,6 @@ order by product_id, retailer_id, currency, observed_date
 
 @dataclass(frozen=True)
 class SeriesKey:
-    """Identifies one forecastable series. Currency is part of the key -- see ADR-008."""
-
     product_id: int
     retailer_id: int | None
     currency: str
@@ -88,14 +66,6 @@ def to_regular_daily(
     min_observations: int = MIN_OBSERVATIONS,
     max_staleness_days: int | None = MAX_STALENESS_DAYS,
 ) -> pd.DataFrame:
-    """Resample each series onto a daily grid, forward-filling between observations.
-
-    Returns the long format statsforecast expects -- unique_id, ds, y -- plus an
-    `is_observed` flag marking rows that came from a real observation rather than the
-    forward fill. Scoring must use that flag: filled rows repeat the previous value, so
-    including them makes "predict the last value" look near-perfect and inflates every
-    model's apparent accuracy.
-    """
     if frame.empty:
         return pd.DataFrame(columns=["unique_id", "ds", "y", "is_observed"])
 
@@ -118,7 +88,6 @@ def to_regular_daily(
         if len(observed) < min_observations:
             continue
 
-        # Collapse any same-day duplicates before building the grid.
         series = observed.set_index("ds")["y"].groupby(level=0).last().sort_index()
 
         if max_staleness_days is not None:
@@ -127,10 +96,6 @@ def to_regular_daily(
                 skipped_stale += 1
                 continue
 
-        # Extend the grid to today, not just to the last observation. Without this a
-        # series last seen a week ago is forecast from *that* day, so a 7-day horizon
-        # lands on dates already in the past. Extending is consistent with the
-        # forward-fill assumption: the last known price is assumed to still hold.
         grid_end = series.index.max()
         if max_staleness_days is not None:
             grid_end = max(grid_end, today)

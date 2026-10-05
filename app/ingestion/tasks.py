@@ -1,13 +1,3 @@
-"""Celery tasks, and what happens when they fail.
-
-Transport errors retry with exponential backoff and jitter. The jitter matters: without
-it a fan-out of 500 SKUs failing on one upstream blip retries in lockstep and hammers the
-API again. Rate limiting waits exactly as long as the bucket asks for. Quota exhaustion
-does not retry at all -- the quota resets tomorrow, so retries today are wasted. Anything
-still failing after that goes to the dead-letter store with its context, to be inspected
-and replayed.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -37,7 +27,6 @@ RETRYABLE_TRANSPORT = (httpx.TransportError, httpx.HTTPStatusError)
 
 
 def dead_letter(reason: str, context: dict[str, Any], payload: Any = None) -> str:
-    """Persist a permanently failed unit of work for later inspection/replay."""
     store = get_deadletter_store()
     now = datetime.now(UTC)
     source = context.get("source", "unknown")
@@ -54,7 +43,6 @@ def dead_letter(reason: str, context: dict[str, Any], payload: Any = None) -> st
     return location
 
 
-# per-SKU fetch -- the fan-out unit
 @shared_task(
     bind=True,
     name="app.ingestion.tasks.fetch_sku",
@@ -63,18 +51,9 @@ def dead_letter(reason: str, context: dict[str, Any], payload: Any = None) -> st
     retry_jitter=True,
     max_retries=5,
     acks_late=True,
-    # Coarse per-worker throttle. The Redis token bucket below is the real enforcement --
-    # this one is per-worker, so it does not hold when workers scale out. It is kept as a
-    # cheap first line of defence against a runaway fan-out on a single worker.
     rate_limit="120/m",
 )
 def fetch_sku(self, source: str, external_id: str) -> dict:
-    """Fetch and apply one SKU's observations.
-
-    Rate limiting happens before the HTTP call, and the daily quota is only consumed
-    once the call is actually going out -- so a task that parks on the rate limiter does
-    not spend quota it never used.
-    """
     limiter = get_rate_limiter()
     try:
         limiter.acquire(source)
@@ -84,7 +63,6 @@ def fetch_sku(self, source: str, external_id: str) -> dict:
     try:
         limiter.consume_daily(source)
     except QuotaExhausted as exc:
-        # Retrying inside the same day cannot succeed; fail fast and record it.
         dead_letter("quota_exhausted", {"source": source, "external_id": external_id})
         raise exc
 
@@ -137,7 +115,6 @@ def fetch_sku(self, source: str, external_id: str) -> dict:
         )
         raise
     except RETRYABLE_TRANSPORT as exc:
-        # Let autoretry handle it, but dead-letter once retries are exhausted.
         if self.request.retries >= self.max_retries:
             dead_letter(
                 "transport_retries_exhausted",
@@ -153,10 +130,8 @@ def fetch_sku(self, source: str, external_id: str) -> dict:
         client.close()
 
 
-# scheduling / fan-out
 @shared_task(name="app.ingestion.tasks.enqueue_tier", acks_late=True)
 def enqueue_tier(tier: int) -> dict:
-    """Fan out per-SKU fetches for every active seed at this tier."""
     with session_scope() as session:
         rows = session.execute(
             text("""
@@ -184,7 +159,6 @@ def enqueue_tier(tier: int) -> dict:
 
 @shared_task(name="app.ingestion.tasks.ingest_source_task", acks_late=True)
 def ingest_source_task(source: str, limit: int = 100) -> dict:
-    """Broad discovery sweep for one source."""
     result = ingest_source(source, limit=limit)
     if result.status != "success":
         dead_letter("discovery_failed", {"source": source, "error": result.error})
@@ -193,21 +167,14 @@ def ingest_source_task(source: str, limit: int = 100) -> dict:
 
 @shared_task(name="app.ingestion.tasks.ingest_seeds_task", acks_late=True)
 def ingest_seeds_task(source: str, max_products: int = 25) -> dict:
-    """Deep history fetch for seeded SKUs, in one task rather than fanned out."""
     result = ingest_seeds(source, max_products=max_products)
     if result.status != "success":
         dead_letter("seed_ingest_failed", {"source": source, "error": result.error})
     return result.summary()
 
 
-# maintenance
 @shared_task(name="app.ingestion.tasks.ensure_future_partitions", acks_late=True)
 def ensure_future_partitions(months_ahead: int = 3) -> dict:
-    """Pre-create upcoming monthly partitions.
-
-    Runs on the 25th so next month's partition exists days before the boundary; a
-    missing partition makes every write for that month fail.
-    """
     created = []
     today = datetime.now(UTC).date().replace(day=1)
     with session_scope() as session:
@@ -228,13 +195,6 @@ def ensure_future_partitions(months_ahead: int = 3) -> dict:
 
 @shared_task(name="app.ingestion.tasks.replay_from_bronze", acks_late=True)
 def replay_from_bronze(source: str, day: str) -> dict:
-    """Re-parse and re-apply stored raw payloads for one source/day.
-
-    This is why raw lands in bronze before parsing: when a normalizer bug is fixed, the
-    corrected logic is replayed over the original payloads with no upstream traffic and
-    no quota spend. Idempotency keys make the replay safe to run repeatedly -- unchanged
-    observations collapse instead of duplicating history.
-    """
     try:
         target = datetime.fromisoformat(day).replace(tzinfo=UTC)
     except ValueError as exc:
@@ -280,13 +240,7 @@ def replay_from_bronze(source: str, day: str) -> dict:
 
 @shared_task(name="app.ingestion.tasks.build_marts", acks_late=True)
 def build_marts(select: str | None = None) -> dict:
-    """Rebuild the dbt marts (models + tests) after ingestion.
-
-    Runs `dbt build`, not `dbt run`: tests execute alongside the models, so a mart that
-    silently goes wrong fails the task instead of quietly serving bad numbers to the
-    API, the dashboard and the forecast pipeline.
-    """
-    from app.transform.dbt_runner import run_dbt  # noqa: PLC0415
+    from app.transform.dbt_runner import run_dbt
 
     args = ("--select", select) if select else ()
     result = run_dbt("build", *args)
@@ -297,8 +251,7 @@ def build_marts(select: str | None = None) -> dict:
 
 @shared_task(name="app.ingestion.tasks.train_forecasts", acks_late=True)
 def train_forecasts(horizon: int = 7) -> dict:
-    """Nightly per-SKU forecasting: backtest, pick champions, write forecasts."""
-    from app.forecasting.train import train_and_forecast  # noqa: PLC0415
+    from app.forecasting.train import train_and_forecast
 
     with session_scope() as session:
         stats = train_and_forecast(session, horizon=horizon)
@@ -307,16 +260,14 @@ def train_forecasts(horizon: int = 7) -> dict:
 
 @shared_task(name="app.ingestion.tasks.evaluate_alerts", acks_late=True)
 def evaluate_alerts(dry_run: bool = False) -> dict:
-    """Turn undercut rows into alerts and deliver the new ones."""
-    from app.alerting.service import run_alert_cycle  # noqa: PLC0415
+    from app.alerting.service import run_alert_cycle
 
     return run_alert_cycle(dry_run=dry_run)
 
 
 @shared_task(name="app.ingestion.tasks.refresh_matches", acks_late=True)
 def refresh_matches() -> dict:
-    """Embed new products and regenerate match candidates."""
-    from app.ai.matching import embed_pending_products, generate_matches  # noqa: PLC0415
+    from app.ai.matching import embed_pending_products, generate_matches
 
     with session_scope() as session:
         embedded = embed_pending_products(session)
@@ -327,9 +278,8 @@ def refresh_matches() -> dict:
 
 @shared_task(name="app.ingestion.tasks.generate_brief", acks_late=True)
 def generate_brief_task(period_days: int = 7, use_llm: bool | None = None) -> dict:
-    """Weekly pricing brief. Uses the LLM only when one is configured."""
-    from app.ai.brief import generate_brief  # noqa: PLC0415
-    from app.core.settings import get_settings  # noqa: PLC0415
+    from app.ai.brief import generate_brief
+    from app.core.settings import get_settings
 
     if use_llm is None:
         use_llm = bool(get_settings().llm_model)
@@ -341,11 +291,9 @@ def generate_brief_task(period_days: int = 7, use_llm: bool | None = None) -> di
 
 @shared_task(name="app.ingestion.tasks.ping")
 def ping() -> str:
-    """Liveness probe used by tests and smoke checks."""
     return "pong"
 
 
-# Keep a module-level reference so `celery -A app.celery_app` registers these.
 __all__ = [
     "app",
     "enqueue_tier",

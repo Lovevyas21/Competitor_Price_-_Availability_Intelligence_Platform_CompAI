@@ -1,9 +1,3 @@
-"""Contract tests for the Open Prices client.
-
-These pin the payload quirks observed against the live API. If upstream changes shape,
-these fail here rather than silently corrupting the warehouse.
-"""
-
 from datetime import UTC
 
 import pytest
@@ -15,7 +9,7 @@ def price_row(**overrides):
     row = {
         "id": 1,
         "product_code": "3017620422003",
-        "product_name": "nutella pot 750g",  # contributor free text
+        "product_name": "nutella pot 750g",
         "price": 4.19,
         "currency": "EUR",
         "date": "2026-08-26",
@@ -48,10 +42,6 @@ def test_normalize_happy_path(client):
 
 
 def test_canonical_title_wins_over_contributor_text(client):
-    """The row-level name varies per submission; the canonical one is stable.
-
-    Preferring the row-level value churned a new SCD2 version per observation.
-    """
     rec = client.normalize(price_row())
     assert rec.attributes.title == "Nutella"
 
@@ -62,7 +52,6 @@ def test_falls_back_to_row_name_when_canonical_missing(client):
 
 
 def test_null_currency_is_skipped_not_guessed(client):
-    """Mislabelling a currency is worse than dropping the observation."""
     assert client.normalize(price_row(currency=None)) is None
 
 

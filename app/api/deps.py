@@ -1,5 +1,3 @@
-"""API dependencies: database sessions and authentication."""
-
 from __future__ import annotations
 
 import secrets
@@ -24,13 +22,6 @@ def require_api_key(
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     settings: Settings = Depends(get_settings),
 ) -> None:
-    """Validate the API key header.
-
-    When no key is configured the API is open -- deliberate for local development, and
-    surfaced in `/health` so an unauthenticated deployment cannot go unnoticed.
-
-    The comparison is constant-time: a plain `==` leaks key material through timing.
-    """
     if not settings.api_key:
         return
 

@@ -23,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # pgvector image, not plain postgres: migration 0001 creates the vector extension
-      # and the embedding column, so stock postgres fails at migrate time.
       db:
         image: pgvector/pgvector:pg16
         env:
@@ -72,9 +70,6 @@ jobs:
       - name: Unit and integration tests
         run: pytest -q
 
-      # dbt runs against the migrated (empty) database. Models and schema tests must
-      # still compile and execute -- this catches a broken ref or a renamed column
-      # before it reaches a machine with data on it.
       - name: dbt build
         working-directory: dbt
         env:
@@ -86,9 +81,6 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
 
-    # Both stacks, independently. They are separate root modules with separate state,
-    # so validating one says nothing about the other -- and the ephemeral stack is the
-    # one that gets edited under time pressure just before a demo.
     strategy:
       fail-fast: false
       matrix:
@@ -101,8 +93,6 @@ jobs:
         with:
           terraform_version: "1.9.8"
 
-      # No AWS credentials: fmt/init/validate check the configuration is well-formed
-      # without touching an account or creating anything.
       - name: Terraform format
         working-directory: infra/${{ matrix.stack }}
         run: terraform fmt -check -recursive
@@ -123,8 +113,6 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # Build only -- no registry push, no deploy. Proves the production image still
-      # builds on every commit.
       - name: Build image
         uses: docker/build-push-action@v6
         with:

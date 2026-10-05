@@ -1,10 +1,3 @@
-"""Command-line entrypoint.
-
-python -m app.cli sources
-python -m app.cli ingest openprices --limit 200
-python -m app.cli status
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -38,7 +31,6 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
 
 def cmd_replay(args: argparse.Namespace) -> int:
-    """Re-apply stored bronze payloads without touching the upstream API."""
     from app.ingestion.tasks import replay_from_bronze
 
     out = replay_from_bronze(args.source, args.day)

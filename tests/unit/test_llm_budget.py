@@ -1,14 +1,3 @@
-"""LLM cost controls.
-
-Written for a free-tier key, where the failure mode is not an exception but a quiet
-downgrade: every one of these controls, if it stops working, still produces a brief. The
-deterministic renderer stands in and the system looks healthy while the allowance drains
-or the narration silently stops happening.
-
-The measured baseline these tests protect, on `gemini-3.5-flash` with the real facts
-payload: 12,473 tokens over 3 requests before, 2,422 tokens over 1 request after.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -24,15 +13,7 @@ def _settings(**kw) -> Settings:
     return Settings(_env_file=None, **kw)
 
 
-# thinking config -- the single biggest saving
 def test_thinking_is_disabled_by_default():
-    """Regression: CrewAI auto-enables reasoning for every Gemini >= 2.5.
-
-    Omitting the parameter does not mean "provider default", it means "on". Turning it
-    off requires passing a config rather than leaving one out -- which is why the
-    LiteLLM-style `thinking={"type": "disabled"}` did nothing: accepted, ignored, and
-    3,338 reasoning tokens still on the bill.
-    """
     config = llm._gemini_thinking_config(enabled=False)
     assert config is not None
     assert config.include_thoughts is False
@@ -53,7 +34,6 @@ def test_build_llm_passes_the_gemini_thinking_parameter():
 
 
 def test_non_gemini_models_get_no_thinking_config():
-    """The parameter is Gemini-specific; sending it elsewhere is at best ignored."""
     fake_llm = MagicMock()
     with patch.dict("sys.modules", {"crewai": MagicMock(LLM=fake_llm)}):
         llm.build_llm("openai/gpt-4o-mini", _settings())
@@ -67,7 +47,6 @@ def test_output_cap_is_configurable():
     assert fake_llm.call_args.kwargs["max_tokens"] == 400
 
 
-# budget
 def test_budget_is_registered_from_settings():
     limits = llm.configure_budget(_settings(llm_requests_per_minute=6, llm_daily_request_limit=50))
     assert limits.daily_quota == 50
@@ -75,11 +54,6 @@ def test_budget_is_registered_from_settings():
 
 
 def test_a_whole_run_is_reserved_up_front():
-    """Three calls are claimed together, not one at a time.
-
-    A crew that stops after its second call because the quota ran out has spent budget
-    on a brief nobody receives.
-    """
     limiter = MagicMock()
     limiter.consume_daily.return_value = 3
     with patch.object(llm, "get_rate_limiter", return_value=limiter):
@@ -117,7 +91,6 @@ def test_limits_can_be_registered_at_runtime():
     assert ratelimit.limits_for("llm-test").daily_quota == 2
 
 
-# narration cache
 class _Facts:
     def __init__(self, payload):
         self._payload = payload
@@ -128,7 +101,7 @@ class _Facts:
 
 def test_same_facts_produce_the_same_fingerprint():
     a = _Facts({"undercuts": 108, "products": 3932})
-    b = _Facts({"products": 3932, "undercuts": 108})  # same facts, different order
+    b = _Facts({"products": 3932, "undercuts": 108})
     assert cache.facts_fingerprint(a, "m") == cache.facts_fingerprint(b, "m")
 
 
@@ -139,7 +112,6 @@ def test_a_changed_price_changes_the_fingerprint():
 
 
 def test_the_model_is_part_of_the_key():
-    """Switching models is meant to change the prose, not serve the old model's output."""
     facts = _Facts({"undercuts": 108})
     assert cache.facts_fingerprint(facts, "gemini/a") != cache.facts_fingerprint(facts, "gemini/b")
 
@@ -152,10 +124,9 @@ def test_cache_returns_a_previous_narration():
 
 
 def test_an_unreachable_cache_is_a_miss_not_an_error():
-    """A cache that breaks must cost a request, never an exception."""
     with patch.object(cache, "_client", side_effect=OSError("redis down")):
         assert cache.get("fp", _settings()) is None
-        cache.put("fp", "body", _settings())  # must not raise
+        cache.put("fp", "body", _settings())
 
 
 def test_caching_can_be_switched_off():
@@ -176,9 +147,7 @@ def test_cached_body_is_stored_with_the_configured_ttl():
     assert args[1] == 3600
 
 
-# the cache short-circuit in generate_brief
 def test_a_cache_hit_never_reaches_the_model():
-    """The saving that matters most: a brief regenerated on unchanged facts is free."""
     from app.ai import brief
 
     facts = MagicMock()
@@ -199,7 +168,6 @@ def test_a_cache_hit_never_reaches_the_model():
 
 
 def test_a_cache_hit_that_no_longer_validates_is_not_served():
-    """A hit is re-checked against the guard, not trusted because it is cached."""
     from app.ai import brief
 
     facts = MagicMock()
@@ -221,7 +189,6 @@ def test_a_cache_hit_that_no_longer_validates_is_not_served():
 
 
 def test_a_refused_budget_falls_back_rather_than_failing():
-    """Running out of allowance yields a plainer brief, not an error."""
     from app.ai import brief
 
     facts = MagicMock()
@@ -245,7 +212,6 @@ def test_a_refused_budget_falls_back_rather_than_failing():
 
 
 def test_only_guard_passing_output_is_cached():
-    """Caching a rejected brief means paying once for a bad answer and serving it all day."""
     from app.ai import brief
 
     facts = MagicMock()

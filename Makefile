@@ -26,18 +26,15 @@ test:
 reset:
 	docker compose down -v && docker compose up -d
 
-# Worker and beat run from the venv: only postgres and redis are containerised.
 worker:
 	$(PY) -m celery -A app.celery_app worker -l info --concurrency=2 -Q ingest,default,maintenance
 
 beat:
 	$(PY) -m celery -A app.celery_app beat -l info
 
-# Run them as containers instead, to exercise the production image.
 workers-docker:
 	docker compose --profile workers up -d --build
 
-# dbt: credentials come from .env via the runner, so these mirror `make` usage.
 DBT := DBT_PROFILES_DIR=$(CURDIR)/dbt $(CURDIR)/.venv/Scripts/dbt.exe
 
 dbt-deps:
@@ -61,14 +58,12 @@ forecast:
 alerts:
 	$(PY) -c "from app.alerting.service import run_alert_cycle; print(run_alert_cycle())"
 
-# Opt-in BI. Metabase is a JVM (~1GB) -- not part of the default stack.
 metabase:
 	docker compose --profile bi up -d metabase
 
 review:
 	$(PY) -m streamlit run app/ui/review.py
 
-# The guided walkthrough. Same process as `api`, just named for what you want to look at.
 showcase:
 	$(PY) -m uvicorn app.api.main:app --reload --port 8000 --log-level warning & sleep 2 && $(PY) -m webbrowser http://localhost:8000/showcase && wait
 
@@ -84,12 +79,6 @@ flower:
 logs:
 	docker compose logs -f db redis
 
-# --- AWS ---------------------------------------------------------------------
-# The deployment is meant to exist only while it is being looked at. `aws-down` is the
-# one that matters: it destroys everything billable and then asks AWS what survived,
-# because "terraform destroy succeeded" and "the account is charging nothing" are
-# different statements.
-
 aws-up:
 	bash scripts/aws.sh up
 
@@ -102,6 +91,5 @@ aws-status:
 aws-deploy:
 	bash scripts/aws.sh deploy
 
-# Also destroys bronze, the image repository and the stored API keys. Prompts first.
 aws-nuke:
 	bash scripts/aws.sh nuke

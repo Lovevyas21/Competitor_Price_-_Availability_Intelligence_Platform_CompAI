@@ -1,13 +1,3 @@
-"""Serving layer for the showcase: the pages, and the stream that feeds them.
-
-Server-Sent Events rather than one JSON response, because the point is that results
-appear as they are produced. A single body arrives complete and leaves nothing to reveal.
-
-Not mounted in production by default: it reads real mart data and carries no API key
-check, so it follows `env` -- on in dev, off in prod unless `showcase_enabled` says
-otherwise. See `is_enabled`.
-"""
-
 from __future__ import annotations
 
 import csv
@@ -37,19 +27,12 @@ router = APIRouter(prefix="/showcase", tags=["showcase"])
 
 
 def is_enabled(settings: Settings | None = None) -> bool:
-    """Whether the showcase should be served at all.
-
-    Default is `env == "dev"`. The explicit flag is what a demo deployment sets when it
-    genuinely wants an unauthenticated window onto the marts -- an opt-in, so it can
-    never be the thing nobody noticed was public.
-    """
     s = settings or get_settings()
     if s.showcase_enabled is not None:
         return s.showcase_enabled
     return s.env == "dev"
 
 
-# pages
 @router.get("", include_in_schema=False)
 @router.get("/", include_in_schema=False)
 def intro() -> FileResponse:
@@ -61,26 +44,13 @@ def console() -> FileResponse:
     return FileResponse(TEMPLATES / "console.html")
 
 
-# stream
 def _sse(events: Iterator[dict]) -> Iterator[str]:
-    """Frame events as SSE.
-
-    `default=str` is doing real work here: prices are Decimal and dates are date, and
-    neither is JSON-serialisable. Rendering the Decimal rather than casting to float
-    also keeps 0.99 from arriving as 0.9899999999999999.
-    """
     for event in events:
         yield f"data: {json.dumps(event, default=str)}\n\n"
 
 
 @router.get("/api/stream", include_in_schema=False)
 def stream(stage: str | None = Query(default=None)) -> StreamingResponse:
-    """Run the pipeline, streaming each event as it is produced.
-
-    `X-Accel-Buffering: no` and `Cache-Control: no-cache` matter: an intermediary that
-    buffers this response would hold every event until the run finished and deliver the
-    whole thing at once, which defeats the exercise.
-    """
     return StreamingResponse(
         _sse(run_pipeline(only=stage)),
         media_type="text/event-stream",
@@ -94,13 +64,6 @@ def stream(stage: str | None = Query(default=None)) -> StreamingResponse:
 
 @router.get("/api/fetch", include_in_schema=False)
 def fetch(limit: int = Query(default=FETCH_LIMIT, ge=1, le=300)) -> StreamingResponse:
-    """Pull fresh data from Open Prices, streaming progress as it goes.
-
-    A GET so the browser's EventSource can drive it, which is a deliberate compromise:
-    the call is not read-only, and normally that would be a POST. It is acceptable here
-    only because the operation is idempotent in effect -- re-running it stores nothing
-    new unless prices actually moved -- and because the showcase is dev-only.
-    """
     return StreamingResponse(
         _sse(run_fetch(limit)),
         media_type="text/event-stream",
@@ -135,12 +98,6 @@ def dataset(
     limit: int = Query(default=500, ge=1, le=10_000),
     download: bool = Query(default=False),
 ):
-    """The collected observations, as JSON to display or CSV to keep.
-
-    Streamed and capped rather than materialised whole: the table is partitioned and
-    grows without limit, and an unbounded `select *` behind a browser button is how a
-    demo takes the database down in front of an audience.
-    """
     with session_scope() as session:
         rows = [dict(r) for r in session.execute(text(DATASET_SQL), {"limit": limit}).mappings()]
 
@@ -172,22 +129,16 @@ class Question(BaseModel):
 
 @router.post("/api/chat", include_in_schema=False)
 def chat(payload: Question) -> dict:
-    """Answer a question about the data, guarded the same way the brief is.
-
-    A POST, unlike the streams above: it spends model allowance and it takes a body.
-    """
     with session_scope() as session:
         return answer_question(session, payload.question).as_dict()
 
 
 @router.get("/api/stages", include_in_schema=False)
 def stages() -> list[dict]:
-    """The stage list, so the intro page describes the real pipeline, not a copy of it."""
     return [{"id": s["id"], "title": s["title"], "subtitle": s["subtitle"]} for s in STAGES]
 
 
 def mount(app) -> bool:
-    """Attach the showcase to a FastAPI app. Returns whether it was mounted."""
     if not is_enabled():
         return False
     app.mount("/showcase/static", StaticFiles(directory=STATIC), name="showcase-static")

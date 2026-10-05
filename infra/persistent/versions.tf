@@ -8,17 +8,6 @@ terraform {
     }
   }
 
-  # State is local by default so this configuration can be validated with no AWS
-  # account. Before a real apply, move it to S3 + DynamoDB locking by uncommenting
-  # below -- local state on a laptop is not a place to keep infrastructure of record.
-  #
-  # backend "s3" {
-  #   bucket         = "cpi-tfstate"
-  #   key            = "cpi/persistent.tfstate"
-  #   region         = "ap-south-1"
-  #   dynamodb_table = "cpi-tflock"
-  #   encrypt        = true
-  # }
 }
 
 provider "aws" {

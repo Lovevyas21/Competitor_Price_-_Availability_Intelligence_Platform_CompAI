@@ -1,17 +1,3 @@
-"""Ingestion runner: one source, one run, end to end.
-
-Order of operations is deliberate:
-
-    discover -> persist raw to bronze -> normalize -> validate batch -> CDC -> commit
-
-Raw lands in bronze *before* parsing, so a normalizer bug is replayable without
-re-hitting the upstream API. The batch is validated before any write to Postgres, so a
-source that starts returning garbage fails the run instead of poisoning the warehouse.
-
-Every run is bookended by a row in `ingestion_runs`, which is what the freshness and
-uptime SLAs are measured from.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -107,8 +93,6 @@ def ingest_source(
     client: SourceClient | None = None,
     store: BronzeStore | None = None,
 ) -> RunResult:
-    """Run one ingestion cycle for a source. Never raises on data problems -- the
-    failure is recorded on the run row and returned to the caller."""
     client = client or get_client(source_name)
     store = store or get_bronze_store()
     result = RunResult(source=source_name, run_id=None)
@@ -122,7 +106,7 @@ def ingest_source(
             )
             run_id = _start_run(session, source_id)
             result.run_id = run_id
-    except Exception as exc:  # database unreachable -- nothing else can proceed
+    except Exception as exc:
         result.status = "failed"
         result.error = f"could not open run: {exc}"
         log.error("ingest.run_open_failed", source=source_name, error=str(exc))
@@ -171,13 +155,7 @@ def ingest_source(
     return result
 
 
-# seed-driven ingestion (deep per-SKU history)
 def seed_from_source(source_name: str, limit: int = 50, tier: int = 1) -> list[tuple[str, int]]:
-    """Populate `seed_products` with the SKUs whose history is richest.
-
-    `discover` is broad and shallow; forecasting needs the opposite. This picks the
-    barcodes worth tracking properly and records them with a refresh tier.
-    """
     client = get_client(source_name)
     try:
         candidates = client.top_external_ids(limit=limit)
@@ -234,11 +212,6 @@ def ingest_seeds(
     client: SourceClient | None = None,
     store: BronzeStore | None = None,
 ) -> RunResult:
-    """Ingest the full recorded history for each seeded SKU.
-
-    One HTTP call per SKU, so this is quota-hungry -- it is meant for tier-1 SKUs, not
-    the whole catalogue.
-    """
     client = client or get_client(source_name)
     store = store or get_bronze_store()
     result = RunResult(source=source_name, run_id=None)

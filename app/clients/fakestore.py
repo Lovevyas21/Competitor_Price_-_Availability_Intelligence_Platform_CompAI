@@ -1,10 +1,3 @@
-"""Fake Store API client -- keyless pseudo-e-commerce data.
-
-Used for local dev, tests, and to exercise the full pipeline without burning a real
-API quota. Payloads are static upstream, so this source proves the code path but will
-not produce genuine price drift. See ADR-001.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -76,8 +69,6 @@ class FakeStoreClient(SourceClient):
                 currency="USD",
                 observed_at=observed_at,
             ),
-            # Fake Store exposes no availability field. Left None rather than invented;
-            # stock_events populate once a source with real availability lands.
             stock=None,
             retailer_name=self.default_retailer,
             raw=raw,

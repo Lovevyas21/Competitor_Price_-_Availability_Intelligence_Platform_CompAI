@@ -1,14 +1,7 @@
-# Default: let git normalise text in the repository and check it out natively.
 * text=auto
 
-# Shell scripts must keep LF even on Windows. These run on Linux -- inside containers and
-# on the EC2 host -- and a CR at the end of each line is part of the line to a POSIX
-# shell. `set -euo pipefail` becomes `set -euo pipefail\r`, which fails as
-# "pipefail: invalid option name": a file that is visibly correct, rejected for a
-# character that does not print.
 *.sh text eol=lf
 
-# Same reasoning: read by Linux tooling regardless of where they are edited.
 Dockerfile text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf

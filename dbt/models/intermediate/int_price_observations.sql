@@ -1,7 +1,3 @@
--- Price events enriched with product, retailer and current-title context.
---
--- This is the single join every mart builds on, so the join logic lives in one place
--- rather than being repeated (and drifting) across marts.
 with prices as (select * from {{ ref('stg_price_events') }}),
 
 products as (select * from {{ ref('stg_products') }}),

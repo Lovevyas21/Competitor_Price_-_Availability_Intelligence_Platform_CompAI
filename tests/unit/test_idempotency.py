@@ -6,7 +6,6 @@ BASE = datetime(2026, 8, 29, 12, 0, 0, tzinfo=UTC)
 
 
 def test_same_bucket_yields_same_key():
-    """Two fetches seconds apart are one logical observation."""
     a = idempotency_key("openprices", "123", BASE)
     b = idempotency_key("openprices", "123", BASE.replace(second=45))
     assert a == b
@@ -18,7 +17,6 @@ def test_different_bucket_yields_different_key():
 
 
 def test_retailer_discriminator_prevents_collision():
-    """Two stores pricing one barcode on one day must not collide."""
     a = idempotency_key("openprices", "123", BASE, discriminator="Carrefour")
     b = idempotency_key("openprices", "123", BASE, discriminator="Lidl")
     assert a != b

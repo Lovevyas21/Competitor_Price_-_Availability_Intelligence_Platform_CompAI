@@ -1,4 +1,3 @@
--- SCD2 attribute history. `is_current` marks the open version; `valid_to` is null there.
 select
     version_id,
     product_id,

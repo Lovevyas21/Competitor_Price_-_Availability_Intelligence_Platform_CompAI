@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# Bring the AWS deployment up, tear it down, and prove which of the two is true.
-#
-#   ./scripts/aws.sh up        create infrastructure and deploy   (~15 min)
-#   ./scripts/aws.sh down      destroy everything billable        (~10 min)
-#   ./scripts/aws.sh open      tunnel to the API (nothing is published)
-#   ./scripts/aws.sh status    what is running, and what it cost
-#   ./scripts/aws.sh deploy    redeploy the app onto a running host
-#   ./scripts/aws.sh nuke      also destroy the persistent stack  (rare)
-#
-# `down` does not stop at "terraform destroy reported success". It then asks AWS what
-# still exists, because the ways a bill survives a teardown are mostly things Terraform
-# never knew about: an EBS volume it does not track, an address someone allocated by
-# hand, a snapshot created *by* the destroy. A teardown you cannot verify is a teardown
-# you have to worry about.
 set -euo pipefail
 
 REGION="${AWS_REGION:-ap-south-1}"
@@ -34,7 +20,6 @@ need aws
 
 account() { aws sts get-caller-identity --query Account --output text; }
 
-# status
 cmd_status() {
   local acct; acct="$(account)"
   bold "account $acct  region $REGION"
@@ -69,8 +54,6 @@ cmd_status() {
   fi
 }
 
-# The four things that quietly keep costing after infrastructure "goes away". Each is
-# something Terraform either never created or deliberately leaves behind.
 check_orphans() {
   local vols ips snaps
   vols=$(aws ec2 describe-volumes --region "$REGION" \
@@ -82,11 +65,8 @@ check_orphans() {
     --query "DBSnapshots[?starts_with(DBSnapshotIdentifier,'${PROJECT}')].[DBSnapshotIdentifier]" \
     --output text 2>/dev/null || true)
 
-  # Unattached volumes bill at full rate while attached to nothing at all.
   [ -n "$vols" ]  && warn "unattached EBS volumes: $vols" || ok "no unattached EBS volumes"
-  # An Elastic IP is free while in use and charged while idle -- the opposite of intuition.
   [ -n "$ips" ]   && warn "unassociated Elastic IPs: $ips" || ok "no idle Elastic IPs"
-  # Created *by* a destroy when skip_final_snapshot is false, then billed forever.
   [ -n "$snaps" ] && warn "manual RDS snapshots: $snaps" || ok "no leftover RDS snapshots"
 }
 
@@ -94,9 +74,6 @@ cost_so_far() {
   local start end
   start=$(date -u +%Y-%m-01)
   end=$(date -u -d tomorrow +%Y-%m-%d 2>/dev/null || date -u -v+1d +%Y-%m-%d)
-  # Tab-separated, not space: `--output text` separates columns with tabs and AWS
-  # service names contain spaces, so splitting on whitespace truncates every one of
-  # them to "Amazon". Rows rounding to zero are dropped rather than printed as a wall.
   aws ce get-cost-and-usage \
     --time-period "Start=$start,End=$end" --granularity MONTHLY --metrics UnblendedCost \
     --group-by Type=DIMENSION,Key=SERVICE --region us-east-1 \
@@ -107,7 +84,6 @@ cost_so_far() {
     || warn "Cost Explorer unavailable (it can take 24h to enable on a new account)"
 }
 
-# up
 cmd_up() {
   step "Persistent stack (bronze, ECR, secrets, budget)"
   terraform -chdir="$PERSISTENT" init -input=false >/dev/null
@@ -121,24 +97,17 @@ cmd_up() {
   cmd_deploy
   echo
   bold "up."
-  # The security group has no inbound rules at all, deliberately. The API runs with
-  # auth_enabled=false until an API_KEY is set, so publishing port 8000 would put an
-  # unauthenticated window onto the warehouse on the public internet. Reached through
-  # SSM instead -- which also sidesteps an ISP that blocks outbound database ports.
   echo "  Nothing is published: the host has no open ports. Tunnel to it with"
   echo "    ./scripts/aws.sh open      then browse http://localhost:8000/docs"
   warn "this now costs ~\$0.035/hour. Run './scripts/aws.sh down' when finished."
 }
 
-# deploy
 cmd_deploy() {
   local bucket instance
   bucket="$(terraform -chdir="$PERSISTENT" output -raw bronze_bucket)"
   instance="$(terraform -chdir="$EPHEMERAL" output -raw app_instance_id)"
 
   step "Packaging source"
-  # The image is built on the instance, not here: the host is Graviton, and an image
-  # built on an x86 workstation will not start on arm64.
   local tarball; tarball="$(mktemp -t cpi-src-XXXXXX.tar.gz)"
   tar --exclude-vcs --exclude='./.venv' --exclude='./data' --exclude='__pycache__' \
       --exclude='*.pyc' --exclude='./.env' --exclude='./infra' --exclude='./dbt/target' \
@@ -148,11 +117,6 @@ cmd_deploy() {
   ok "$(du -h "$tarball" | cut -f1)"
 
   aws s3 cp "$tarball" "s3://${bucket}/deploy/cpi-src.tar.gz" --region "$REGION" --only-show-errors
-  # Carriage returns stripped on the way up. .gitattributes pins these files to LF, but
-  # that governs this repository's checkouts only -- and to a POSIX shell a CR is part of
-  # the line, so `set -euo pipefail` arrives as `pipefail\r` and is rejected as an invalid
-  # option name. The file looks perfect in an editor; cheaper to guarantee here than to
-  # diagnose on the host again.
   tr -d '\r' < "$ROOT/scripts/deploy-remote.sh" > "${tarball}.sh"
   aws s3 cp "${tarball}.sh" "s3://${bucket}/deploy/deploy.sh" \
     --region "$REGION" --only-show-errors
@@ -186,7 +150,6 @@ cmd_deploy() {
   ok "deployed"
 }
 
-# open -- a tunnel, because nothing is published
 cmd_open() {
   local instance; instance="$(terraform -chdir="$EPHEMERAL" output -raw app_instance_id)"
   command -v session-manager-plugin >/dev/null || {
@@ -202,15 +165,12 @@ cmd_open() {
     --parameters '{"portNumber":["8000"],"localPortNumber":["8000"]}'
 }
 
-# down
 cmd_down() {
   step "Destroying the ephemeral stack"
   terraform -chdir="$EPHEMERAL" init -input=false >/dev/null
   terraform -chdir="$EPHEMERAL" destroy -input=false -auto-approve
 
   step "Verifying nothing billable survived"
-  # Asked of AWS, not of Terraform. Terraform reports what it removed from its own
-  # state, which is a different question from what the account is still charging for.
   local ec2 rds
   ec2=$(aws ec2 describe-instances --region "$REGION" \
     --filters "Name=tag:Name,Values=${PROJECT}-app" \
@@ -229,7 +189,6 @@ cmd_down() {
   echo "  Bring it back with './scripts/aws.sh up' -- the warehouse rebuilds from bronze."
 }
 
-# nuke
 cmd_nuke() {
   bold "This destroys the PERSISTENT stack as well."
   echo "  Bronze payloads, the image repository and the hand-entered API keys all go."
@@ -241,8 +200,6 @@ cmd_nuke() {
   cmd_down
   step "Emptying the bronze bucket"
   local bucket; bucket="$(terraform -chdir="$PERSISTENT" output -raw bronze_bucket)"
-  # Versioning is on, so plain `rm` leaves every previous version behind and the bucket
-  # refuses to delete. Delete markers count as versions too.
   python - "$bucket" "$REGION" <<'PY'
 import subprocess, sys, json
 bucket, region = sys.argv[1], sys.argv[2]
@@ -256,9 +213,6 @@ for key in ("Versions", "DeleteMarkers"):
         items = json.loads(out) if out and out != "null" else []
         if not items:
             break
-        # Through a file, not an argument: a page of 500 versions serialises to tens of
-        # kilobytes and Windows caps a command line at 32767 characters, so passing it
-        # inline fails with "The filename or extension is too long".
         import tempfile, os
         fd, path = tempfile.mkstemp(suffix=".json")
         with os.fdopen(fd, "w") as fh:

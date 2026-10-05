@@ -1,11 +1,3 @@
-# Third-party credentials. Persistent on purpose: these are typed in by hand, out of
-# band, and a stack that wiped them on every `destroy` would mean re-entering an API key
-# before every demo -- which is exactly the friction that ends with a key pasted into a
-# committed file.
-#
-# SSM rather than Secrets Manager: SecureString parameters are free at this scale, while
-# Secrets Manager is ~$0.40 per secret per month for rotation nobody here needs.
-
 locals {
   placeholder_secrets = [
     "BESTBUY_API_KEY",
@@ -17,9 +9,6 @@ locals {
     "API_KEY",
     "LLM_MODEL",
     "GEMINI_API_KEY",
-    # Not a secret, but SSM is the only channel configuration reaches the host by:
-    # cpi-fetch-env pulls everything under /cpi/<env> into /srv/cpi/.env. Declared here
-    # so the list of what the application reads stays in one place.
     "SHOWCASE_ENABLED",
   ]
 }
@@ -31,8 +20,6 @@ resource "aws_ssm_parameter" "placeholders" {
   type  = "SecureString"
   value = "unset"
 
-  # The whole point is that the real value is set outside Terraform. State is not a
-  # place to keep a third-party API key.
   lifecycle {
     ignore_changes = [value]
   }

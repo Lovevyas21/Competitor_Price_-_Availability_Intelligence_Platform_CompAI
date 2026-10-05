@@ -1,9 +1,3 @@
-"""dbt runner: argument construction, credential passing, and failure reporting.
-
-These are unit tests -- the subprocess is mocked. Actually building the marts is covered
-by running `dbt build`, which executes dbt's own 87 data tests.
-"""
-
 from __future__ import annotations
 
 import subprocess
@@ -34,7 +28,6 @@ def test_passes_extra_args_through():
 
 
 def test_supplies_credentials_and_profiles_dir_via_env():
-    """Credentials must reach dbt through the environment, never profiles.yml."""
     with patch("app.transform.dbt_runner.subprocess.run", return_value=_completed()) as run:
         run_dbt("build")
     env = run.call_args.kwargs["env"]
@@ -44,7 +37,6 @@ def test_supplies_credentials_and_profiles_dir_via_env():
 
 
 def test_never_uses_a_shell():
-    """Avoids shell interpolation of anything that ends up in the argv."""
     with patch("app.transform.dbt_runner.subprocess.run", return_value=_completed()) as run:
         run_dbt("build")
     assert run.call_args.kwargs.get("shell", False) is False

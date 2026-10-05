@@ -1,5 +1,3 @@
-"""Structured JSON logging via structlog. Call configure_logging() once at entrypoint."""
-
 import logging
 import sys
 

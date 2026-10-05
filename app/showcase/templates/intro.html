@@ -90,8 +90,6 @@
 </div>
 
 <script>
-// Pulled from the server so this page describes the pipeline that exists, rather than a
-// copy of it that can quietly drift out of date.
 fetch("/showcase/api/stages")
   .then((r) => r.json())
   .then((stages) => {

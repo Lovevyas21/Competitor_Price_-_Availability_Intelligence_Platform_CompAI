@@ -1,13 +1,3 @@
-"""Ingestion-time data quality gate.
-
-Two layers of defence, deliberately:
-  * pydantic validates each record's *shape* as it is normalized (per-record, fail-soft).
-  * pandera validates the *batch* before it reaches Postgres (cross-record, fail-loud).
-
-The batch check catches problems a per-record check cannot see -- an entire source
-returning zero rows, or a price column that has gone all-null after an upstream change.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -25,7 +15,7 @@ MAX_PLAUSIBLE_PRICE = 10_000_000.0
 
 
 class IngestionBatchFailed(RuntimeError):
-    """Raised when a parsed batch fails its data-quality contract."""
+    pass
 
 
 price_batch_schema = pa.DataFrameSchema(
@@ -69,7 +59,6 @@ def records_to_frame(records: list[NormalizedRecord]) -> pl.DataFrame:
 
 
 def validate_price_batch(records: list[NormalizedRecord], *, source: str) -> pl.DataFrame:
-    """Validate a parsed batch. Raises IngestionBatchFailed on contract violation."""
     if not records:
         raise IngestionBatchFailed(f"{source}: parsed batch is empty")
 
@@ -79,7 +68,7 @@ def validate_price_batch(records: list[NormalizedRecord], *, source: str) -> pl.
 
     try:
         validated = price_batch_schema.validate(frame, lazy=True)
-    except (SchemaError, SchemaErrors) as exc:  # lazy=True raises the plural form
+    except (SchemaError, SchemaErrors) as exc:
         raise IngestionBatchFailed(f"{source}: batch failed schema checks: {exc}") from exc
 
     future = validated.filter(

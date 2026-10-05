@@ -1,27 +1,6 @@
-/* Showcase console renderer.
- *
- * The split that makes this work: events arrive from the server as fast as the database
- * can produce them, and are queued. A separate loop drains that queue slowly, typing
- * lines out character by character. So the reveal is paced without the server ever
- * pretending to be slow -- the stage timings printed in the rail are real.
- *
- * It also means the speed control is instant. Switching to 4x or "skip" does not
- * re-request anything; it just drains the queue faster, and "skip" empties it in one go.
- *
- * The boot sequence before each stage is the one piece of pure theatre in the whole
- * project, and it is deliberately confined to this file -- the presentation layer -- so
- * that nothing on the server is ever tempted to stall to match it. Two rules keep it
- * from becoming a lie: the status lines describe what that stage genuinely concerns
- * itself with rather than inventing work, and they erase themselves once the stage
- * resolves, so the transcript a reviewer scrolls back through is all real output.
- */
-
 const SPEED_KEY = "showcase-speed";
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* Per-stage boot lines. Each one names something that stage actually does: the freshness
- * gate, the cooldown window and the currency normalisation below are all real behaviour
- * of the pipeline, not decoration invented to fill the bar. */
 const BOOT = {
   connect: [
     "opening tls channel",
@@ -81,22 +60,16 @@ const el = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* Every delay in the renderer goes through here, so one control governs all of it.
- * Speed 0 means "no theatre": every wait collapses to nothing. */
 const pace = (ms) => (state.speed === 0 ? Promise.resolve() : sleep(ms / state.speed));
 
 function atBottom() {
   return window.innerHeight + window.scrollY >= document.body.offsetHeight - 160;
 }
 
-/* Follow the output, but stop the moment the reader scrolls up to read something --
- * yanking the viewport back down while someone is reading a table is hostile. */
 function follow(wasAtBottom) {
   if (wasAtBottom) window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" });
 }
 
-/* Append with the entrance animation, and keep the viewport pinned across the insertion
- * so a growing page never jumps under the reader. */
 function appendTo(parent, node) {
   const wasDown = atBottom();
   parent.appendChild(node);
@@ -104,9 +77,6 @@ function appendTo(parent, node) {
   return node;
 }
 
-// --------------------------------------------------------------------------- //
-// typing
-// --------------------------------------------------------------------------- //
 async function typeInto(node, text) {
   if (state.speed === 0) {
     node.textContent = text;
@@ -116,9 +86,6 @@ async function typeInto(node, text) {
   cursor.className = "cursor";
   node.appendChild(cursor);
 
-  // One character at a time is unreadably slow past a short line, so the chunk grows
-  // with length -- but gently, so a long sentence still visibly types rather than
-  // arriving in four lurches.
   const chunk = Math.max(1, Math.ceil(text.length / 55));
   for (let i = 0; i < text.length; i += chunk) {
     const wasDown = atBottom();
@@ -129,13 +96,8 @@ async function typeInto(node, text) {
   cursor.remove();
 }
 
-// --------------------------------------------------------------------------- //
-// boot sequence
-// --------------------------------------------------------------------------- //
 async function runBoot(id) {
   const steps = BOOT[id];
-  // Skipping and reduced-motion both bypass this entirely: it is the part of the page
-  // with the least information per second, so it is the first thing to go.
   if (!steps || state.speed === 0) return;
 
   const box = appendTo(
@@ -175,16 +137,11 @@ async function runBoot(id) {
   label.textContent = "ready";
   await pace(320);
 
-  // Erased rather than kept. What stays on the page after a run should be the output,
-  // not four lines of scenery.
   box.classList.add("out");
   await pace(340);
   box.remove();
 }
 
-// --------------------------------------------------------------------------- //
-// renderers
-// --------------------------------------------------------------------------- //
 async function renderStage(ev) {
   state.stageIndex += 1;
   markStage(ev.id, "running");
@@ -236,8 +193,6 @@ async function renderMetric(ev) {
   if (ev.note) {
     const note = node.querySelector(".note");
     note.textContent = ev.note;
-    // Fades in after the number rather than with it, so the eye lands on the figure
-    // first and the explanation second.
     requestAnimationFrame(() => note.classList.add("in"));
   }
   await pace(240);
@@ -264,8 +219,6 @@ async function renderTable(ev) {
   appendTo(el.console, t);
   await pace(240);
 
-  // Rows land one at a time. This is the moment the page most looks like something is
-  // being discovered, and it costs nothing but a short stagger.
   for (const row of ev.rows) {
     const tr = document.createElement("tr");
     for (const cell of row) {
@@ -313,9 +266,6 @@ async function renderProse(ev) {
   );
   if (ev.title) box.querySelector(".prose-head").textContent = ev.title;
 
-  // Rendered a line at a time rather than typed character by character. A page of
-  // generated prose typed out at reading speed is a minute of waiting for something
-  // the reader can already see is text.
   const body = box.querySelector(".prose-body");
   for (const raw of ev.body.split("\n")) {
     const row = document.createElement("div");
@@ -343,9 +293,6 @@ const RENDERERS = {
   done: renderDone,
 };
 
-// --------------------------------------------------------------------------- //
-// queue
-// --------------------------------------------------------------------------- //
 async function drain() {
   if (state.draining) return;
   state.draining = true;
@@ -364,9 +311,6 @@ function markStage(id, status, ms) {
   if (ms) item.querySelector(".stage-ms").textContent = ms;
 }
 
-// --------------------------------------------------------------------------- //
-// run control
-// --------------------------------------------------------------------------- //
 function finish() {
   state.running = false;
   el.run.disabled = false;
@@ -396,9 +340,6 @@ function start() {
 
   source.onmessage = (msg) => {
     const ev = JSON.parse(msg.data);
-    // Closed here, on receipt, not when the last event finishes rendering. An
-    // EventSource whose stream simply ends will reconnect and run the whole pipeline
-    // again -- which would be a confusing thing to watch happen by itself.
     if (ev.t === "done") source.close();
     state.queue.push(ev);
     drain();
@@ -433,16 +374,8 @@ el.speed.addEventListener("click", (e) => {
 
 setSpeed(state.speed);
 
-// Arriving with ?autorun (the intro button's link) starts immediately, so the walkthrough
-// is one click from the front page rather than two.
 if (new URLSearchParams(location.search).has("autorun")) start();
 
-// --------------------------------------------------------------------------- //
-// live fetch from Open Prices
-// --------------------------------------------------------------------------- //
-/* Reuses the console renderer wholesale. The fetch stream emits the same event shapes
- * as the pipeline, so it types itself out into the same panel with no separate view to
- * keep in step. */
 function startFetch() {
   if (state.running) return;
   state.running = true;
@@ -470,9 +403,6 @@ function startFetch() {
   };
 }
 
-// --------------------------------------------------------------------------- //
-// data viewer
-// --------------------------------------------------------------------------- //
 async function openSheet() {
   const sheet = document.getElementById("sheet");
   const body = document.getElementById("sheet-body");
@@ -487,8 +417,6 @@ async function openSheet() {
       return;
     }
     const cols = Object.keys(data.rows[0]);
-    // Built as DOM rather than an HTML string: product titles are upstream text and
-    // would otherwise be a markup-injection route straight from a third-party API.
     const table = document.createElement("table");
     const head = table.createTHead().insertRow();
     for (const c of cols) {
@@ -514,9 +442,6 @@ async function openSheet() {
   }
 }
 
-// --------------------------------------------------------------------------- //
-// ask about the data
-// --------------------------------------------------------------------------- //
 function chatSay(who, text, cls = "") {
   const log = document.getElementById("dock-log");
   const row = document.createElement("div");
@@ -558,9 +483,6 @@ async function ask(question) {
   }
 }
 
-// --------------------------------------------------------------------------- //
-// wiring
-// --------------------------------------------------------------------------- //
 document.getElementById("fetch").addEventListener("click", startFetch);
 document.getElementById("data").addEventListener("click", openSheet);
 document.getElementById("sheet-close").addEventListener("click", () => {

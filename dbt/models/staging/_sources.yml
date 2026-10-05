@@ -49,7 +49,6 @@ sources:
         description: Append-only, monthly range-partitioned on observed_at.
         loaded_at_field: observed_at
         freshness:
-          # Tier-1 SKUs refresh every 6h; warn once a cycle has clearly been missed.
           warn_after: {count: 12, period: hour}
           error_after: {count: 48, period: hour}
         columns:

@@ -1,14 +1,3 @@
-"""CrewAI narration for the weekly brief.
-
-The writer is handed a facts payload, not a database tool. The build document suggests a
-read-only SQL tool and `tools.py` provides one for exploration, but the drafting path
-does not use it: an agent that can query freely can also summarise loosely, and its
-output is then unverifiable. A closed set of numbers makes `guard.validate_brief` a
-decidable check rather than a guess.
-
-CrewAI and a key are both optional. Without them `brief.py` renders deterministically.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,7 +13,7 @@ log = get_logger(__name__)
 
 
 class CrewUnavailable(RuntimeError):
-    """Raised when CrewAI or an LLM credential is not configured."""
+    pass
 
 
 WRITER_INSTRUCTIONS = """
@@ -43,11 +32,6 @@ FACTS:
 {facts_json}
 """
 
-#: The single-call prompt. It carries the same absolute numeric constraint as the crew
-#: version, plus the two judgements the analyst and interpreter agents used to contribute:
-#: rank by what changes a decision, and refuse to sound confident about thin accuracy
-#: figures. Those were instructions, not information -- which is why they fold into one
-#: prompt without losing anything.
 SINGLE_CALL_INSTRUCTIONS = """
 You are writing a weekly competitor-pricing brief for a category manager.
 
@@ -72,12 +56,6 @@ FACTS:
 """
 
 
-#: LiteLLM model prefix -> (settings field, every environment variable that provider
-#: might read). Gemini has two, and the google-genai client prefers GOOGLE_API_KEY when
-#: both are present -- so both must be set to the same value or the wrong one silently
-#: wins. That is not hypothetical: an unrelated GOOGLE_API_KEY left in a developer's
-#: environment sent every request out on a stranger's quota, and the resulting stream of
-#: 503s looked exactly like the model being busy.
 PROVIDER_KEYS = {
     "gemini/": ("gemini_api_key", ("GEMINI_API_KEY", "GOOGLE_API_KEY")),
     "openai/": ("openai_api_key", ("OPENAI_API_KEY",)),
@@ -86,21 +64,6 @@ PROVIDER_KEYS = {
 
 
 def _require_llm() -> str:
-    """Return the configured model id, having put its credential where LiteLLM looks.
-
-    The bridge matters: configuration lives in `.env` and is read by pydantic-settings,
-    which populates `Settings` and deliberately does *not* touch `os.environ`. LiteLLM,
-    underneath CrewAI, reads only `os.environ`. Without this, a key set correctly in
-    `.env` is invisible to the model call, and the failure surfaces as a provider
-    authentication error that points nowhere near the actual cause.
-
-    A key configured here wins over one already in the environment, and is written to
-    every variable the provider might consult. The rule is that the credential named in
-    the app's own configuration is the credential the app uses -- anything else makes
-    "which key did that request go out on?" unanswerable without reading the process
-    environment. When no key is configured the environment is left untouched, so a
-    deployment injecting secrets that way (an EC2 task role, a CI secret) still works.
-    """
     settings = get_settings()
     model = getattr(settings, "llm_model", None)
     if not model:
@@ -126,8 +89,6 @@ def _require_llm() -> str:
     return model
 
 
-#: Opt-outs applied before CrewAI is imported. Left overridable so an operator who wants
-#: tracing can still switch it back on.
 _QUIET_DEFAULTS = {
     "CREWAI_TRACING_ENABLED": "false",
     "CREWAI_TELEMETRY_OPT_OUT": "true",
@@ -136,25 +97,11 @@ _QUIET_DEFAULTS = {
 
 
 def _silence_crewai_prompts() -> None:
-    """Stop CrewAI asking the terminal a question mid-run.
-
-    On first use CrewAI prints a tracing offer and waits on stdin for 20 seconds. That is
-    merely annoying from a shell, but this brief is also a scheduled Celery task, where
-    there is no one to answer and the prompt is pure dead time. Its telemetry exporter
-    then blocks on an unreachable collector, which is another stall for a feature nobody
-    asked for here.
-    """
     for name, value in _QUIET_DEFAULTS.items():
         os.environ.setdefault(name, value)
 
 
 def _narrate_single(facts_json, llm, model, Agent, Crew, Process, Task) -> str:
-    """One writer, one request, one copy of the facts.
-
-    The writer in the full crew already receives the complete payload; the analyst and
-    interpreter refine emphasis rather than supply information it lacks. Folding their
-    briefs into the writer's instructions keeps that emphasis at a third of the cost.
-    """
     writer = Agent(
         role="Pricing analyst and brief writer",
         goal="Write the weekly pricing brief using only the supplied facts.",
@@ -181,22 +128,14 @@ def _narrate_single(facts_json, llm, model, Agent, Crew, Process, Task) -> str:
 
 
 def narrate_with_crew(facts: WeeklyFacts) -> str:
-    """Turn the facts payload into prose. Raises CrewUnavailable when not configured.
-
-    Runs as a single writer call by default. The three-agent crew below is the design the
-    build document describes and is kept intact behind `llm_single_call=False`, but it
-    costs three requests and three copies of the facts payload to produce a brief the
-    writer can produce alone -- which on a free-tier key is most of a day's allowance for
-    a difference in wording.
-    """
     model = _require_llm()
     settings = get_settings()
 
     _silence_crewai_prompts()
 
     try:
-        from crewai import Agent, Crew, Process, Task  # noqa: PLC0415
-    except ImportError as exc:  # pragma: no cover - depends on optional extra
+        from crewai import Agent, Crew, Process, Task
+    except ImportError as exc:
         raise CrewUnavailable("crewai is not installed; pip install -e '.[ai]'") from exc
 
     facts_json = json.dumps(facts.as_dict(), indent=2, default=str)
@@ -281,9 +220,6 @@ def narrate_with_crew(facts: WeeklyFacts) -> str:
     return _kickoff_with_retry(crew, model)
 
 
-#: Transient upstream conditions worth a second attempt. A hosted model returning "busy"
-#: is the normal case, not an exceptional one: measured against gemini-3.8-flash, roughly
-#: one call in three came back 503 while the same prompt succeeded moments later.
 _RETRYABLE = ("503", "429", "unavailable", "overloaded", "high demand", "rate limit")
 
 MAX_ATTEMPTS = 3
@@ -296,15 +232,6 @@ def _is_retryable(exc: Exception) -> bool:
 
 
 def _kickoff_with_retry(crew, model: str) -> str:
-    """Run the crew, retrying transient provider failures with a widening backoff.
-
-    Without this a momentarily busy model silently demotes the brief to its deterministic
-    form -- correct output, but the narration quietly stops happening and nobody notices,
-    because the fallback is indistinguishable from success unless you read the log.
-
-    Only transient conditions are retried. A bad key or an unknown model fails on the
-    first attempt, where the error still means something.
-    """
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             return str(crew.kickoff())
@@ -322,4 +249,4 @@ def _kickoff_with_retry(crew, model: str) -> str:
             )
             time.sleep(delay)
 
-    raise CrewUnavailable("unreachable")  # pragma: no cover - loop always returns or raises
+    raise CrewUnavailable("unreachable")

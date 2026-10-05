@@ -1,14 +1,3 @@
-"""Alert delivery: Slack, SMTP, SES.
-
-One interface, three implementations; the alert cycle never learns about any of them
-individually. Slack posts one message per undercut because chat is a stream. Email sends
-a single digest because a mailbox is not -- twenty separate emails about twenty undercuts
-is how alerting ends up filtered into a folder nobody opens.
-
-Nothing sends unless explicitly configured, so a fresh checkout cannot message anyone by
-accident.
-"""
-
 from __future__ import annotations
 
 import smtplib
@@ -25,20 +14,17 @@ log = get_logger(__name__)
 
 
 class AlertChannel(ABC):
-    """A place alerts can be delivered to."""
-
     name: str
 
     @abstractmethod
     def is_configured(self) -> bool:
-        """True when this channel has everything it needs to send."""
+        pass
 
     @abstractmethod
     def send_batch(self, messages: list[str]) -> bool:
-        """Deliver a batch. Returns True only if the whole batch got through."""
+        pass
 
 
-# Slack
 class SlackChannel(AlertChannel):
     name = "slack"
 
@@ -50,7 +36,6 @@ class SlackChannel(AlertChannel):
         return bool(self.webhook_url)
 
     def send_batch(self, messages: list[str]) -> bool:
-        """One post per undercut -- chat reads better as separate messages."""
         if not self.is_configured():
             return False
         ok = True
@@ -66,9 +51,7 @@ class SlackChannel(AlertChannel):
         return ok
 
 
-# Email
 def build_digest(messages: list[str], generated_at: datetime | None = None) -> EmailMessage:
-    """Compose the digest. Split out so it can be asserted on without sending."""
     generated_at = generated_at or datetime.now(UTC)
     count = len(messages)
     subject = f"{count} competitor undercut{'s' if count != 1 else ''} - {generated_at:%d %b %Y}"
@@ -92,13 +75,6 @@ def build_digest(messages: list[str], generated_at: datetime | None = None) -> E
 
 
 class EmailChannel(AlertChannel):
-    """SMTP delivery.
-
-    SMTP rather than a provider SDK because it works with anything -- a corporate relay,
-    Gmail, or Amazon SES's own SMTP endpoint -- without another dependency. For the SES
-    API specifically, see `SesChannel`.
-    """
-
     name = "email"
 
     def __init__(self, settings: Settings | None = None) -> None:
@@ -139,13 +115,6 @@ class EmailChannel(AlertChannel):
 
 
 class SesChannel(AlertChannel):
-    """Amazon SES via the API, for the AWS deployment.
-
-    boto3 is imported lazily so a local checkout never needs the AWS SDK. On EC2 the
-    instance role supplies credentials, so nothing needs configuring beyond the region
-    and a verified sender.
-    """
-
     name = "ses"
 
     def __init__(self, settings: Settings | None = None) -> None:
@@ -162,7 +131,7 @@ class SesChannel(AlertChannel):
             return False
 
         try:
-            import boto3  # noqa: PLC0415
+            import boto3
 
             digest = build_digest(messages)
             client = boto3.client("ses", region_name=self.region)
@@ -174,7 +143,7 @@ class SesChannel(AlertChannel):
                     "Body": {"Text": {"Data": digest.get_content()}},
                 },
             )
-        except Exception as exc:  # noqa: BLE001 - botocore raises a wide family
+        except Exception as exc:
             log.error("alert.ses_failed", error=str(exc), region=self.region)
             return False
 
@@ -182,14 +151,7 @@ class SesChannel(AlertChannel):
         return True
 
 
-# resolution
 def configured_channels(settings: Settings | None = None) -> list[AlertChannel]:
-    """Every channel that is ready to send.
-
-    SES takes precedence over SMTP when both are set: on AWS the instance role is the
-    simpler and more secure path, and sending the same digest twice would be worse than
-    picking one.
-    """
     s = settings or get_settings()
 
     candidates: list[AlertChannel] = [SlackChannel(s.slack_webhook_url)]

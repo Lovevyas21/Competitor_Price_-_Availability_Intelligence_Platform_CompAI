@@ -1,10 +1,3 @@
-"""Normalized domain models.
-
-Every source client, regardless of how weird its upstream payload is, must produce a
-`NormalizedRecord`. This is the seam that lets Best Buy / eBay / Digi-Key drop in later
-without touching the CDC or storage layers.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -13,14 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# Bucket observations to the minute for idempotency purposes. Two fetches of the same
-# SKU inside one minute are treated as the same observation.
 IDEMPOTENCY_BUCKET_SECONDS = 60
 
 
 class ProductIdentity(BaseModel):
-    """Stable identity of a product within one source."""
-
     model_config = ConfigDict(frozen=True)
 
     source: str
@@ -42,19 +31,12 @@ class ProductIdentity(BaseModel):
 
 
 class ProductAttributes(BaseModel):
-    """Mutable descriptive attributes -- these are what SCD2 versions track."""
-
     title: str | None = None
     brand: str | None = None
     category: str | None = None
     attributes: dict[str, Any] = Field(default_factory=dict)
 
     def scd2_fingerprint(self) -> tuple:
-        """Values whose change opens a new product_versions row.
-
-        `attributes` is deliberately excluded: source payloads carry noisy fields
-        (view counts, image CDN URLs) that would churn versions without meaning.
-        """
         return (self.title, self.brand, self.category)
 
 
@@ -90,8 +72,6 @@ class StockObservation(BaseModel):
 
 
 class NormalizedRecord(BaseModel):
-    """One product observed once, from one source."""
-
     identity: ProductIdentity
     attributes: ProductAttributes
     price: PriceObservation | None = None

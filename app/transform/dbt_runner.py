@@ -1,11 +1,3 @@
-"""Run dbt from the application.
-
-dbt Core is a CLI first and foremost; driving it as a subprocess is the supported,
-version-stable interface, and it keeps dbt's own dependency graph out of the worker
-process. Credentials are passed through the environment so they are never written into
-`profiles.yml`.
-"""
-
 from __future__ import annotations
 
 import os
@@ -38,7 +30,6 @@ class DbtResult:
         return self.returncode == 0
 
     def summary(self) -> dict:
-        # dbt puts its one-line verdict on the last non-empty stdout line.
         tail = [line for line in self.stdout.splitlines() if line.strip()]
         return {
             "command": self.command,
@@ -52,7 +43,6 @@ def _dbt_executable() -> str:
     exe = shutil.which("dbt")
     if exe:
         return exe
-    # Windows venvs put it in Scripts/ which may not be on PATH inside a worker.
     for candidate in (
         Path(".venv/Scripts/dbt.exe"),
         Path(".venv/bin/dbt"),
@@ -75,11 +65,10 @@ def _dbt_env() -> dict[str, str]:
 
 
 def run_dbt(command: str = "build", *extra_args: str, timeout: int = 1800) -> DbtResult:
-    """Run one dbt command in the project directory."""
     args = [_dbt_executable(), command, *extra_args]
     log.info("dbt.start", command=command, args=list(extra_args))
 
-    proc = subprocess.run(  # noqa: S603 - fixed executable, no shell
+    proc = subprocess.run(
         args,
         cwd=DBT_DIR,
         env=_dbt_env(),

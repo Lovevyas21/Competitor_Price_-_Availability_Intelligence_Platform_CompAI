@@ -1,12 +1,3 @@
-"""Human-in-the-loop review UI for candidate product matches.
-
-Embedding similarity in the 0.80-0.92 band is a suggestion, not a decision. This screen
-is where a person turns it into one -- and, just as importantly, where the labels come
-from that let precision and recall be *measured* later instead of assumed.
-
-Run with: `make review`  ->  http://localhost:8501
-"""
-
 from __future__ import annotations
 
 import streamlit as st

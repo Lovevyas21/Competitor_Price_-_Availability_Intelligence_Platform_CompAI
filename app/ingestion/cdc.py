@@ -1,15 +1,3 @@
-"""Change data capture.
-
-History is append-only. A late or corrected observation adds a row, never mutates one.
-Attribute changes close the open SCD2 version and open a new one, with a partial unique
-index as the backstop. An unchanged price is not re-recorded until the heartbeat window
-elapses, which keeps the event tables lean while still proving we looked.
-
-Late data is compared against the observation that *precedes* it in time, not the newest
-row -- otherwise backfilling history compares against the future and records changes that
-never happened.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,7 +12,6 @@ from app.models.domain import NormalizedRecord
 
 log = get_logger(__name__)
 
-#: Re-record an unchanged price after this long, as proof of liveness.
 HEARTBEAT = timedelta(hours=24)
 
 
@@ -44,7 +31,6 @@ class CDCStats:
         return d
 
 
-# reference data
 def get_or_create_source(
     session: Session, name: str, base_url: str | None = None, auth_type: str = "none"
 ) -> int:
@@ -79,11 +65,6 @@ def get_or_create_retailer(
 
 
 def ensure_partition(session: Session, parent: str, observed_at: datetime) -> str:
-    """Make sure the monthly partition covering `observed_at` exists.
-
-    Required because real sources carry historical observations that fall outside the
-    partitions seeded at migration time.
-    """
     month_start = observed_at.astimezone(UTC).date().replace(day=1)
     session.execute(
         text("select ensure_month_partition(:parent, :month_start)"),
@@ -92,9 +73,7 @@ def ensure_partition(session: Session, parent: str, observed_at: datetime) -> st
     return f"{parent}_{month_start:%Y%m}"
 
 
-# products + SCD2
 def upsert_product(session: Session, source_id: int, record: NormalizedRecord) -> tuple[int, bool]:
-    """Return (product_id, created). Identity fields are filled in but never blanked."""
     ident = record.identity
     result = session.execute(
         text("""
@@ -124,7 +103,6 @@ def upsert_product(session: Session, source_id: int, record: NormalizedRecord) -
 
 
 def apply_scd2_version(session: Session, product_id: int, record: NormalizedRecord) -> bool:
-    """Open a new product version if tracked attributes changed. Returns True if opened."""
     attrs = record.attributes
     current = session.execute(
         text("""
@@ -138,16 +116,11 @@ def apply_scd2_version(session: Session, product_id: int, record: NormalizedReco
     incoming = attrs.scd2_fingerprint()
     if current is not None:
         existing = (current.title, current.brand, current.category)
-        # A missing incoming attribute means "this payload didn't say", not "it became
-        # null". Carrying the known value forward stops sparse payloads from churning a
-        # new version -- and from erasing an attribute we already learned.
         incoming = tuple(
             new if new is not None else old for new, old in zip(incoming, existing, strict=True)
         )
         if existing == incoming:
             return False
-        # Close the open version before opening the next one: the partial unique index
-        # permits only one is_current row per product.
         session.execute(
             text("""
                 update product_versions
@@ -180,11 +153,9 @@ def _json(value: dict) -> str:
     return json.dumps(value, default=str)
 
 
-# events
 def _preceding_price(
     session: Session, product_id: int, retailer_id: int | None, observed_at: datetime
 ):
-    """The most recent price observation at or before `observed_at` for this pairing."""
     return session.execute(
         text("""
             select price, observed_at
@@ -310,11 +281,9 @@ def record_stock_event(
         stats.stock_events_inserted += 1
 
 
-# entry point
 def apply_record(
     session: Session, source_id: int, record: NormalizedRecord, stats: CDCStats
 ) -> None:
-    """Apply one normalized observation to the warehouse."""
     product_id, created = upsert_product(session, source_id, record)
     if created:
         stats.products_created += 1

@@ -1,10 +1,3 @@
-"""API authentication.
-
-Auth is optional by design (open in local dev), which makes it exactly the kind of thing
-that ships unauthenticated by accident. These tests pin both behaviours, and that
-`/health` reports which one is in force.
-"""
-
 from __future__ import annotations
 
 import pytest

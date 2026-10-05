@@ -1,8 +1,3 @@
--- One row per observed price.
---
--- `currency` is carried through everywhere downstream and is never dropped: this data
--- spans EUR, SEK, USD, PLN and NOK, and comparing across them without conversion would
--- produce confident nonsense. Every comparison downstream is scoped to one currency.
 select
     event_id,
     product_id,

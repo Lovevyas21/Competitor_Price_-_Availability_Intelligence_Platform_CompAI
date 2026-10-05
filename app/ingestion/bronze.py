@@ -1,14 +1,3 @@
-"""Bronze layer: persist every raw payload before parsing.
-
-Raw-first means any normalizer bug is replayable -- we re-parse from bronze rather than
-re-hitting an API whose quota we may have exhausted.
-
-Two backends behind one interface. `local` writes to disk for dev; `s3` is the phase-6
-production target. Layout is identical in both, so the migration is a config change:
-
-    <root>/source=<source>/dt=YYYY-MM-DD/<key>.json.gz
-"""
-
 from __future__ import annotations
 
 import gzip
@@ -26,7 +15,6 @@ log = get_logger(__name__)
 
 
 def bronze_object_path(source: str, observed_at: datetime, key: str) -> str:
-    """Relative object path, shared by every backend."""
     return f"source={source}/dt={observed_at.strftime('%Y-%m-%d')}/{key}.json.gz"
 
 
@@ -37,18 +25,18 @@ def _encode(payload: Any) -> bytes:
 class BronzeStore(ABC):
     @abstractmethod
     def put(self, source: str, observed_at: datetime, key: str, payload: Any) -> str:
-        """Persist a raw payload. Returns the full location written."""
+        pass
 
     @abstractmethod
     def get(self, source: str, observed_at: datetime, key: str) -> Any:
-        """Read a raw payload back (used by replay/backfill)."""
+        pass
 
     @abstractmethod
     def exists(self, source: str, observed_at: datetime, key: str) -> bool: ...
 
     @abstractmethod
     def iter_payloads(self, source: str, observed_at: datetime) -> Iterator[Any]:
-        """Yield every stored payload for one source/day. Used by backfill replay."""
+        pass
 
 
 class LocalBronzeStore(BronzeStore):
@@ -61,7 +49,6 @@ class LocalBronzeStore(BronzeStore):
     def put(self, source: str, observed_at: datetime, key: str, payload: Any) -> str:
         path = self._path(source, observed_at, key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Write-then-rename so a crash mid-write cannot leave a truncated payload.
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_bytes(_encode(payload))
         tmp.replace(path)
@@ -82,17 +69,10 @@ class LocalBronzeStore(BronzeStore):
 
 
 class S3BronzeStore(BronzeStore):
-    """Any S3-compatible object store. boto3 is imported lazily so dev installs stay slim.
-
-    `endpoint_url` is what makes this portable: unset it points at AWS, set it points at
-    Railway Buckets, MinIO or R2. The protocol is the same, so the move off AWS cost one
-    argument rather than a rewrite.
-    """
-
     def __init__(
         self, bucket: str, prefix: str = "bronze", endpoint_url: str | None = None
     ) -> None:
-        import boto3  # noqa: PLC0415
+        import boto3
 
         self.bucket = bucket
         self.prefix = prefix.strip("/")
@@ -107,13 +87,13 @@ class S3BronzeStore(BronzeStore):
         return f"s3://{self.bucket}/{obj_key}"
 
     def get(self, source: str, observed_at: datetime, key: str) -> Any:
-        import gzip as _gzip  # noqa: PLC0415
+        import gzip as _gzip
 
         obj = self._client.get_object(Bucket=self.bucket, Key=self._key(source, observed_at, key))
         return json.loads(_gzip.decompress(obj["Body"].read()))
 
     def exists(self, source: str, observed_at: datetime, key: str) -> bool:
-        from botocore.exceptions import ClientError  # noqa: PLC0415
+        from botocore.exceptions import ClientError
 
         try:
             self._client.head_object(Bucket=self.bucket, Key=self._key(source, observed_at, key))
@@ -122,7 +102,7 @@ class S3BronzeStore(BronzeStore):
         return True
 
     def iter_payloads(self, source: str, observed_at: datetime) -> Iterator[Any]:
-        import gzip as _gzip  # noqa: PLC0415
+        import gzip as _gzip
 
         prefix = f"{self.prefix}/source={source}/dt={observed_at.strftime('%Y-%m-%d')}/"
         paginator = self._client.get_paginator("list_objects_v2")
@@ -144,11 +124,6 @@ def get_bronze_store(settings: Settings | None = None) -> BronzeStore:
 
 
 def get_deadletter_store(settings: Settings | None = None) -> BronzeStore:
-    """Store for payloads that exhausted their retries.
-
-    Same layout and backends as bronze, different root/prefix, so a failed payload can
-    be inspected and replayed with exactly the same tooling.
-    """
     settings = settings or get_settings()
     if settings.bronze_backend == "s3":
         if not settings.bronze_s3_bucket:

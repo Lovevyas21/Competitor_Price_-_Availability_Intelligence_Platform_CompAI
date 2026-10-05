@@ -33,7 +33,6 @@ def test_exists_reflects_writes(tmp_path):
 
 
 def test_no_temp_files_left_behind(tmp_path):
-    """Writes go through a temp file then rename; nothing partial should survive."""
     store = LocalBronzeStore(tmp_path)
     store.put("s", OBSERVED, "k", {"x": 1})
     assert list(tmp_path.rglob("*.tmp")) == []
@@ -51,7 +50,6 @@ def test_s3_backend_requires_bucket():
 
 
 def test_iter_payloads_returns_everything_for_that_day(tmp_path):
-    """Backfill replay depends on listing a day's payloads back out."""
     store = LocalBronzeStore(tmp_path)
     store.put("openprices", OBSERVED, "k1", {"id": 1})
     store.put("openprices", OBSERVED, "k2", {"id": 2})

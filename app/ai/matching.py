@@ -1,19 +1,3 @@
-"""Cross-retailer product matching.
-
-The same product appears under different barcodes and titles at every retailer, so "who
-is undercutting us" needs more than an exact UPC hit.
-
-Structured identifiers win outright: a UPC match is a fact, a cosine score is an opinion,
-and 0.95 similarity never overrides a barcode mismatch. Candidates are blocked by
-category and brand before the vector search, which suppresses the usual failure where two
-unrelated products with similar-shaped names score highly. Three bands rather than one
-cutoff -- 0.92 and above auto-matches, 0.80 to 0.92 goes to review, below that is
-rejected -- and every decision is stored with its method and score, so precision can be
-measured against reviewer verdicts instead of assumed.
-
-fastembed (ONNX) rather than sentence-transformers: same all-MiniLM-L6-v2, no torch.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,11 +13,9 @@ log = get_logger(__name__)
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384
 
-#: Thresholds from the build document.
 AUTO_MATCH_THRESHOLD = 0.92
 REVIEW_THRESHOLD = 0.80
 
-#: Nearest neighbours to consider per product before thresholding.
 TOP_K = 5
 
 
@@ -54,20 +36,13 @@ class MatchStats:
 
 @lru_cache(maxsize=1)
 def _model():
-    """Loaded once per process -- construction costs ~25s and allocates the ONNX session."""
-    from fastembed import TextEmbedding  # noqa: PLC0415
+    from fastembed import TextEmbedding
 
     log.info("matching.loading_model", model=EMBEDDING_MODEL)
     return TextEmbedding(model_name=EMBEDDING_MODEL)
 
 
 def build_text(title: str | None, brand: str | None, category: str | None) -> str:
-    """The string that gets embedded.
-
-    Brand and category are included deliberately: titles alone are short and generic
-    ("Baguette"), and the extra context is what separates two retailers' listing of the
-    same item from two genuinely different items with similar names.
-    """
     parts = [p.strip() for p in (title, brand, category) if p and p.strip()]
     return " | ".join(parts)
 
@@ -78,7 +53,6 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     return [vector.tolist() for vector in _model().embed(texts)]
 
 
-# embedding backfill
 _PENDING_SQL = """
 select pv.version_id, pv.product_id, pv.title, pv.brand, pv.category
 from product_versions pv
@@ -102,7 +76,6 @@ where product_versions.version_id = data.version_id
 def embed_pending_products(
     session: Session, batch_size: int = 256, max_batches: int = 100
 ) -> MatchStats:
-    """Embed current product versions that do not have a vector yet."""
     stats = MatchStats()
 
     for _ in range(max_batches):
@@ -139,10 +112,6 @@ def embed_pending_products(
     return stats
 
 
-# candidate generation
-#: Nearest neighbours within the same category, excluding the product itself and
-#: anything already carrying the same UPC (those are handled as exact matches).
-#: `1 - (a <=> b)` converts pgvector cosine *distance* to cosine *similarity*.
 _CANDIDATES_SQL = """
 with base as (
     select pv.product_id, pv.embedding, pv.category, p.upc
@@ -205,10 +174,8 @@ def generate_matches(
     auto_threshold: float = AUTO_MATCH_THRESHOLD,
     review_threshold: float = REVIEW_THRESHOLD,
 ) -> MatchStats:
-    """Find candidate pairs and file them by confidence band."""
     stats = MatchStats()
 
-    # 1. Exact identifiers first -- these are facts, not similarities.
     for row in session.execute(text(_EXACT_UPC_SQL)).mappings().all():
         session.execute(
             text(_UPSERT_MATCH_SQL),
@@ -222,7 +189,6 @@ def generate_matches(
         )
         stats.exact_identifier_matches += 1
 
-    # 2. Vector similarity for everything else.
     candidates = (
         session.execute(
             text(_CANDIDATES_SQL),
@@ -261,7 +227,6 @@ def generate_matches(
 def record_review(
     session: Session, match_id: int, approved: bool, reviewer: str, notes: str | None = None
 ) -> None:
-    """Record a human verdict. This is the label set precision/recall is measured against."""
     session.execute(
         text("""
             update product_matches

@@ -1,14 +1,7 @@
-# Image repository. Persistent because images must outlive the compute they run on --
-# tearing this down with the instance would mean rebuilding and pushing before every
-# demo, and losing the ability to roll back to a previous tag.
-
 resource "aws_ecr_repository" "app" {
   name                 = var.project
-  image_tag_mutability = "MUTABLE" # `latest` is re-pointed on each deploy
+  image_tag_mutability = "MUTABLE"
 
-  # Without this, `terraform destroy` fails the moment anything has been pushed:
-  # ECR refuses to delete a repository that still contains images. Correct for a
-  # registry holding production tags, wrong for one that exists to be torn down.
   force_delete = true
 
   image_scanning_configuration {
@@ -18,8 +11,6 @@ resource "aws_ecr_repository" "app" {
   tags = { Name = "${var.project}-ecr" }
 }
 
-# Untagged layers accumulate on every rebuild and are pure cost. Tagged images are kept
-# to a small window so a rollback target always exists without paying to store history.
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
 

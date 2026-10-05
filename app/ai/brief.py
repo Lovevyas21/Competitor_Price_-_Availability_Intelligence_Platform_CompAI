@@ -1,13 +1,3 @@
-"""Weekly pricing brief: deterministic by default, LLM-narrated when configured.
-
-Both paths render the same facts. The narrated one goes through `guard.validate_brief`
-and falls back to the deterministic render if any number in it is absent from those facts.
-
-That fallback is the design, not a safety net bolted on. An unvalidated brief reads just
-as authoritatively whether or not its figures are real, so the guard is a hard gate and
-the worst case is a plainer brief rather than a wrong one.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +14,7 @@ log = get_logger(__name__)
 @dataclass
 class BriefResult:
     body: str
-    source: str  # "deterministic" | "llm" | "llm-cached"
+    source: str
     guard: GuardResult | None = None
     facts: WeeklyFacts | None = None
 
@@ -42,7 +32,6 @@ def _money(value, currency: str) -> str:
 
 
 def render_markdown(facts: WeeklyFacts) -> str:
-    """Deterministic brief. Every number comes straight from the facts payload."""
     f = facts
     lines: list[str] = [
         f"# Weekly Pricing Brief — {f.generated_at}",
@@ -134,7 +123,6 @@ def render_markdown(facts: WeeklyFacts) -> str:
 
 
 def generate_brief(session: Session, period_days: int = 7, use_llm: bool = False) -> BriefResult:
-    """Produce the weekly brief, preferring a validated LLM version when enabled."""
     facts = collect_weekly_facts(session, period_days=period_days)
     deterministic = render_markdown(facts)
 
@@ -142,25 +130,19 @@ def generate_brief(session: Session, period_days: int = 7, use_llm: bool = False
         return BriefResult(body=deterministic, source="deterministic", facts=facts)
 
     try:
-        from app.ai import cache  # noqa: PLC0415
-        from app.ai.crew import _require_llm, narrate_with_crew  # noqa: PLC0415
+        from app.ai import cache
+        from app.ai.crew import _require_llm, narrate_with_crew
 
-        # Checked before the model is reached. The brief is a function of the facts, so
-        # unchanged facts justify the previous prose -- and a request not made is the
-        # only one guaranteed not to cost anything.
         fingerprint = cache.facts_fingerprint(facts, _require_llm())
         cached = cache.get(fingerprint)
         if cached is not None:
             guard = validate_brief(cached, facts.all_numbers())
             if guard.ok:
                 return BriefResult(body=cached, source="llm-cached", guard=guard, facts=facts)
-            # Re-validated rather than trusted. The guard is cheap, and the facts are
-            # what the cache is keyed on, so a hit that no longer validates means the
-            # key is wrong -- fall through and narrate again rather than serve it.
             log.warning("brief.cache_rejected", fingerprint=fingerprint)
 
         narrated = narrate_with_crew(facts)
-    except Exception as exc:  # noqa: BLE001 - never let the crew break the brief
+    except Exception as exc:
         log.warning("brief.crew_unavailable", error=str(exc))
         return BriefResult(body=deterministic, source="deterministic", facts=facts)
 

@@ -1,13 +1,3 @@
-"""Set-based CDC for bulk loads.
-
-`cdc.apply_record` issues about five statements per record. Fine locally; over a 298 ms
-link a 7,922-record replay works out at 3.3 hours. This stages the batch in a temp table
-and does the same work in a fixed number of round trips, whatever the batch size.
-
-Semantics match the row-by-row path exactly, heartbeat and idempotency included.
-`tests/integration/test_bulk_matches_rowwise.py` is what keeps the two equal.
-"""
-
 from __future__ import annotations
 
 import json
@@ -35,7 +25,6 @@ create temp table _stg (
 ) on commit drop
 """
 
-# One round trip regardless of batch size: arrays are unnested server-side.
 _LOAD_STAGING = """
 insert into _stg (
   external_id, sku, upc, mpn, brand, category, tier,
@@ -52,7 +41,6 @@ select * from unnest(
 )
 """
 
-# Historical data spans many months; create every partition the batch needs in one call.
 _ENSURE_PARTITIONS = """
 do $$
 declare m date;
@@ -92,8 +80,6 @@ on conflict (source_id, name) do update set
   country = coalesce(excluded.country, retailers.country)
 """
 
-# Latest incoming attributes per product, joined to the currently-open version.
-# A null incoming value inherits the known one, so sparse payloads do not churn versions.
 _CHANGED_VERSIONS = """
 create temp table _changed on commit drop as
 with incoming as (
@@ -133,9 +119,6 @@ select product_id, title, brand, category, attributes, now(), true
 from _changed
 """
 
-# Insert-on-change, set-based. Existing history and incoming rows are unioned so the
-# window function can see the observation preceding each candidate, which is what makes
-# late-arriving/backfilled data compare against the right neighbour rather than the newest row.
 _INSERT_PRICE_EVENTS = """
 with joined as (
   select p.product_id,
@@ -184,7 +167,6 @@ on conflict (idempotency_key, observed_at) do nothing
 def apply_records_bulk(
     session: Session, source_id: int, records: list[NormalizedRecord]
 ) -> CDCStats:
-    """Apply a batch of normalized records in a constant number of round trips."""
     stats = CDCStats()
     priced = [r for r in records if r.price is not None]
     if not priced:

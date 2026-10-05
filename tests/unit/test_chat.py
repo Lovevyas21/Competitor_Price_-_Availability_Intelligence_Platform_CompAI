@@ -1,13 +1,3 @@
-"""Guardrails on the question-answering box.
-
-The thing being protected is narrow and specific: a confident sentence containing a
-number the warehouse cannot account for. In a pricing context somebody acts on that, so
-the refusal path matters more than the answer path and is tested first.
-
-Nothing here calls a model. The model is replaced with a stub that returns whatever text
-a test needs it to, which is the only way to exercise a hallucinated figure on purpose.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -36,7 +26,6 @@ def _facts_obj():
 
 
 def _run(model_says: str, settings: Settings | None = None) -> chat.ChatAnswer:
-    """Ask a question with the model stubbed to return `model_says`."""
     llm = MagicMock()
     llm.call.return_value = model_says
     with (
@@ -50,9 +39,7 @@ def _run(model_says: str, settings: Settings | None = None) -> chat.ChatAnswer:
         return chat.answer_question(MagicMock(), "who undercuts us most?")
 
 
-# the refusal path
 def test_an_invented_figure_is_refused_not_shown():
-    """The whole point. A number not in the facts must never reach the reader."""
     answer = _run("EDEKA undercuts us by 91.4%, costing us 12000 EUR this quarter.")
     assert answer.ok is False
     assert answer.source == "refused"
@@ -74,7 +61,6 @@ def test_a_qualitative_answer_needs_no_numbers():
     assert answer.checked == 0
 
 
-# input handling
 @pytest.mark.parametrize("question", ["", "   ", "\n"])
 def test_an_empty_question_costs_nothing(question):
     with patch.object(chat, "build_llm") as build:
@@ -84,7 +70,6 @@ def test_an_empty_question_costs_nothing(question):
 
 
 def test_an_overlong_question_is_refused_before_it_is_sent():
-    """Length is checked locally: a rejected question should not spend allowance."""
     with patch.object(chat, "build_llm") as build:
         answer = chat.answer_question(MagicMock(), "x" * (chat.MAX_QUESTION_CHARS + 1))
     assert answer.ok is False
@@ -99,7 +84,6 @@ def test_no_model_configured_says_so_plainly():
     assert answer.ok is False
 
 
-# failure paths -- all of which must return, never raise
 def test_a_spent_allowance_is_reported_without_blaming_the_data():
     llm = MagicMock()
     with (
@@ -113,8 +97,6 @@ def test_a_spent_allowance_is_reported_without_blaming_the_data():
         answer = chat.answer_question(MagicMock(), "who undercuts us?")
 
     assert answer.source == "unavailable"
-    # The figures on the page are not affected by the model being unavailable, and the
-    # message says so rather than implying the data is missing.
     assert "unaffected" in answer.answer
     llm.call.assert_not_called()
 
@@ -138,7 +120,6 @@ def test_a_provider_outage_does_not_surface_a_stack_trace():
 
 
 def test_the_prompt_forbids_inventing_and_confines_the_scope():
-    """The guard is the enforcement, but the prompt should not be inviting the problem."""
     assert "ABSOLUTE CONSTRAINT" in chat.SYSTEM_PROMPT
     assert "only this dataset" in chat.SYSTEM_PROMPT
     assert "{facts_json}" in chat.SYSTEM_PROMPT

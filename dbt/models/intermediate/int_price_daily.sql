@@ -1,8 +1,3 @@
--- One price per product / retailer / currency / day.
---
--- Several observations can land on the same day (different contributors, a re-fetch, a
--- corrected entry). Marts need a single defensible number per day, so the last
--- observation of the day wins -- it is the most recent information available.
 with observations as (select * from {{ ref('int_price_observations') }}),
 
 ranked as (

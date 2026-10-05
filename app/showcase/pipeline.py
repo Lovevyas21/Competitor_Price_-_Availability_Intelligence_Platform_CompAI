@@ -1,16 +1,3 @@
-"""The stages the showcase walks through, and the real work behind each one.
-
-Every number is read from the warehouse at the moment you press run. Nothing is scripted
-or seeded for the demo -- if the database is empty the console says so rather than
-performing a success.
-
-The pacing is theatre; the data is not. Stages are timed with a real clock and reported
-in real milliseconds, and the line-by-line reveal happens in the browser after the
-numbers have already arrived. The server never sleeps to look busy.
-
-Each stage is a generator, which is what lets the console fill progressively.
-"""
-
 from __future__ import annotations
 
 import time
@@ -28,7 +15,6 @@ from app.core.settings import get_settings
 Event = dict[str, Any]
 
 
-# event helpers
 def line(text_: str, cls: str = "") -> Event:
     return {"t": "line", "text": text_, "cls": cls}
 
@@ -47,7 +33,6 @@ def table(cols: list[str], rows: list[list[Any]], caption: str = "") -> Event:
 
 
 def prose(body: str, title: str = "", note: str = "") -> Event:
-    """A block of generated text, rendered as-is rather than typed line by line."""
     return {"t": "prose", "body": body, "title": title, "note": note}
 
 
@@ -59,15 +44,9 @@ def _scalar(session: Session, sql: str, **params) -> Any:
     return session.execute(text(sql), params).scalar()
 
 
-# stage 1 -- connect
 def _count_bronze_objects(settings) -> int:
-    """Objects in the bronze bucket, or 0 if it cannot be reached.
-
-    Capped: this runs behind a web request, and a bucket with a million keys should not
-    turn the first stage of a demo into a full listing.
-    """
     try:
-        import boto3  # noqa: PLC0415
+        import boto3
 
         client = boto3.client("s3", endpoint_url=settings.bronze_s3_endpoint_url or None)
         total = 0
@@ -78,12 +57,11 @@ def _count_bronze_objects(settings) -> int:
         ):
             total += page.get("KeyCount", 0)
         return total
-    except Exception:  # noqa: BLE001 - a count is not worth failing the stage over
+    except Exception:
         return 0
 
 
 def stage_connect(session: Session) -> Iterator[Event]:
-    """Prove the warehouse is actually there before claiming anything about it."""
     yield line("opening connection to the warehouse", "dim")
 
     version = _scalar(session, "select version()") or ""
@@ -105,9 +83,6 @@ def stage_connect(session: Session) -> Iterator[Event]:
             [[s["name"], s["base_url"], s["auth_type"] or "none"] for s in sources],
         )
 
-    # Counted where bronze actually lives. Reading the local path regardless of backend
-    # reported a confident zero on a deployment storing every payload in object storage,
-    # which reads as "nothing was kept" -- the opposite of true.
     note = (
         "bronze layer -- every response kept before parsing, so the warehouse "
         "can be rebuilt without re-calling anyone"
@@ -135,9 +110,7 @@ def stage_connect(session: Session) -> Iterator[Event]:
     yield metric("Monthly partitions", partitions, "created on demand as observations arrive")
 
 
-# stage 2 -- extract
 def stage_extract(session: Session) -> Iterator[Event]:
-    """What actually landed: the observations, and who they came from."""
     yield line("reading normalised observations", "dim")
 
     counts = _rows(
@@ -197,9 +170,7 @@ def stage_extract(session: Session) -> Iterator[Event]:
     )
 
 
-# stage 3 -- resolve
 def stage_resolve(session: Session) -> Iterator[Event]:
-    """Deciding which of their products are our products."""
     yield line("resolving competitor listings against our catalogue", "dim")
     yield line(
         "retailers do not share our SKUs, so identity is inferred: "
@@ -266,9 +237,7 @@ def stage_resolve(session: Session) -> Iterator[Event]:
         )
 
 
-# stage 4 -- compare
 def stage_compare(session: Session) -> Iterator[Event]:
-    """Where the money question gets answered: who is cheaper than us, and by how much."""
     yield line("comparing matched pairs against our own catalogue", "dim")
 
     gaps = _scalar(session, "select count(*) from analytics_marts.mart_price_gap_vs_own")
@@ -325,9 +294,7 @@ def stage_compare(session: Session) -> Iterator[Event]:
     )
 
 
-# stage 5 -- decide
 def stage_decide(session: Session) -> Iterator[Event]:
-    """A detection is not yet an alert. This is the part that decides what to send."""
     yield line("applying the freshness gate", "dim")
 
     split = _rows(
@@ -392,19 +359,9 @@ def stage_decide(session: Session) -> Iterator[Event]:
         )
 
 
-# stage 6 -- narrate
 def stage_narrate(session: Session) -> Iterator[Event]:
-    """The only stage that calls a language model, and the only one that has to prove
-    it is allowed to be believed.
-
-    The model never touches the database. It is handed a closed payload of figures
-    already computed by the marts, and every number it writes back is checked against
-    that payload. A brief containing a figure the warehouse cannot account for is
-    discarded, not published -- which is why the guard result is reported here as
-    prominently as the prose.
-    """
-    from app.ai.brief import generate_brief  # noqa: PLC0415
-    from app.ai.llm import budget_used_today  # noqa: PLC0415
+    from app.ai.brief import generate_brief
+    from app.ai.llm import budget_used_today
 
     settings = get_settings()
     if not settings.llm_model:
@@ -468,21 +425,10 @@ def stage_narrate(session: Session) -> Iterator[Event]:
     )
 
 
-# live fetch
-#: Deliberately small. This runs from a button in a browser, so it must finish while
-#: someone is watching, and it is a demonstration of the ingest path rather than a
-#: backfill -- the scheduled Celery sweep is what fills the warehouse.
 FETCH_LIMIT = 60
 
 
 def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
-    """Pull fresh observations from Open Prices, live.
-
-    The same `ingest_source` the Celery task calls -- not a demo variant. Every payload
-    still lands in bronze before it is parsed, still passes validation, and still goes
-    through change-detection, so a row that appears here is a row the warehouse would
-    have taken anyway.
-    """
     started = time.perf_counter()
     yield {
         "t": "stage",
@@ -493,19 +439,14 @@ def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
     yield line("calling prices.openfoodfacts.org", "dim")
     yield line("keyless, crowd-sourced, rate-limited to be polite about it", "dim")
 
-    # Everything that can fail sits inside one try -- the snapshots and the sample query
-    # as much as the ingest itself. The browser closes this stream on the `done` event
-    # and on nothing else, so any path that escapes without emitting one leaves a
-    # spinner turning forever. An unreachable database took exactly that path: the
-    # `before` snapshot raised outside the guard.
     try:
-        from app.ingestion.runner import ingest_source  # noqa: PLC0415
+        from app.ingestion.runner import ingest_source
 
         before = _snapshot()
         result = ingest_source("openprices", limit=limit)
         yield from _report_fetch(result, before)
         ok = result.status == "success"
-    except Exception as exc:  # noqa: BLE001 - a failed fetch must report, not crash the page
+    except Exception as exc:
         yield line(f"{type(exc).__name__}: {str(exc).splitlines()[0]}", "err")
         ok = False
 
@@ -515,8 +456,6 @@ def run_fetch(limit: int = FETCH_LIMIT) -> Iterator[Event]:
 
 
 def _report_fetch(result, before: dict) -> Iterator[Event]:
-    """What the fetch actually changed. Split out so `run_fetch` has one exit path."""
-
     summary = result.summary()
     yield metric("Status", result.status, cls="ok" if result.status == "success" else "warn")
     yield metric("Records fetched", f"{summary.get('fetched', 0):,}")
@@ -569,7 +508,6 @@ def _report_fetch(result, before: dict) -> Iterator[Event]:
 
 
 def _snapshot() -> dict:
-    """Counts either side of a fetch, so the page can report what actually changed."""
     with session_scope() as session:
         return _rows(
             session,
@@ -581,7 +519,6 @@ def _snapshot() -> dict:
         )[0]
 
 
-# orchestration
 STAGES: list[dict] = [
     {
         "id": "connect",
@@ -623,15 +560,6 @@ STAGES: list[dict] = [
 
 
 def run_pipeline(only: str | None = None) -> Iterator[Event]:
-    """Walk the stages, emitting events as each completes.
-
-    One session for the whole run, so the console describes a single consistent
-    snapshot rather than five that drifted apart while it was being rendered.
-
-    A stage that raises does not kill the run: it reports the failure and the walk
-    continues. A demo that dies halfway tells you less than one that says which part
-    broke.
-    """
     started = time.perf_counter()
     stages = [s for s in STAGES if only is None or s["id"] == only]
 
@@ -647,11 +575,7 @@ def run_pipeline(only: str | None = None) -> Iterator[Event]:
                 begin = time.perf_counter()
                 try:
                     yield from stage["fn"](session)
-                except Exception as exc:  # noqa: BLE001 - a broken stage must not end the run
-                    # The rollback is the load-bearing half. Postgres aborts the whole
-                    # transaction on a failed statement, so without it a single bad query
-                    # in stage one makes every later stage fail with "transaction is
-                    # aborted" -- one real error wearing four fake ones as a disguise.
+                except Exception as exc:
                     session.rollback()
                     yield line(f"{type(exc).__name__}: {str(exc).splitlines()[0]}", "err")
                 yield {
@@ -659,7 +583,7 @@ def run_pipeline(only: str | None = None) -> Iterator[Event]:
                     "id": stage["id"],
                     "ms": round((time.perf_counter() - begin) * 1000),
                 }
-    except Exception as exc:  # noqa: BLE001 - most likely the database is simply down
+    except Exception as exc:
         yield {
             "t": "stage",
             "id": "error",

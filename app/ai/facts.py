@@ -1,15 +1,3 @@
-"""Structured facts for the weekly pricing brief.
-
-The writer -- LLM or not -- never queries the database and never sees free-form text it
-could paraphrase loosely. It receives *this* object: a closed set of numbers pulled from
-the tested dbt marts.
-
-That is the whole anti-hallucination design. An LLM asked to "summarise the week" will
-invent plausible figures; an LLM handed a fixed facts payload and then checked against it
-(see `guard.py`) cannot smuggle a number past review. Every value here is rounded once,
-at the source, so the number in the brief is byte-identical to the number in the facts.
-"""
-
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -27,7 +15,6 @@ TOP_N = 5
 
 
 def _d(value) -> float | None:
-    """Normalise a database numeric to a plain rounded float."""
     if value is None:
         return None
     return round(float(Decimal(str(value))), 2)
@@ -49,14 +36,7 @@ class WeeklyFacts:
         return asdict(self)
 
     def all_numbers(self) -> set[float]:
-        """Every number the brief is allowed to state. Used by the guard.
-
-        Includes numbers embedded in *string* values, not just numeric fields. Product
-        names legitimately contain figures -- "Beurre Demi-Sel a teneur reduite en M.G.
-        (60%)", "Cristaline 6x1.5L" -- and quoting the product name must not read as a
-        fabricated statistic. Those numbers came from the data, so they are grounded.
-        """
-        import re  # noqa: PLC0415
+        import re
 
         number_re = re.compile(r"\d+(?:\.\d+)?")
         found: set[float] = set()
@@ -148,7 +128,6 @@ select
 
 
 def collect_weekly_facts(session: Session, period_days: int = 7) -> WeeklyFacts:
-    """Gather every number the brief may cite, from the marts."""
     period = f"{period_days} days"
 
     totals = dict(session.execute(text(_TOTALS_SQL), {"period": period}).mappings().one())

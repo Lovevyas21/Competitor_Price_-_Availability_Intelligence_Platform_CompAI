@@ -1,4 +1,3 @@
--- Product identity, one row per tracked product.
 with source as (select * from {{ source('cpi', 'products') }})
 
 select

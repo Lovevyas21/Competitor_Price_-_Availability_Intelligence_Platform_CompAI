@@ -1,7 +1,3 @@
-# A single EC2 host running the docker compose stack. The build document's reasoning
-# holds: Fargate's own compute is cheap, but the surrounding ALB + NAT + CloudWatch
-# overhead is ~$90/month per environment -- several times this entire stack.
-
 data "aws_ami" "al2023_arm" {
   most_recent = true
   owners      = ["amazon"]
@@ -14,7 +10,7 @@ data "aws_ami" "al2023_arm" {
 
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/${var.project}/${var.environment}/app"
-  retention_in_days = 14 # long enough to debug, short enough to stay cheap
+  retention_in_days = 14
 
   tags = { Name = "${var.project}-app-logs" }
 }
@@ -28,7 +24,7 @@ resource "aws_instance" "app" {
   key_name               = var.key_pair_name
 
   user_data                   = local.user_data
-  user_data_replace_on_change = false # changing bootstrap must not recreate the host
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_size = 30
@@ -37,11 +33,11 @@ resource "aws_instance" "app" {
   }
 
   metadata_options {
-    http_tokens = "required" # IMDSv2 only -- IMDSv1 is how instance creds get stolen
+    http_tokens = "required"
   }
 
   lifecycle {
-    ignore_changes = [ami] # a new AMI release must not silently replace the host
+    ignore_changes = [ami]
   }
 
   tags = { Name = "${var.project}-app" }
@@ -57,7 +53,6 @@ locals {
     systemctl enable --now docker
     usermod -aG docker ec2-user
 
-    # Compose v2 as a CLI plugin.
     mkdir -p /usr/local/lib/docker/cli-plugins
     curl -fsSL \
       "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64" \
@@ -66,8 +61,6 @@ locals {
 
     install -d -o ec2-user -g ec2-user /srv/cpi
 
-    # Secrets are fetched at boot from SSM into a root-only env file. They are never
-    # baked into the image and never written to the repo.
     cat >/usr/local/bin/cpi-fetch-env <<'SCRIPT'
     #!/bin/bash
     set -euo pipefail

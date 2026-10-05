@@ -1,19 +1,3 @@
-"""The surveyed half of the map: where things sit, and what the roads are called.
-
-Positions are grid cells on an isometric plane. `gx` runs down-right on screen (the
-direction data flows), `gy` runs down-left, `z` is height. Nothing here is allowed to
-describe code that does not exist: build.py checks every path, every function, and every
-piece of evidence a route cites against extract.py, and marks or refuses what fails.
-
-Elevation carries meaning:
-    +3  the rim: services outside this codebase
-     0  ground: application code
-    -4  underground: things that persist
-    -7  bedrock: app/core, which everything else stands on
-"""
-
-# --------------------------------------------------------------------------- districts
-# (id, name, gx0, gx1, gy0, gy1, z, terrain, what it does, folders)
 DISTRICTS = [
     (
         "ports_w",
@@ -202,14 +186,9 @@ DISTRICTS = [
     ),
 ]
 
-# Where a district's name is written, when the centre is taken by something more
-# important. Customs' centre is the fork itself.
 DISTRICT_LABEL_AT = {"customs": (19.2, 12.8), "underground": (9, 41), "registry": (31, 29)}
 
-# --------------------------------------------------------------------------- buildings
-# path -> (gx, gy, w, d, purpose). District is inferred from position; kind from path.
 BUILDINGS = {
-    # Dispatch Yard
     "app/celery_app.py": (
         2,
         3,
@@ -225,7 +204,6 @@ BUILDINGS = {
         "Every background job: per-barcode fetch, sweeps, replay, marts, forecasts, alerts, matches, brief.",
     ),
     "app/cli.py": (14, 5, 2, 2, "Command line for a person: cpi ingest, seed, replay, status."),
-    # Intelligence
     "app/ai/matching.py": (
         20,
         1.5,
@@ -261,7 +239,6 @@ BUILDINGS = {
         3,
         "Delivery: one Slack post per alert, or one email digest (SMTP or Amazon SES).",
     ),
-    # The Analyst
     "app/ai/crew.py": (
         46,
         1.5,
@@ -311,7 +288,6 @@ BUILDINGS = {
         3,
         "Produces the weekly brief: model-written if it passes the guard, else plain template.",
     ),
-    # Acquisition
     "app/clients/openprices.py": (
         1,
         13.5,
@@ -335,7 +311,6 @@ BUILDINGS = {
         3,
         "Toll gate: Redis token bucket and daily quota, shared by every worker.",
     ),
-    # Customs
     "app/ingestion/runner.py": (
         13.5,
         13,
@@ -371,7 +346,6 @@ BUILDINGS = {
         3,
         "Writes and reads raw payloads (disk or S3) and dead-lettered ones.",
     ),
-    # Registry
     "app/ingestion/bulk.py": (
         28,
         14,
@@ -386,7 +360,6 @@ BUILDINGS = {
         4,
         "The same rules one record at a time. Live code uses bulk.py; this is the reference the parity test checks against.",
     ),
-    # Modelling
     "app/transform/dbt_runner.py": (
         38,
         12.5,
@@ -394,7 +367,6 @@ BUILDINGS = {
         2.5,
         "Runs `dbt build` as a separate process and reports what passed.",
     ),
-    # Presentation
     "app/api/main.py": (
         54,
         13,
@@ -424,7 +396,6 @@ BUILDINGS = {
         2.5,
         "Streamlit screen where a person accepts or rejects proposed matches.",
     ),
-    # Bedrock
     "app/core/settings.py": (42, 32.5, 3, 3, "Every setting, read from the environment or .env."),
     "app/core/db.py": (
         46.5,
@@ -434,7 +405,6 @@ BUILDINGS = {
         "Database engine and the transaction helper everything uses.",
     ),
     "app/core/logging.py": (42, 38, 2.5, 2.5, "Structured logging setup."),
-    # Underground: schema blueprints
     "migrations/versions/0001_initial_schema.py": (
         37,
         32,
@@ -449,7 +419,6 @@ BUILDINGS = {
         2,
         "Adds the vector similarity index used by matching.",
     ),
-    # Surveyor's Office
     "infra/persistent": (
         -9,
         31.5,
@@ -496,7 +465,6 @@ BUILDINGS = {
     ),
 }
 
-# Referenced somewhere, absent from the repo. Drawn as an empty plot, never as a building.
 PHANTOMS = {
     "app/ai/tools.py": (
         42,
@@ -508,7 +476,6 @@ PHANTOMS = {
     ),
 }
 
-# dbt nodes: name -> (gx, gy, w, d)
 DBT = {
     "own_catalog": (43, 12.5, 3, 2),
     "stg_sources": (38, 16, 3, 1.5),
@@ -544,8 +511,6 @@ DBT_PURPOSE = {
     "mart_out_of_stock_frequency": "How often items go out of stock. Empty today: neither source reports stock (docs/demo/metrics.md).",
 }
 
-# --------------------------------------------------------------------------- landmarks
-# id -> (name, gx, gy, w, d, shape, district-ish note, evidence (file, regex))
 LANDMARKS = {
     "ext:openprices": (
         "Open Prices API",
@@ -669,7 +634,6 @@ LANDMARKS = {
     ),
 }
 
-# The fork: the most important junction on the map. A point, not a building.
 FORK = {
     "id": "fork",
     "gx": 18.6,
@@ -692,9 +656,6 @@ TERMINUS = {
     "evidence": ("app/ingestion/bulk.py", r"heartbeat"),
 }
 
-# --------------------------------------------------------------------------- HTTP / IO targets
-# Which landmark a function's direct I/O lands on. Everything with `db` goes to
-# PostgreSQL and `redis` to Redis; only the ambiguous ones are listed.
 IO_TARGETS = {
     "app.clients.openprices": {"http": "ext:openprices"},
     "app.clients.fakestore": {"http": "ext:fakestore"},
@@ -711,9 +672,6 @@ IO_TARGETS = {
     "app.transform.dbt_runner": {"process": "modelling"},
 }
 
-# --------------------------------------------------------------------------- dynamic calls
-# Calls the parser cannot resolve (method on an object returned by a factory). Each one
-# carries the exact source text that proves it; build.py checks the text is really there.
 DISPATCH = [
     (
         "app.ingestion.tasks:fetch_sku",
@@ -812,7 +770,6 @@ DISPATCH = [
     ),
     ("app.api.main:undercuts", "app.api.deps:get_db", r"Depends\(get_db\)"),
 ] + [
-    # run_pipeline calls each stage through the STAGES table, as stage["fn"](session).
     (
         "app.showcase.pipeline:run_pipeline",
         f"app.showcase.pipeline:{s}",
@@ -828,14 +785,6 @@ DISPATCH = [
     )
 ]
 
-# --------------------------------------------------------------------------- routes
-# The road network. kind: data | control | failure | recovery | provision
-# Each route cites evidence; build.py verifies it and flags the route if it cannot.
-#   ("call", "mod:qual", "mod:qual")   the call exists in the extracted graph or DISPATCH
-#   ("reads"|"writes", "mod:qual", table)
-#   ("touch", "mod:qual", kind)
-#   ("text", path, regex)
-#   ("ref", child, parent)             a dbt ref()/source() edge
 R = []
 
 
@@ -860,7 +809,6 @@ def route(
     )
 
 
-# Acquisition
 route(
     "price_feed",
     "Price Feed",
@@ -882,7 +830,6 @@ route(
     [("touch", "app.clients.fakestore:FakeStoreClient.fetch_raw", "http")],
     label=False,
 )
-# Scheduling
 route(
     "broker_out",
     "Broker Line",
@@ -947,7 +894,6 @@ route(
     ],
     label=False,
 )
-# Customs: the fork
 route(
     "intake",
     "Intake Road",
@@ -1034,7 +980,6 @@ route(
     1,
     [("text", "app/ingestion/bulk.py", r"observed_at - prev_at >= cast\(:heartbeat as interval\)")],
 )
-# The broad sweep and replay
 route(
     "sweep",
     "Sweep Line",
@@ -1095,7 +1040,6 @@ route(
     ],
     via=[(19.5, 30), (19.5, 23)],
 )
-# Failure sidings
 route(
     "wait_loop",
     "Wait Loop",
@@ -1141,7 +1085,6 @@ route(
     [("text", "app/ingestion/tasks.py", r'"validation_failed"')],
     via=[(24.6, 29.2)],
 )
-# Modelling
 route(
     "marts_rail",
     "Dispatch Rail",
@@ -1175,7 +1118,6 @@ route(
     [("text", "dbt/dbt_project.yml", r"\+schema: marts")],
     via=[(51.6, 16.9), (51.6, 29.4), (35, 29.4)],
 )
-# Intelligence
 route(
     "forecast_rail",
     "Dispatch Rail",
@@ -1341,7 +1283,6 @@ route(
     [("touch", "app.alerting.channels:SesChannel.send_batch", "http")],
     label=False,
 )
-# The Analyst
 route(
     "facts_road",
     "Facts Road",
@@ -1447,7 +1388,6 @@ route(
     label=False,
     via=[(52, 11.2), (0.4, 11.2), (0.4, 35.5)],
 )
-# Presentation
 route(
     "front_street",
     "Front Street",
@@ -1553,7 +1493,6 @@ route(
     via=[(63.4, 21), (63.4, 11.2), (61.5, 11.2)],
     label=False,
 )
-# Provisioning (drawn only close in)
 route(
     "prov_raw",
     "Provisions",
@@ -1582,9 +1521,6 @@ route(
 )
 ROUTES = R
 
-# --------------------------------------------------------------------------- journey
-# One price observation, stop by stop. Each leg follows drawn routes (id, direction).
-# `stop` numbers match the ten stops in the brief; lettered nodes are sub-steps.
 JOURNEY = {
     "start": "beat",
     "nodes": {
@@ -2014,7 +1950,6 @@ JOURNEY = {
     },
 }
 
-# --------------------------------------------------------------------------- glossary
 GLOSSARY = [
     (
         "Raw store",

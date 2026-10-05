@@ -1,4 +1,3 @@
--- Availability observations. Empty until a stock-bearing source is connected.
 select
     event_id,
     product_id,

@@ -1,11 +1,3 @@
-"""Building the LLM client, and keeping a free-tier key from running out.
-
-Reasoning off is most of the saving: the same narration prompt cost 796 tokens with it
-enabled and 105 with it disabled. One call instead of three covers the rest. Rate and
-daily caps go through the same Redis guards the ingestion sources use, so the ceiling
-holds across workers rather than per process.
-"""
-
 from __future__ import annotations
 
 from app.core.logging import get_logger
@@ -20,16 +12,14 @@ from app.ingestion.ratelimit import (
 
 log = get_logger(__name__)
 
-#: Source name the LLM spends under, in the shared rate-limit and quota keyspace.
 LLM_SOURCE = "llm"
 
 
 class BudgetExhausted(RuntimeError):
-    """Raised when a call would exceed the configured LLM allowance."""
+    pass
 
 
 def configure_budget(settings: Settings | None = None) -> SourceLimits:
-    """Register the configured allowance so the shared guards enforce it."""
     s = settings or get_settings()
     limits = SourceLimits(
         requests_per_minute=s.llm_requests_per_minute,
@@ -41,15 +31,6 @@ def configure_budget(settings: Settings | None = None) -> SourceLimits:
 
 
 def reserve(requests: int, settings: Settings | None = None) -> None:
-    """Claim budget for the calls a run is about to make, or refuse the run.
-
-    Reserved up front, for the whole run rather than per call. A three-call crew that
-    stops after two because the quota ran out has spent budget on a brief nobody gets;
-    better to decline while the deterministic renderer can still stand in cleanly.
-
-    Refusal is not an error state. The caller falls back to the deterministic brief,
-    which is the same output the system produces when no model is configured at all.
-    """
     s = settings or get_settings()
     configure_budget(s)
     limiter = get_rate_limiter()
@@ -73,25 +54,13 @@ def reserve(requests: int, settings: Settings | None = None) -> None:
 
 
 def budget_used_today() -> int:
-    """Requests spent today, for reporting."""
     return get_rate_limiter().quota_used(LLM_SOURCE)
 
 
 def _gemini_thinking_config(enabled: bool):
-    """Gemini's thinking switch, or None when this build cannot express it.
-
-    CrewAI **auto-enables** reasoning for every Gemini 2.5 or newer model: if no thinking
-    config is supplied it inserts `ThinkingConfig(include_thoughts=True)` itself. So
-    leaving the parameter alone does not mean "provider default", it means "on" -- and
-    turning it off requires passing a config rather than omitting one.
-
-    The parameter is `thinking_config` holding a google-genai object. The LiteLLM-style
-    `thinking={"type": "disabled"}` is silently ignored here, which is the failure mode
-    worth naming: it looks correct, raises nothing, and changes no behaviour.
-    """
     try:
-        from google.genai import types  # noqa: PLC0415
-    except ImportError:  # pragma: no cover - provider extra not installed
+        from google.genai import types
+    except ImportError:
         return None
 
     if enabled:
@@ -100,13 +69,7 @@ def _gemini_thinking_config(enabled: bool):
 
 
 def build_llm(model: str, settings: Settings | None = None):
-    """Construct the CrewAI LLM with the cost controls applied.
-
-    Passing an `LLM` object rather than a bare model string is what makes this possible:
-    a string carries no configuration, so the provider's own defaults apply -- and on
-    Gemini that default is reasoning enabled, which was most of the bill.
-    """
-    from crewai import LLM  # noqa: PLC0415 - optional dependency, imported at use
+    from crewai import LLM
 
     s = settings or get_settings()
     kwargs: dict = {"model": model, "max_tokens": s.llm_max_output_tokens}

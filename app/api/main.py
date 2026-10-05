@@ -1,12 +1,3 @@
-"""FastAPI serving layer.
-
-Endpoints read the dbt marts rather than the raw event tables. That keeps business logic
-(what counts as an undercut, how volatility is measured) in one tested place instead of
-being re-implemented in SQL scattered through handlers.
-
-Run with: `make api`  ->  http://localhost:8000/docs
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -20,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_api_key
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
+from app.showcase.routes import mount as mount_showcase
 
 settings = get_settings()
 configure_logging(settings.log_level, pretty=settings.env == "dev")
@@ -36,7 +28,6 @@ app = FastAPI(
 router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
-# response models
 class Product(BaseModel):
     product_id: int
     external_id: str
@@ -107,13 +98,12 @@ class Health(BaseModel):
     )
 
 
-# endpoints
 @app.get("/health", response_model=Health, tags=["ops"])
 def health(db: Session = Depends(get_db)) -> Health:
     try:
         db.execute(text("select 1"))
         database = "ok"
-    except Exception:  # noqa: BLE001 - health must report, not raise
+    except Exception:
         database = "unavailable"
     return Health(
         status="ok" if database == "ok" else "degraded",
@@ -185,7 +175,6 @@ def price_history(
 
 @router.get("/forecasts/{product_id}", response_model=list[Forecast], tags=["forecasts"])
 def forecasts(product_id: int, db: Session = Depends(get_db)) -> list[Forecast]:
-    """Latest forecast run for a product. Older runs are kept but not returned."""
     rows = (
         db.execute(
             text("""
@@ -272,10 +261,6 @@ def matches_for_review(
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=500),
 ) -> list[MatchReviewRow]:
-    """Candidate product matches awaiting human review.
-
-    Empty until phase 5 populates `product_matches` with embedding-based candidates.
-    """
     rows = (
         db.execute(
             text("""
@@ -295,8 +280,5 @@ def matches_for_review(
 
 app.include_router(router)
 
-# The showcase walkthrough. Mounted only when enabled (dev by default) -- see
-# `app.showcase.routes.is_enabled` for why it is not simply always on.
-from app.showcase.routes import mount as mount_showcase  # noqa: E402
 
 mount_showcase(app)

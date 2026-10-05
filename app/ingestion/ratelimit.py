@@ -1,16 +1,3 @@
-"""Per-source rate limiting and daily quota guards, backed by Redis.
-
-Celery's own `rate_limit` is per-worker: run three workers and you silently triple the
-request rate at the upstream API. These guards are shared state, so the limit holds no
-matter how many workers or processes are running -- which is what actually keeps us
-inside eBay's 5,000 calls/day and similar caps.
-
-Two independent controls:
-  * **Token bucket** -- smooths the instantaneous rate (requests per second), allowing
-    a configurable burst.
-  * **Daily quota** -- a hard ceiling per UTC day, for APIs that bill by daily calls.
-"""
-
 from __future__ import annotations
 
 import time
@@ -24,8 +11,6 @@ from app.core.settings import get_settings
 
 log = get_logger(__name__)
 
-# Atomic refill-and-consume. Doing this in Lua matters: a read-modify-write from Python
-# would let concurrent workers each see the same token count and all proceed.
 _TOKEN_BUCKET_LUA = """
 local key       = KEYS[1]
 local rate      = tonumber(ARGV[1])
@@ -60,8 +45,6 @@ return { allowed, tostring(tokens) }
 
 
 class RateLimited(RuntimeError):
-    """Raised when a call would exceed the configured rate. Carries a retry hint."""
-
     def __init__(self, source: str, retry_after: float) -> None:
         super().__init__(f"{source}: rate limited, retry in {retry_after:.1f}s")
         self.source = source
@@ -69,8 +52,6 @@ class RateLimited(RuntimeError):
 
 
 class QuotaExhausted(RuntimeError):
-    """Raised when a source's daily quota is spent. Not retryable within the day."""
-
     def __init__(self, source: str, limit: int) -> None:
         super().__init__(f"{source}: daily quota of {limit} calls exhausted")
         self.source = source
@@ -79,24 +60,14 @@ class QuotaExhausted(RuntimeError):
 
 @dataclass(frozen=True)
 class SourceLimits:
-    """Politeness settings for one source.
-
-    `requests_per_minute` is our own courtesy limit; `daily_quota` mirrors a documented
-    upstream cap (None where the source publishes none).
-    """
-
     requests_per_minute: float = 60.0
     burst: int = 10
     daily_quota: int | None = None
 
 
-#: Documented or self-imposed limits. Keyless sources get a deliberately polite rate --
-#: they are volunteer-run and we have no contract with them.
 SOURCE_LIMITS: dict[str, SourceLimits] = {
     "fakestore": SourceLimits(requests_per_minute=120, burst=20),
     "openprices": SourceLimits(requests_per_minute=60, burst=10),
-    # Real sources, added as their keys arrive. eBay's 5,000/day is the app-level
-    # production default documented by the eBay Developers Program.
     "bestbuy": SourceLimits(requests_per_minute=300, burst=50, daily_quota=50_000),
     "ebay": SourceLimits(requests_per_minute=180, burst=30, daily_quota=5_000),
     "digikey": SourceLimits(requests_per_minute=60, burst=10, daily_quota=1_000),
@@ -110,13 +81,6 @@ def limits_for(source: str) -> SourceLimits:
 
 
 def register_limits(source: str, limits: SourceLimits) -> None:
-    """Add or replace one source's limits at runtime.
-
-    The table above is for sources whose caps are published and fixed. This exists for
-    the ones that are not: an LLM provider's free-tier allowance depends on the key, the
-    model and the day, so it is configured rather than hard-coded, and registered here so
-    it still goes through the same shared-state guards as everything else.
-    """
     SOURCE_LIMITS[source] = limits
 
 
@@ -127,9 +91,7 @@ class RateLimiter:
         )
         self._bucket = self._redis.register_script(_TOKEN_BUCKET_LUA)
 
-    # -- token bucket ----------------------------------------------------------
     def acquire(self, source: str, tokens: int = 1) -> None:
-        """Consume capacity for one call, or raise RateLimited."""
         limits = limits_for(source)
         rate_per_second = limits.requests_per_minute / 60.0
         allowed, remaining = self._bucket(
@@ -142,14 +104,12 @@ class RateLimiter:
             log.warning("ratelimit.blocked", source=source, retry_after=round(retry_after, 2))
             raise RateLimited(source, retry_after)
 
-    # -- daily quota -----------------------------------------------------------
     def consume_daily(self, source: str, count: int = 1) -> int:
-        """Count calls against today's quota. Returns calls used so far today."""
         limits = limits_for(source)
         key = f"quota:{source}:{datetime.now(UTC):%Y%m%d}"
         used = int(self._redis.incrby(key, count))
         if used == count:
-            self._redis.expire(key, 172_800)  # keep two days for observability
+            self._redis.expire(key, 172_800)
         if limits.daily_quota is not None and used > limits.daily_quota:
             log.error("quota.exhausted", source=source, used=used, limit=limits.daily_quota)
             raise QuotaExhausted(source, limits.daily_quota)
@@ -160,7 +120,6 @@ class RateLimiter:
         return int(self._redis.get(key) or 0)
 
     def reset(self, source: str) -> None:
-        """Test/ops helper: clear both guards for a source."""
         self._redis.delete(f"ratelimit:{source}", f"quota:{source}:{datetime.now(UTC):%Y%m%d}")
 
 

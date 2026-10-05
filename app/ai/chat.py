@@ -1,15 +1,3 @@
-"""Question answering over the warehouse figures.
-
-Same contract as the brief: the model gets a closed set of numbers, never a database
-connection. It cannot run a query, so it cannot quietly widen the question, and every
-figure it writes back is checked against the payload it was given. An answer containing a
-number the warehouse cannot account for is refused rather than shown.
-
-That refusal is the point. In a pricing context a confident sentence carrying an invented
-figure is worse than no answer, because someone acts on it. The worst case here is "I
-cannot answer that from the data", which is true.
-"""
-
 from __future__ import annotations
 
 import json
@@ -61,7 +49,7 @@ REFUSAL = (
 class ChatAnswer:
     answer: str
     ok: bool = True
-    source: str = "llm"  # "llm" | "refused" | "unavailable"
+    source: str = "llm"
     checked: int = 0
     unsupported: list = field(default_factory=list)
 
@@ -76,12 +64,6 @@ class ChatAnswer:
 
 
 def answer_question(session: Session, question: str, period_days: int = 7) -> ChatAnswer:
-    """Answer one question about the data, or decline.
-
-    Never raises. Every failure path -- no model, no allowance, a provider outage, a
-    guard rejection -- returns a `ChatAnswer` saying what happened, because this is
-    wired to a text box on a page and an exception there is just a blank panel.
-    """
     question = (question or "").strip()
     if not question:
         return ChatAnswer("Ask a question about the pricing data.", ok=False, source="refused")
@@ -106,7 +88,7 @@ def answer_question(session: Session, question: str, period_days: int = 7) -> Ch
     facts_json = json.dumps(facts.as_dict(), indent=2, default=str)
 
     try:
-        from app.ai.crew import _require_llm, _silence_crewai_prompts  # noqa: PLC0415
+        from app.ai.crew import _require_llm, _silence_crewai_prompts
 
         model = _require_llm()
         _silence_crewai_prompts()
@@ -122,7 +104,7 @@ def answer_question(session: Session, question: str, period_days: int = 7) -> Ch
             ok=False,
             source="unavailable",
         )
-    except Exception as exc:  # noqa: BLE001 - a chat box must not surface a stack trace
+    except Exception as exc:
         log.warning("chat.unavailable", error=str(exc)[:200])
         return ChatAnswer(
             "The model could not be reached just now. Try again in a moment.",
@@ -130,8 +112,6 @@ def answer_question(session: Session, question: str, period_days: int = 7) -> Ch
             source="unavailable",
         )
 
-    # The same guard the weekly brief uses. An answer is only shown if every number in
-    # it came from the payload the model was given.
     guard = validate_brief(raw, facts.all_numbers())
     if not guard.ok:
         log.error("chat.rejected", question=question[:120], unsupported=guard.unsupported)

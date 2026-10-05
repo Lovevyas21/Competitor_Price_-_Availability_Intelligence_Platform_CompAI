@@ -25,32 +25,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Embeddings + review UI. fastembed is ONNX-based: same all-MiniLM-L6-v2 model the
-# build document specifies, without pulling in torch.
 matching = [
     "fastembed>=0.5.0",
     "streamlit>=1.41.0",
 ]
-# Agent layer. Optional: the weekly brief renders deterministically without it, and
-# the crew only adds narration on top of already-validated facts.
 ai = [
     "crewai>=0.100.0",
-    # CrewAI reaches Gemini through Google's native client, which is a separate extra.
-    # Without it a `gemini/...` model fails at construction with a message about the
-    # provider being unavailable, long before any request is made.
     "google-genai>=1.0.0",
 ]
-# AWS SDK. Imported lazily in two places -- S3 bronze storage
-# (app/ingestion/bronze.py) and SES email delivery (app/alerting/channels.py) -- and
-# both of those paths are only reached in production, where BRONZE_BACKEND=s3 and a
-# region is configured. Locally neither import ever runs, so an undeclared boto3 stayed
-# invisible through every test and surfaced as ModuleNotFoundError on the deployed host.
 aws = [
     "boto3>=1.35.0",
 ]
-# The marts. Needed wherever `dbt build` runs, which is not only a developer laptop:
-# the API serves analytics_marts.* and those tables do not exist until dbt creates them,
-# so a deployed image without dbt produces a warehouse the API cannot read.
 transform = [
     "dbt-core>=1.10.0",
     "dbt-postgres>=1.9.0",
@@ -65,8 +50,6 @@ dev = [
     "dbt-postgres>=1.9.0",
 ]
 
-# Opt-in monitoring UI. Kept out of the base image so the worker stays slim;
-# the flower compose service builds with this extra enabled.
 monitoring = [
     "flower>=2.0.1",
 ]
@@ -83,18 +66,14 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint.per-file-ignores]
-# The report generator embeds an HTML document; wrapping its lines would corrupt
-# the markup for no benefit.
 "scripts/build_report.py" = ["E501"]
 "scripts/report_figures.py" = ["E501"]
-# The map's geography is a hand-laid table of coordinates and one-line descriptions.
 "scripts/codebase_map/*" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
 
 [tool.ruff.lint.flake8-bugbear]
-# FastAPI's dependency-injection idiom puts these calls in argument defaults by design.
 extend-immutable-calls = [
     "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path", "fastapi.Body",
 ]

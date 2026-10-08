@@ -83,6 +83,7 @@ app/
   ingestion/    runner, bronze store, CDC, rate limiting, Celery tasks
   models/       domain models and validation
   showcase/     pipeline walkthrough UI
+  transform/    dbt runner used by the scheduled mart rebuild
   ui/           Streamlit match review
 dbt/            staging, intermediate and mart models
 migrations/     Alembic migrations

@@ -4,7 +4,7 @@
 
 ## Context
 
-The build document specifies a CrewAI crew that writes a weekly pricing brief, and names
+The design calls for a CrewAI crew that writes a weekly pricing brief, and names
 LLM hallucination as a headline risk with the mitigation *"agents must cite numbers only
 from tool output; the Writer receives a structured facts JSON, not free-form recall."*
 

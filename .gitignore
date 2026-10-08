@@ -12,7 +12,6 @@ dbt/dbt_packages/
 
 dbt/logs/
 
-docs/report/*.png
 
 terraform.tfstate
 terraform.tfstate.backup

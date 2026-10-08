@@ -52,5 +52,5 @@ currency.** No conversion is performed in v1.
   `price_in_base_currency` column in the intermediate layer, and currency-agnostic marts
   alongside the scoped ones. No existing model needs rewriting.
 - Related decision: matching in `mart_price_gap_vs_own` is on UPC only, never on product
-  name. Fuzzy matching arrives in phase 5 with embeddings and human review, where a
+  name. Fuzzy matching is handled separately with embeddings and human review, where a
   confidence score and an audit trail make it defensible.

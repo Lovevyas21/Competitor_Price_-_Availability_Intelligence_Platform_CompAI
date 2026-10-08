@@ -95,7 +95,7 @@ class Settings(BaseSettings):
 
     @property
     def is_managed_database(self) -> bool:
-        return self.database_url_override is not None
+        return bool(self.database_url_override)
 
     @property
     def alembic_url(self) -> str:

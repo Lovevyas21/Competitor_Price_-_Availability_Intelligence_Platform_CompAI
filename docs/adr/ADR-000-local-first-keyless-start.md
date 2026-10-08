@@ -3,7 +3,7 @@
 **Status:** Accepted
 
 ## Context
-The build document nominates Best Buy, eBay Browse, and Digi-Key as primary sources.
+The original design names Best Buy, eBay Browse, and Digi-Key as primary sources.
 All three require registration and approval; eBay in particular needs Developers Program
 approval (~1 business day) plus acceptance of a separate Buy API license, and the source
 document itself rates India-based registration only "moderate-high confidence".

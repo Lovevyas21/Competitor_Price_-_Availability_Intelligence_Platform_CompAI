@@ -70,7 +70,7 @@ has consistently worked on this machine.
   volume was lost to Docker's storage corruption and rebuilt from bronze in 30 seconds
   (3,420 events, 1,309 products, 111 partitions).
 - The Neon exercise was still worth it: it proved the schema is portable (ran unmodified
-  on Postgres 18), it is the natural Phase 6 target, and the per-day replay figures on
+  on Postgres 18), it is the natural hosted target, and the per-day replay figures on
   Neon (2,996 then 255 inserts) matched the local rebuild exactly, which is good
   evidence the bulk CDC path is deterministic across Postgres versions.
 - The Hyper-V firewall rules added during investigation (`scripts/setup-wsl-firewall.ps1`)

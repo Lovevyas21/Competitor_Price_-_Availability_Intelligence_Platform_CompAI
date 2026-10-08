@@ -3,7 +3,7 @@
 **Status:** Accepted
 
 ## Context
-Phase 1 needed a keyless source that produces *real* price history. Two candidates:
+Ingestion needed a keyless source that produces *real* price history. Two candidates:
 
 - **Fake Store API** -- keyless, but payloads are static upstream. It exercises the code
   path and is ideal for tests, yet its prices never move, so it can never produce a
@@ -38,7 +38,7 @@ Two things had to be measured rather than assumed:
 
 ## Consequences
 - Real, forecastable, multi-retailer history exists before any API key is approved.
-- The broad/deep split maps onto the tiering the build doc already calls for: broad
+- The broad/deep split maps onto the tiering the design already calls for: broad
   discovery is cheap and wide, seeded fetches are quota-hungry and reserved for tier 1.
 - Open Prices carries **no availability data**, so `stock_events` stays empty until a
   source with real stock (Best Buy, Digi-Key) is connected. Availability-derived marts

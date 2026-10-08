@@ -4,12 +4,12 @@
 
 ## Context
 
-Phase 6 of the build document calls for Terraform (RDS, EC2, S3, secrets, private
-networking) and a GitHub Actions deploy. It is also the only phase that costs money:
+The deployment plan calls for Terraform (RDS, EC2, S3, secrets, private
+networking) and a GitHub Actions deploy. It is also the only part of the project that costs money:
 roughly **$28–36/month (₹2,350–3,020)**, billed from the moment `terraform apply`
 succeeds and continuing until the resources are destroyed.
 
-Two further facts matter. The build document's own research notes that the AWS Free Tier
+Two further facts matter. Research done for the plan notes that the AWS Free Tier
 changed on 15 July 2025 — new accounts get a $100 credit plan that expires after six
 months, **not** twelve months of free RDS. And nothing in the project needs AWS to be
 demonstrated: the pipeline, marts, forecasts, API, matching and brief all run locally and

@@ -1,56 +1,18 @@
-# Weekly Pricing Brief — 2026-09-01
+# Weekly Competitor Pricing Brief: 8 October 2026
 
-Covering the last 7 days.
+*Written by `gemini/gemini-3.5-flash` on the live deployment. Numeric guard: 17 of 17 figures verified against the facts payload.*
 
-## At a glance
+## Critical Undercuts: Nutella Plant-Based
+Our price of 5.73 EUR for Nutella Plant-Based is being severely undercut by multiple retailers, with competitor prices ranging from 3.29 EUR to 3.79 EUR. However, all five of the top documented undercuts rely on stale data. The most severe gap is at EDEKA (3.29 EUR, a gap of -42.58%), but this evidence is 534 days stale. Other undercuts from Carrefour, E. Leclerc Drive, Centre Commercial E. Leclerc, and Super U are similarly stale, ranging from 215 to 614 days out of date.
 
-- Products tracked: 3932
-- Retailers tracked: 157
-- Price observations this period: 3306
-- Active undercuts: 108
+**Decision:** Do not adjust our Nutella Plant-Based pricing based on these stale competitor points; schedule a fresh data sweep for this product instead.
 
-## Where we are being undercut
+## Price Volatility: Lentilles vertes
+High price volatility has been identified across 183 series. Lentilles vertes at E.Leclerc shows significant volatility (coefficient of variation of 0.29) based on a robust sample of 69 observations, with prices fluctuating between 0.71 EUR and 1.69 EUR around a mean price of 1.32 EUR. At Centre Commercial E. Leclerc, the same product has a coefficient of variation of 0.38, though over only 7 observations.
 
-| Product | Retailer | Ours | Theirs | Gap | Severity | Evidence |
-|---|---|---|---|---|---|---|
-| Nutella Plant-Based | EDEKA | 5.73 EUR | 3.29 EUR | -42.58% | critical | stale (497d old) |
-| Nutella Plant-Based | Carrefour | 5.73 EUR | 3.34 EUR | -41.71% | critical | stale (210d old) |
-| Nutella Plant-Based | E. Leclerc Drive | 5.73 EUR | 3.62 EUR | -36.82% | critical | stale (577d old) |
-| Nutella Plant-Based | Centre Commercial E.Leclerc | 5.73 EUR | 3.66 EUR | -36.13% | critical | stale (178d old) |
-| Nutella Plant-Based | Super U | 5.73 EUR | 3.79 EUR | -33.86% | critical | stale (329d old) |
+**Decision:** Maintain our current pricing on Lentilles vertes but monitor E.Leclerc closely as their high observation volume confirms active price-testing in this category.
 
-## Most volatile prices
+## Price Forecasts
+Price forecasts are available for the horizon of 2026-10-06 to 2026-10-12. While the models show a low average MAPE of 1.37, this accuracy figure is too thin to support confident pricing decisions as it is based on only 3 series across just 4 products.
 
-| Product | Retailer | Mean | Range | CV | Band |
-|---|---|---|---|---|---|
-| Petites Madeleines | E. Leclerc | 2.43 EUR | 1.83–4.4 | 0.46 | high |
-| Nutella Plant-Based | Bayern | 3.26 EUR | 1.79–3.99 | 0.39 | high |
-| Basilic | Carrefour City | 0.69 EUR | 0.49–0.99 | 0.38 | high |
-| Lentilles vertes | Centre Commercial E. Leclerc | 1.21 EUR | 0.74–1.69 | 0.38 | high |
-| PESTO ROSSO | E.Leclerc | 2.46 EUR | 1.97–4.08 | 0.37 | high |
-
-## Biggest movers
-
-- **Basilic** at Carrefour City: 0.49 → 0.99 EUR (102.04%) on 2026-08-27
-- **Basilic** at Carrefour City: 0.99 → 0.59 EUR (-40.4%) on 2026-08-29
-- **Persil** at Carrefour City: 0.99 → 0.65 EUR (-34.34%) on 2026-08-29
-- **Curry** at Carrefour City: 0.99 → 0.69 EUR (-30.3%) on 2026-08-29
-- **Huile d\'olive** at Carrefour City: 12.9 → 10.49 EUR (-18.68%) on 2026-08-29
-
-## Forecasts
-
-- 77 forecast points across 11 products
-- Horizon: 2026-09-02 to 2026-09-08
-
-| Model | Series | Avg MAPE | Worst |
-|---|---|---|---|
-| AutoARIMA | 9 | 3.13% | 15.56% |
-| SeasonalNaive | 9 | 3.13% | 15.56% |
-| AutoETS | 9 | 3.13% | 15.56% |
-
-## Data quality
-
-- Latest observation: 2026-09-01
-- Matches awaiting review: 2187
-- Matches approved: 370
-- Failed ingestion runs this period: 0
+**Decision:** Ignore the current price forecasts for active decision-making until the models are tested against a wider range of product series.

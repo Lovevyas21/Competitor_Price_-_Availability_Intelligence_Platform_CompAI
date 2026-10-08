@@ -9,7 +9,7 @@ it. statsforecast needs a regular frequency, so each series is resampled onto a 
 grid and forward-filled (a shelf price is assumed to hold until next observed).
 
 The first working implementation reported an average MAPE of **0.15%**, comfortably
-inside the build document's ≤12% SLA. That number was worthless.
+inside the ≤12% accuracy target. That number was worthless.
 
 Series carry ~8.7 distinct prices spread over up to two years. Forward-filling turns
 that into a mostly-constant daily series, and on a constant series "predict the last
@@ -47,7 +47,7 @@ is not earning its cost.
   prediction intervals).
 - Coverage dropped sharply: **18 of 22 series are excluded as stale**, leaving 4. This is
   the honest state of the data, not a regression. Open Prices is crowd-sourced and
-  sparse; the build document's tier-1 six-hourly refresh against Best Buy or Digi-Key is
+  sparse; a tier-1 six-hourly refresh against Best Buy or Digi-Key is
   what makes broad forecasting viable.
 - **A limitation to state plainly:** with this data the backtest scores only ~4 observed
   points per series. That is too thin to trust a per-series MAPE, and no amount of

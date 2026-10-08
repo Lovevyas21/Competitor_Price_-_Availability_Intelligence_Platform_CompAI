@@ -48,12 +48,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
         with:
-          enable-cache: true
+          python-version: "3.12"
 
-      - name: Set up Python
-        run: uv python install 3.12
+      - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: uv pip install --system -e ".[dev,matching]"

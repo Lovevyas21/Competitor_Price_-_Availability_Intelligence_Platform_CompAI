@@ -112,7 +112,7 @@ cmd_deploy() {
   tar --exclude-vcs --exclude='./.venv' --exclude='./data' --exclude='__pycache__' \
       --exclude='*.pyc' --exclude='./.env' --exclude='./infra' --exclude='./dbt/target' \
       --exclude='./dbt/dbt_packages' --exclude='./.ruff_cache' --exclude='./.pytest_cache' \
-      --exclude='./.claude' --exclude='./.agents' \
+      --exclude='./.[!.]*' \
       -czf "$tarball" -C "$ROOT" .
   ok "$(du -h "$tarball" | cut -f1)"
 

@@ -68,7 +68,6 @@ target-version = "py312"
 [tool.ruff.lint.per-file-ignores]
 "scripts/build_report.py" = ["E501"]
 "scripts/report_figures.py" = ["E501"]
-"scripts/codebase_map/*" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]

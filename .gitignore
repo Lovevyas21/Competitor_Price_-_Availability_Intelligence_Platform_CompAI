@@ -10,7 +10,6 @@ dbt/dbt_packages/
 *.log
 .DS_Store
 
-.claude/
 dbt/logs/
 
 docs/report/*.png
@@ -20,6 +19,3 @@ terraform.tfstate.backup
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/.terraform/
-
-docs/humanize-notes.md
-docs/prompts/

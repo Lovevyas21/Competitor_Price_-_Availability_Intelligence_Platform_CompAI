@@ -239,4 +239,4 @@ An AWS setup (VPC, RDS, EC2, S3, SSM, IAM) is also included as Terraform in
 ## Documentation
 
 - [Architecture decision records](docs/adr/)
-- [Sample weekly brief](docs/demo/sample-weekly-brief.md)
+- [Sample weekly brief](docs/sample-weekly-brief.md)

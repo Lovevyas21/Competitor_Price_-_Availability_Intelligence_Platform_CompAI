@@ -55,7 +55,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev,matching]"
+        run: uv pip install --system -e ".[dev,matching,ai]"
 
       - name: Lint
         run: ruff check .

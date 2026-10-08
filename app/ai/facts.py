@@ -1,3 +1,4 @@
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -34,31 +35,32 @@ class WeeklyFacts:
         return asdict(self)
 
     def all_numbers(self) -> set[float]:
-        import re
+        return numbers_in(self.as_dict())
 
-        number_re = re.compile(r"\d+(?:\.\d+)?")
-        found: set[float] = set()
 
-        def walk(node) -> None:
-            if isinstance(node, dict):
-                for value in node.values():
-                    walk(value)
-            elif isinstance(node, list):
-                for item in node:
-                    walk(item)
-            elif isinstance(node, bool):
-                return
-            elif isinstance(node, (int, float)):
-                found.add(round(float(node), 2))
-            elif isinstance(node, str):
-                for raw in number_re.findall(node):
-                    try:
-                        found.add(round(float(raw), 2))
-                    except ValueError:
-                        continue
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
-        walk(self.as_dict())
-        return found
+
+def numbers_in(node) -> set[float]:
+    found: set[float] = set()
+
+    def walk(item) -> None:
+        if isinstance(item, dict):
+            for value in item.values():
+                walk(value)
+        elif isinstance(item, list):
+            for value in item:
+                walk(value)
+        elif isinstance(item, bool):
+            return
+        elif isinstance(item, (int, float)):
+            found.add(round(float(item), 2))
+        elif isinstance(item, str):
+            for raw in _NUMBER_RE.findall(item):
+                found.add(round(float(raw), 2))
+
+    walk(node)
+    return found
 
 
 _TOTALS_SQL = """

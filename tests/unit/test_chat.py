@@ -132,3 +132,22 @@ def test_answer_serialises():
         "checked": 3,
         "unsupported": [],
     }
+
+
+def test_definition_answer():
+    answer = _run(
+        "A critical undercut is a competitor price 20% or more below ours. "
+        "EDEKA is one, at -42.58%."
+    )
+    assert answer.ok is True
+    assert answer.unsupported == []
+
+
+def test_rounded_figure_allowed():
+    answer = _run("EDEKA undercuts us by about 42.6%, at 3.29 EUR.")
+    assert answer.ok is True
+
+
+def test_prompt_has_definitions():
+    assert "{definitions_json}" in chat.SYSTEM_PROMPT
+    assert "critical" in chat.DEFINITIONS["undercut_severity"]

@@ -47,9 +47,22 @@ def extract_numbers(body: str) -> list[float]:
     return numbers
 
 
+def with_rounding(allowed: set[float]) -> set[float]:
+    rounded = set(allowed)
+    for value in allowed:
+        rounded.add(round(value, 1))
+        rounded.add(float(round(value)))
+    return rounded
+
+
 def validate_brief(
-    body: str, allowed: set[float], small_integer_ceiling: int = SMALL_INTEGER_CEILING
+    body: str,
+    allowed: set[float],
+    small_integer_ceiling: int = SMALL_INTEGER_CEILING,
+    allow_rounding: bool = False,
 ) -> GuardResult:
+    if allow_rounding:
+        allowed = with_rounding(allowed)
     allowed_abs = {abs(v) for v in allowed}
     unsupported: list[float] = []
     checked = 0

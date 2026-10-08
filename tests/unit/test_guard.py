@@ -104,3 +104,13 @@ def test_product_name_in_brief():
 @pytest.mark.parametrize("invented", ["99.99", "1234.56", "45.5"])
 def test_assorted_invented_figures_are_rejected(invented):
     assert not validate_brief(f"the gap was {invented}%", _facts().all_numbers()).ok
+
+
+def test_rounding_is_opt_in():
+    assert not validate_brief("about 42.6%", {42.58}).ok
+    assert validate_brief("about 42.6%", {42.58}, allow_rounding=True).ok
+    assert validate_brief("roughly 43%", {42.58}, allow_rounding=True).ok
+
+
+def test_rounding_still_rejects_new_numbers():
+    assert not validate_brief("about 55%", {42.58}, allow_rounding=True).ok

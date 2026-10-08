@@ -73,9 +73,8 @@ has consistently worked on this machine.
   on Postgres 18), it is the natural Phase 6 target, and the per-day replay figures on
   Neon (2,996 then 255 inserts) matched the local rebuild exactly, which is good
   evidence the bulk CDC path is deterministic across Postgres versions.
-- The Hyper-V firewall rules added during investigation (`scripts/setup-wsl-firewall.ps1`)
-  are inert under this decision. They are harmless and left in place, with the script
-  retained as documentation of what was tried.
+- The Hyper-V firewall rules added during investigation are inert under this decision
+  and were left in place.
 - The WSL Postgres/Redis services are installed but `systemctl disable`d, so they do not
   compete for memory. They are a working offline fallback if Docker fails again *and*
   the boundary problem is ever solved.

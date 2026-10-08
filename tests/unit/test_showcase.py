@@ -71,7 +71,11 @@ def test_failed_stage_rolls_back():
     scope = MagicMock()
     scope.__enter__.return_value = session
 
-    with patch.object(pipeline, "session_scope", return_value=scope):
+    settings = Settings(_env_file=None, llm_model="gemini/test")
+    with (
+        patch.object(pipeline, "session_scope", return_value=scope),
+        patch.object(pipeline, "get_settings", return_value=settings),
+    ):
         list(pipeline.run_pipeline())
 
     assert session.rollback.call_count == len(pipeline.STAGES)

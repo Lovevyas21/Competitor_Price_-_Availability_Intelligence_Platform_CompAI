@@ -1,325 +1,242 @@
 # Competitor Price & Availability Intelligence Platform
 
-Near-real-time competitor price and stock tracking: multi-source ingestion with
-change data capture, dbt marts, per-SKU forecasting, undercut alerting, and an
-LLM agent crew that writes a weekly pricing brief.
+[![CI](https://github.com/Lovevyas21/Competitor_Price_-_Availability_Intelligence_Platform_CompAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Lovevyas21/Competitor_Price_-_Availability_Intelligence_Platform_CompAI/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)
+![dbt](https://img.shields.io/badge/dbt-1.10-FF694B)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791)
 
-## Status
+A data platform that tracks competitor prices and stock across retailers, works out
+who is undercutting you, forecasts where prices are heading, and sends a weekly
+pricing brief.
 
-| Phase | Scope | State |
-|---|---|---|
-| 0 | Repo, Docker, schema + migrations, config, logging | **Done** |
-| 1 | Keyless ingestion (Fake Store, Open Prices), bronze store, CDC | **Done** |
-| 2 | Celery + Beat, rate limiting, DLQ, Flower | **Done** |
-| 3 | dbt staging -> marts, data quality tests | **Done** |
-| 4 | statsforecast forecasting, FastAPI, alerts, Metabase | **Done** |
-| 5 | pgvector matching, Streamlit review UI, CrewAI brief | **Done** |
-| 6 | Terraform / RDS / EC2 / S3, CI-CD | **Done** (written, not applied) |
+**Live demo:** https://api-production-46f4.up.railway.app/showcase
 
-## Demo assets
+## Features
 
-Measured results, architecture diagrams, a real generated brief, tested dashboard
-queries, and portfolio material live in [`docs/demo/`](docs/demo/). Every figure there
-was read from the running system — including the limitations.
+- **Multi-source ingestion** from public product price APIs, with rate limiting,
+  retries and a dead-letter queue.
+- **Raw-first storage.** Every API response is saved to a bronze layer (local disk or
+  S3) before parsing, so the warehouse can be rebuilt without calling any API again.
+- **Change data capture.** A price is stored only when it changes, with idempotency keys
+  so replays never write duplicates.
+- **dbt models** going from staging to intermediate to marts, with data quality tests on
+  every build.
+- **Undercut alerts** to Slack or email, with deduplication and a cooldown.
+- **Per-SKU forecasting** with statsforecast (AutoETS / AutoARIMA against a
+  seasonal-naive baseline), picked per series on backtested error.
+- **Product matching** with vector embeddings in pgvector, plus a Streamlit screen for
+  reviewing borderline matches.
+- **Weekly pricing brief** written by an LLM (CrewAI). It's checked so that every number
+  in it must exist in the warehouse data.
+- **REST API** with FastAPI, plus an interactive walkthrough of the pipeline at
+  `/showcase`.
 
-## Quick start
+## Architecture
 
-```bash
-python -m pip install uv
-python -m uv venv
-python -m uv pip install --python .venv/Scripts/python.exe -e ".[dev]"
-cp .env.example .env
-docker compose up -d          # postgres + redis only
-.venv/Scripts/python.exe -m alembic upgrade head
+```mermaid
+flowchart LR
+    SRC[Price APIs<br/>Open Prices, Fake Store] --> ING[Ingestion<br/>rate limit, retry]
+    ING --> BRZ[(Bronze<br/>raw JSON)]
+    ING --> CDC[CDC<br/>insert on change]
+    CDC --> PG[(PostgreSQL<br/>+ pgvector)]
+    PG --> DBT[dbt marts]
+    DBT --> API[FastAPI]
+    DBT --> FC[Forecasting]
+    DBT --> AL[Alerts<br/>Slack, email]
+    DBT --> BR[Weekly brief<br/>CrewAI]
+    PG --> MT[Product matching]
+    BEAT[Celery Beat] -. schedules .-> ING
+    BEAT -.-> DBT
+    BEAT -.-> FC
+    BEAT -.-> AL
 ```
 
-Requires Docker Desktop running. Verify:
+Celery workers run ingestion and the downstream jobs on a schedule, with Redis as the
+broker. Postgres holds the event history and the marts. The API, the alerting service
+and the brief all read from the same dbt marts, so they always agree on the numbers.
 
-```bash
-docker compose exec db psql -U cpi -d cpi -c "\dt"
-```
+## Tech stack
 
-## Using it
-
-```bash
-python -m app.cli sources                          # what's wired up
-python -m app.cli seed openprices --limit 25       # pick best-tracked SKUs
-python -m app.cli ingest openprices --seeds        # deep: full history per SKU
-python -m app.cli ingest openprices --limit 300    # broad: recent feed
-python -m app.cli status                           # warehouse summary
-```
-
-`--seeds` is the deep path (one call per SKU, ~100 dated observations each);
-plain `ingest` is the broad path (many SKUs, one price each). See ADR-001.
-
-## Running the pipeline
-
-Docker runs only the two stateful services. The worker, Beat and Flower run from the
-local venv, which keeps the container count -- and memory -- down on a constrained
-machine. See ADR-006.
-
-```bash
-docker compose up -d     # postgres + redis
-make worker              # celery worker
-make beat                # celery beat
-```
-
-To exercise the production image instead, run them as containers:
-
-```bash
-docker compose --profile workers up -d --build
-```
-
-## Transformations (dbt)
-
-```bash
-make dbt-deps     # once
-make dbt-build    # models + seeds + tests
-```
-
-Layers: `staging/` (clean, typed) -> `intermediate/` (joins, daily grain) ->
-`marts/` (business questions). `dbt build` runs models and tests together, so a mart
-that goes wrong fails the run instead of quietly serving bad numbers.
-
-| Mart | Answers |
+| Area | Tools |
 |---|---|
-| `mart_price_volatility` | which SKUs move most (coefficient of variation) |
-| `mart_price_gap_vs_own` | how competitor prices compare to our catalogue |
-| `mart_undercut_alerts` | who is undercutting us, how badly, how fresh the evidence |
-| `mart_price_trend` | daily series + day-over-day change (feeds forecasting) |
-| `mart_out_of_stock_frequency` | OOS rate per SKU/retailer |
+| Language | Python 3.12 |
+| Storage | PostgreSQL 16, pgvector, S3-compatible object storage |
+| Orchestration | Celery, Celery Beat, Redis |
+| Transformation | dbt (dbt-postgres), Polars, Pandera |
+| Data access | SQLAlchemy 2.0, Alembic, Pydantic v2 |
+| Forecasting | statsforecast |
+| AI | CrewAI, Gemini (via LiteLLM), fastembed |
+| API / UI | FastAPI, Uvicorn, Streamlit |
+| Infrastructure | Docker, Railway, Terraform (AWS), GitHub Actions |
 
-Two things worth knowing:
-
-- **Prices span five currencies, and are never compared across them.** Currency is part
-  of the grain everywhere and the gap mart joins on UPC *and* currency. See ADR-008.
-- **`mart_out_of_stock_frequency` returns zero rows today.** Neither keyless source
-  publishes availability. It is built against the real schema so it works the moment a
-  stock-bearing source (Best Buy, Digi-Key) is connected.
-
-Marts are also rebuilt automatically after the daily ingestion sweep, via the
-`build_marts` Celery task.
-
-## Serving, forecasting and alerts
-
-```bash
-make api        # http://localhost:8000/docs
-make forecast   # nightly training, on demand
-make alerts     # evaluate undercuts and deliver new ones
-make metabase   # opt-in BI at http://localhost:3000
-```
-
-Endpoints: `/health`, `/products`, `/prices/{id}`, `/forecasts/{id}`, `/undercuts`,
-`/alerts`, `/matches/review`. Auth is an `X-API-Key` header, enabled by setting
-`API_KEY`; when unset the API is open and `/health` says so.
-
-## Deploying to AWS
-
-The deployment is meant to exist only while it is being looked at: idle cost is about
-$0.30/month, and roughly $0.035/hour while it is up.
-
-```powershell
-.ws.ps1 status    # what is running, and what it cost
-.ws.ps1 up        # create everything and deploy   (~15 min)
-.ws.ps1 down      # destroy everything billable    (~10 min)
-```
-
-Equivalent from any POSIX shell, and what the PowerShell wrapper calls:
-
-```bash
-bash scripts/aws.sh status|up|down|deploy|nuke
-```
-
-There are `make aws-*` targets too, but `make` is not installed on Windows by default --
-use one of the two above rather than assuming the Makefile runs.
-
-`down` does not stop at "terraform destroy reported success". It then asks AWS what still
-exists, because those are different statements: Terraform reports what it removed from
-its own state, not what the account is still charging for. The gap is where surprise
-bills live -- an untracked EBS volume, an Elastic IP (free while attached, charged while
-idle), or an RDS snapshot created *by* the teardown.
-
-See `infra/README.md` for the two-stack split and what survives a teardown.
-
-## Walkthrough
-
-```bash
-make showcase   # http://localhost:8000/showcase
-```
-
-A guided tour of the pipeline for people who would rather see it than read about it. It
-walks the five stages -- connect, extract, resolve, compare, decide -- revealing each
-one line by line in a console.
-
-Every figure it prints is queried live at the moment you press run; the stage timings in
-the rail are real elapsed milliseconds. Only the pacing is theatre, and it happens in the
-browser after the data has already arrived, so the server never sleeps to look busy.
-`skip` renders the whole run instantly.
-
-Three controls sit alongside it:
-
-* **Narrate** (stage 06) is the only stage that calls a language model. It is handed a
-  closed payload of figures the marts already computed -- never a database connection --
-  and every number it writes back is checked against that payload. The count of verified
-  figures is shown next to the brief, and a brief containing a figure the warehouse
-  cannot account for is discarded rather than published.
-* **Fetch data** pulls fresh observations from Open Prices through the same
-  `ingest_source` the Celery task uses. It reports how many rows were *new* rather than
-  how many were downloaded, which is usually far fewer -- an unchanged price is not a new
-  row.
-* **Ask about this data** answers questions under the same numeric guard as the brief.
-  It refuses rather than guesses, and says so.
-
-It reads real mart data and is deliberately **not** behind the API key, so it serves in
-dev only by default. A demo deployment opts in with `SHOWCASE_ENABLED=true`.
-
-### Forecasting
-
-statsforecast (AutoETS / AutoARIMA) with a seasonal-naive baseline that always competes
-and only loses on a strict improvement. Champions are chosen per series on **backtested**
-MAPE, and every candidate's score is stored so selection stays auditable.
-
-Two deliberate constraints, both of which lower the headline numbers on purpose
-(ADR-009):
-
-- **Scoring ignores forward-filled days.** Series are filled to a daily grid so models
-  see a regular frequency, but grading on filled rows measures the fill, not the
-  forecast. Correcting this moved reported MAPE from a flattering 0.15% to a real ~3.16%.
-- **Stale series are not forecast.** A 7-day horizon projected from a series last seen
-  18 months ago yields predictions dated in the past.
-
-With the current keyless source that leaves 4 forecastable series out of 22, each scored
-on only a handful of observed points -- too thin to trust a per-series MAPE. The pipeline
-is correct; the data is sparse. A daily-refresh retail API is what makes it meaningful.
-
-### Alerting
-
-The undercut rule lives in `mart_undercut_alerts` (dbt), so it is tested with the marts
-and shared by the API, the dashboard and the alert. The service adds what SQL cannot:
-deduplication (an undercut persisting a week is one alert, not 28 -- but a *deeper* cut
-is new), a staleness gate so old evidence is recorded without paging anyone, and
-`sent_at` written only after delivery succeeds so a webhook outage retries rather than
-silently dropping.
-
-## Matching and the weekly brief
-
-```bash
-make match     # embed products, generate candidate matches
-make review    # human review UI at http://localhost:8501
-make brief     # weekly pricing brief (Markdown)
-```
-
-### Product matching
-
-Embeddings use **fastembed** (ONNX) rather than sentence-transformers: the same
-`all-MiniLM-L6-v2` 384-dim model the build document specifies, without pulling in torch
-(~2.5GB) on a memory-constrained machine.
-
-Policy, in priority order:
-
-1. **Exact UPC/MPN wins outright.** An identifier is a fact; a cosine score is an opinion.
-2. **Blocking before vector search** (same category), which cuts comparisons and
-   suppresses the classic false positive on similarly-shaped names.
-3. **Three bands:** `>= 0.92` auto-match, `0.80-0.92` human review, `< 0.80` rejected.
-
-Every decision is stored with its method and score, and human verdicts are recorded with
-reviewer and timestamp -- that is the label set precision and recall get measured against
-later, rather than assumed.
-
-### Weekly brief
-
-Deterministic by default: `ai/facts.py` pulls a closed set of numbers from the marts and
-`ai/brief.py` renders them. No key, no cost, nothing to fabricate.
-
-With `LLM_MODEL` set, a CrewAI crew narrates the *same* facts -- and the output must pass
-`ai/guard.py`, which requires **every number in the brief to exist in the facts**. Any
-unsupported figure discards the LLM version and falls back to the deterministic one. The
-worst case is a plainer brief, never a wrong one. See ADR-010.
-
-## Deployment
-
-The full AWS stack is written as Terraform in [`infra/`](infra/) — VPC, private RDS,
-Graviton EC2, S3 bronze with lifecycle tiering, SSM secrets, least-privilege IAM, and
-budget alarms.
-
-**It has not been applied.** Phase 6 is the only phase that costs money (~$28-36/month),
-and nothing in the project needs AWS to be demonstrated. The configuration is verified
-with `terraform fmt`, `init -backend=false` and `validate`, all of which run in CI
-without an AWS account. `terraform plan` has never run, so a first apply should be
-expected to surface real issues validation cannot catch. See ADR-011.
-
-```bash
-cd infra/persistent && terraform init -backend=false && terraform validate
-cd ../ephemeral  && terraform init -backend=false && terraform validate
-```
-
-CI (`.github/workflows/ci.yml`) runs lint, format check, migrations, the full test suite
-against pgvector + Redis services, `dbt build`, Terraform validation, and a production
-image build. Deploy is `workflow_dispatch` only, behind a typed confirmation, using OIDC
-role assumption and SSM Run Command -- no stored AWS keys, no open SSH port.
-
-### Rebuilding from bronze
-
-Every raw payload is stored before parsing, so the warehouse is reproducible. If the
-database is lost, replay rebuilds it with **no upstream traffic and no quota spend**:
-
-```bash
-python -m app.cli replay openprices 2026-08-29
-```
-
-This is not theoretical -- the local Postgres volume was lost to a Docker storage
-fault and rebuilt from bronze in 30 seconds (3,420 events across 111 partitions).
-
-Flower is **opt-in and runs from the local venv**, not as a container -- it is a
-debugging tool, and a dedicated container would hold memory permanently on a
-RAM-constrained machine for something used occasionally:
-
-```bash
-make flower    # http://localhost:5555
-```
-
-Schedules (UTC), defined in `app/celery_app.py`:
-
-| When | Task |
-|---|---|
-| every 6h | tier-1 SKU refresh |
-| 02:30 daily | tier-2 refresh |
-| 04:00 Sunday | tier-3 refresh |
-| 01:15 daily | broad discovery sweep |
-| 25th monthly | pre-create partitions |
-
-Backfill without touching the upstream API (re-parses stored raw payloads):
-
-```bash
-python -m app.cli replay openprices 2026-08-29
-```
-
-## Layout
+## Project structure
 
 ```
 app/
-  clients/      # per-source API clients behind a common interface
-  ingestion/    # tasks, rate limiting, CDC
-  models/       # pydantic v2 + SQLAlchemy 2.0
-  forecasting/  # train, backtest
-  ai/           # crew, tools, matching
-  api/          # FastAPI
-  core/         # settings, logging, db
-dbt/            # staging | intermediate | marts
-infra/          # terraform
-migrations/     # alembic
-docs/adr/       # architecture decision records
+  ai/           facts, LLM brief, numeric guard, product matching, chat
+  alerting/     undercut alert service and delivery channels
+  api/          FastAPI app and dependencies
+  clients/      one client per data source behind a common interface
+  core/         settings, logging, database session
+  forecasting/  dataset building, training, backtesting
+  ingestion/    runner, bronze store, CDC, rate limiting, Celery tasks
+  models/       domain models and validation
+  showcase/     pipeline walkthrough UI
+  ui/           Streamlit match review
+dbt/            staging, intermediate and mart models
+migrations/     Alembic migrations
+infra/          Terraform (persistent and ephemeral AWS stacks)
+scripts/        deployment and report scripts
+tests/          unit, contract and integration tests
+docs/           architecture decision records and project report
 ```
 
-## Design notes
+## Getting started
 
-- `price_events` / `stock_events` are append-only and **monthly range-partitioned** on
-  `observed_at`. `ensure_month_partition(parent, month_start)` creates partitions on demand.
-- `product_versions` is an **SCD Type 2** dimension; a partial unique index enforces exactly
-  one current row per product.
-- Every event carries an `idempotency_key`, uniquely indexed with `observed_at`, so replays
-  and late-arriving duplicates cannot double-write history.
-- Raw payloads are persisted **before** parsing, so any parse bug is replayable.
-- No PII is collected; all data is public product data.
+### Prerequisites
 
-See `docs/adr/` for decisions and their trade-offs.
+- Python 3.12
+- Docker and Docker Compose
+- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+
+### Installation
+
+```bash
+git clone https://github.com/Lovevyas21/Competitor_Price_-_Availability_Intelligence_Platform_CompAI.git
+cd Competitor_Price_-_Availability_Intelligence_Platform_CompAI
+
+uv venv
+uv pip install -e ".[dev,matching,ai,transform]"
+
+cp .env.example .env
+docker compose up -d db redis
+alembic upgrade head
+```
+
+### Configuration
+
+Settings are read from environment variables or `.env`. The defaults work with the
+local Docker setup. The variables you're most likely to change:
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL_OVERRIDE` | Full Postgres URL for a hosted database |
+| `REDIS_URL` | Celery broker and cache |
+| `BRONZE_BACKEND` | `local` or `s3` |
+| `BRONZE_S3_BUCKET` / `BRONZE_S3_ENDPOINT_URL` | Object storage for raw payloads |
+| `LLM_MODEL` / `GEMINI_API_KEY` | Enables the LLM brief, e.g. `gemini/gemini-3.5-flash` |
+| `API_KEY` | Turns on `X-API-Key` authentication for the API |
+| `SLACK_WEBHOOK_URL` | Alert delivery to Slack |
+| `SHOWCASE_ENABLED` | Serves `/showcase` outside dev |
+
+The full list is in [`app/core/settings.py`](app/core/settings.py).
+
+## Usage
+
+### Ingest data
+
+```bash
+python -m app.cli sources                         # list configured sources
+python -m app.cli seed openprices --limit 25      # pick the best-tracked SKUs
+python -m app.cli ingest openprices --seeds       # full history for seeded SKUs
+python -m app.cli ingest openprices --limit 300   # recent prices across many SKUs
+python -m app.cli status                          # warehouse summary
+python -m app.cli replay openprices 2026-08-29    # rebuild a day from bronze
+```
+
+### Run the pipeline
+
+```bash
+make worker      # Celery worker
+make beat        # Celery scheduler
+make dbt-build   # build and test the dbt models
+make api         # API at http://localhost:8000/docs
+```
+
+Other targets: `make forecast`, `make alerts`, `make match`, `make review`,
+`make brief`, `make showcase`, `make flower`. Run `make test` for the test suite.
+
+### API
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Service and database status |
+| GET | `/products` | Tracked products |
+| GET | `/prices/{product_id}` | Price history for a product |
+| GET | `/forecasts/{product_id}` | Forecast for a product |
+| GET | `/undercuts` | Current competitor undercuts |
+| GET | `/alerts` | Alerts that have been sent |
+| GET | `/matches/review` | Product matches waiting for review |
+
+Interactive docs are at `/docs`. When `API_KEY` is set, every endpoint except `/health`
+needs an `X-API-Key` header.
+
+### Scheduled jobs
+
+All times are UTC and come from [`app/celery_app.py`](app/celery_app.py).
+
+| Schedule | Job |
+|---|---|
+| Every 6 hours | Refresh tier 1 SKUs, evaluate alerts |
+| Daily 01:15 | Broad price discovery |
+| Daily 01:45 | Rebuild dbt marts |
+| Daily 02:15 | Refresh product matches |
+| Daily 02:30 | Refresh tier 2 SKUs |
+| Daily 03:00 | Train forecasts |
+| Sunday 04:00 | Refresh tier 3 SKUs |
+| Monday 06:00 | Generate the weekly brief |
+| 25th of each month | Create upcoming table partitions |
+
+## Data model
+
+- `price_events` and `stock_events` are append-only and partitioned by month on
+  `observed_at`.
+- `product_versions` is an SCD Type 2 dimension, with exactly one current row per
+  product.
+- Every event has an idempotency key, so re-running a load never duplicates history.
+- Prices are compared only within the same currency. Currency is part of the grain of
+  every mart.
+
+| Mart | What it answers |
+|---|---|
+| `mart_undercut_alerts` | Who is undercutting us, by how much, and how fresh the evidence is |
+| `mart_price_gap_vs_own` | How competitor prices compare with our catalogue |
+| `mart_price_trend` | Daily price series and day-over-day change |
+| `mart_price_volatility` | Which SKUs move the most |
+| `mart_out_of_stock_frequency` | Out-of-stock rate per SKU and retailer |
+
+## Testing
+
+```bash
+docker compose up -d db redis
+pytest
+```
+
+The suite has unit, contract and integration tests. The integration tests run against
+a real Postgres and Redis. CI runs linting (ruff), the tests, `dbt build`, Terraform
+validation and a Docker image build on every push.
+
+## Deployment
+
+The app runs on [Railway](https://railway.com) as three services built from the same
+Dockerfile:
+
+| Service | Command |
+|---|---|
+| `api` | `uvicorn app.api.main:app --host 0.0.0.0 --port $PORT` |
+| `worker` | `celery -A app.celery_app worker -Q ingest,default,maintenance` |
+| `beat` | `celery -A app.celery_app beat` |
+
+These sit alongside Postgres with pgvector, Redis and an S3-compatible bucket for the
+bronze layer. Each deploy runs `alembic upgrade head` and `dbt build` before the new
+version goes live.
+
+An AWS setup (VPC, RDS, EC2, S3, SSM, IAM) is also included as Terraform in
+[`infra/`](infra/), with scripts to create and destroy it on demand. See
+[`infra/README.md`](infra/README.md).
+
+## Documentation
+
+- [Architecture decision records](docs/adr/)
+- [Sample weekly brief](docs/demo/sample-weekly-brief.md)

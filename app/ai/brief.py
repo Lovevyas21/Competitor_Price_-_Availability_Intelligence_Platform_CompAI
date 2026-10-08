@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.facts import WeeklyFacts, collect_weekly_facts
@@ -23,6 +24,23 @@ class BriefResult:
             "guard_ok": None if self.guard is None else self.guard.ok,
             "guard_checked": None if self.guard is None else self.guard.checked,
         }
+
+
+def save_brief(session: Session, result: BriefResult, period_days: int) -> int:
+    return session.execute(
+        text("""
+            insert into briefs (period_days, source, body, guard_ok, guard_checked)
+            values (:period_days, :source, :body, :guard_ok, :guard_checked)
+            returning brief_id
+        """),
+        {
+            "period_days": period_days,
+            "source": result.source,
+            "body": result.body,
+            "guard_ok": None if result.guard is None else result.guard.ok,
+            "guard_checked": None if result.guard is None else result.guard.checked,
+        },
+    ).scalar_one()
 
 
 def _money(value, currency: str) -> str:

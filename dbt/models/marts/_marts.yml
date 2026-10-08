@@ -86,8 +86,16 @@ models:
           expression: "(is_undercut and gap_abs < 0) or (not is_undercut and gap_abs >= 0)"
 
   - name: mart_undercut_alerts
-    description: Undercut rows ready for alerting, with severity and freshness confidence.
+    description: >
+      Active undercuts: evidence at most 365 days old, with severity and freshness
+      confidence. Older gaps are not counted anywhere.
     columns:
+      - name: days_stale
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 365
       - name: severity
         tests:
           - not_null
@@ -99,7 +107,7 @@ models:
           - accepted_values:
               values: ['fresh', 'recent', 'stale']
       - name: gap_pct
-        description: Always negative here -- every row is an undercut.
+        description: Always negative here, every row is an undercut.
         tests:
           - dbt_utils.accepted_range:
               max_value: 0

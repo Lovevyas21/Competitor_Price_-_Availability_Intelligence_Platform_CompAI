@@ -16,6 +16,8 @@ COOLDOWN = timedelta(days=1)
 
 MAX_ALERTABLE_STALENESS_DAYS = 7
 
+MIN_ALERT_GAP_PCT = 2.0
+
 CANDIDATES_SQL = """
 select
     product_id, retailer_id, upc, our_sku, product_name, retailer_name,
@@ -43,6 +45,7 @@ class AlertCycleStats:
     created: int = 0
     suppressed_duplicate: int = 0
     suppressed_stale: int = 0
+    suppressed_small_gap: int = 0
     delivered: int = 0
     delivery_failed: int = 0
     skipped_locked: bool = False
@@ -51,6 +54,10 @@ class AlertCycleStats:
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
+
+
+def is_material_gap(gap_pct) -> bool:
+    return abs(float(gap_pct)) >= MIN_ALERT_GAP_PCT
 
 
 def _acquire_cycle_lock(session: Session) -> bool:
@@ -115,6 +122,10 @@ def run_alert_cycle(dry_run: bool = False) -> dict:
         to_deliver: list[tuple[int, str]] = []
 
         for row in candidates:
+            if not is_material_gap(row["gap_pct"]):
+                stats.suppressed_small_gap += 1
+                continue
+
             fingerprint = _fingerprint(row)
             last_seen = seen.get(fingerprint)
             if last_seen is not None and (now - last_seen) < COOLDOWN:

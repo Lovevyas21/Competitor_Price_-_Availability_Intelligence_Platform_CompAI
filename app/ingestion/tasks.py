@@ -276,7 +276,7 @@ def refresh_matches() -> dict:
 
 @shared_task(name="app.ingestion.tasks.generate_brief", acks_late=True)
 def generate_brief_task(period_days: int = 7, use_llm: bool | None = None) -> dict:
-    from app.ai.brief import generate_brief
+    from app.ai.brief import generate_brief, save_brief
     from app.core.settings import get_settings
 
     if use_llm is None:
@@ -284,7 +284,9 @@ def generate_brief_task(period_days: int = 7, use_llm: bool | None = None) -> di
 
     with session_scope() as session:
         result = generate_brief(session, period_days=period_days, use_llm=use_llm)
-    return result.summary() | {"body": result.body}
+        brief_id = save_brief(session, result, period_days)
+    log.info("brief.saved", brief_id=brief_id, source=result.source)
+    return result.summary() | {"brief_id": brief_id}
 
 
 @shared_task(name="app.ingestion.tasks.ping")

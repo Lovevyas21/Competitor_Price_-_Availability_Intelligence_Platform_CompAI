@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.alerting.channels import SlackChannel
-from app.alerting.service import _fingerprint, format_message
+from app.alerting.service import _fingerprint, format_message, is_material_gap
 
 
 def row(**overrides):
@@ -103,3 +103,11 @@ def test_one_failed_post_fails_the_batch():
             httpx.ConnectError("down"),
         ]
         assert SLACK.send_batch(["one", "two"]) is False
+
+
+@pytest.mark.parametrize(
+    ("gap", "expected"),
+    [("-0.9", False), ("-1.99", False), ("-2.0", True), ("-20.3", True)],
+)
+def test_material_gap(gap, expected):
+    assert is_material_gap(gap) is expected

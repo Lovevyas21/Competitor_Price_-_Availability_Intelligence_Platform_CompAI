@@ -7,7 +7,7 @@ from app.ai.facts import collect_weekly_facts, numbers_in
 from app.ai.guard import validate_brief
 from app.ai.llm import BudgetExhausted, build_llm, reserve
 from app.ai.matching import AUTO_MATCH_THRESHOLD, REVIEW_THRESHOLD
-from app.alerting.service import MAX_ALERTABLE_STALENESS_DAYS
+from app.alerting.service import MAX_ALERTABLE_STALENESS_DAYS, MIN_ALERT_GAP_PCT
 from app.core.logging import get_logger
 from app.core.settings import get_settings
 from app.forecasting.dataset import MAX_STALENESS_DAYS, MIN_OBSERVATIONS
@@ -18,7 +18,10 @@ log = get_logger(__name__)
 MAX_QUESTION_CHARS = 500
 
 DEFINITIONS = {
-    "undercut": "a competitor selling the same product, in the same currency, below our price",
+    "undercut": (
+        "a competitor selling the same product, in the same currency, below our price; "
+        "only evidence from the last 365 days counts as an active undercut"
+    ),
     "undercut_severity": {
         "critical": "competitor price 20% or more below ours",
         "high": "competitor price 10% to 20% below ours",
@@ -30,8 +33,9 @@ DEFINITIONS = {
         "stale": "competitor price last seen more than 7 days ago",
     },
     "alerting": (
-        f"an alert is sent only when the evidence is at most {MAX_ALERTABLE_STALENESS_DAYS} "
-        "days old; the same undercut is not re-sent within a day, but a deeper cut is"
+        f"an alert is raised only for a gap of at least {MIN_ALERT_GAP_PCT:g}% and sent only "
+        f"when the evidence is at most {MAX_ALERTABLE_STALENESS_DAYS} days old; the same "
+        "undercut is not re-sent within a day, but a deeper cut is"
     ),
     "volatility": (
         "coefficient of variation (standard deviation / mean) of daily prices; "

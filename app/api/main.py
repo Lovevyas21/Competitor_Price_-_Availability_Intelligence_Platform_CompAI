@@ -67,6 +67,16 @@ class Alert(BaseModel):
     sent_at: str | None = None
 
 
+class Brief(BaseModel):
+    brief_id: int
+    created_at: str
+    period_days: int
+    source: str
+    body: str
+    guard_ok: bool | None = None
+    guard_checked: int | None = None
+
+
 class UndercutRow(BaseModel):
     product_id: int
     product_name: str | None = None
@@ -222,6 +232,26 @@ def undercuts(
         .all()
     )
     return [UndercutRow(**r) for r in rows]
+
+
+@router.get("/briefs/latest", response_model=Brief, tags=["briefs"])
+def latest_brief(db: Session = Depends(get_db)) -> Brief:
+    row = (
+        db.execute(
+            text("""
+            select brief_id, created_at::text as created_at, period_days, source, body,
+                   guard_ok, guard_checked
+            from briefs
+            order by created_at desc
+            limit 1
+        """)
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no brief yet")
+    return Brief(**row)
 
 
 @router.get("/alerts", response_model=list[Alert], tags=["alerts"])

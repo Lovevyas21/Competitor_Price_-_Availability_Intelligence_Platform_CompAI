@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.alerting.channels import configured_channels
+from app.alerting.service import MIN_ALERT_GAP_PCT
 from app.core.db import session_scope
 from app.core.settings import get_settings
 
@@ -301,13 +302,21 @@ def stage_decide(session: Session) -> Iterator[Event]:
         session,
         """
         select
-          count(*) filter (where days_stale <= 7) as deliverable,
-          count(*) filter (where days_stale >  7) as withheld,
-          count(*)                                as total
+          count(*) filter (where abs(gap_pct) < :min_gap)                      as too_small,
+          count(*) filter (where abs(gap_pct) >= :min_gap and days_stale <= 7) as deliverable,
+          count(*) filter (where abs(gap_pct) >= :min_gap and days_stale >  7) as withheld,
+          count(*)                                                             as total
         from analytics_marts.mart_undercut_alerts
         """,
+        min_gap=MIN_ALERT_GAP_PCT,
     )[0]
 
+    yield metric(
+        "Below the alert threshold",
+        split["too_small"],
+        f"gaps under {MIN_ALERT_GAP_PCT:g}% are not worth anyone's attention",
+        cls="dim",
+    )
     yield metric("Fresh enough to send", split["deliverable"], "evidence 7 days old or less")
     yield metric(
         "Recorded but withheld",

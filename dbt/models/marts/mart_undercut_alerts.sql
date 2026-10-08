@@ -28,3 +28,4 @@ select
     end as confidence
 from gaps
 where is_undercut
+  and days_stale <= {{ var('active_undercut_max_days', 365) }}
